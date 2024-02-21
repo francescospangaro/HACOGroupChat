@@ -29,13 +29,17 @@ public class DiscoveryServer {
 
     public void run() {
         while (!serverSocket.isClosed()) {
+            System.out.println("Waiting connection...");
             try (Socket s = serverSocket.accept()) {
-                ObjectInputStream ois = new ObjectInputStream(s.getInputStream());
+                System.out.println("connected");
                 ObjectOutputStream oos = new ObjectOutputStream(s.getOutputStream());
+                ObjectInputStream ois = new ObjectInputStream(s.getInputStream());
                 UpdateIpPacket p = (UpdateIpPacket) ois.readObject();
-                ips.put(p.id(), new InetSocketAddress(s.getInetAddress(), p.port()));
+                System.out.println("Received " + p);
                 oos.writeObject(new IPsPacket(ips));
+                System.out.println("sent");
                 oos.flush();
+                ips.put(p.id(), new InetSocketAddress(s.getInetAddress(), p.port()));
             } catch (IOException | ClassNotFoundException e) {
                 throw new RuntimeException(e);
             }

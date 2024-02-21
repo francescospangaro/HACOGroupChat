@@ -44,18 +44,21 @@ public class Client {
                 throw new RuntimeException(e);
             }
         });
-        startingMenu();
 
     }
 
     private Map<String, SocketAddress> register() {
         try (Socket s = new Socket()) {
             s.connect(DISCOVERY_SERVER);
-            ObjectInputStream ois = new ObjectInputStream(s.getInputStream());
+            System.out.println("Connected");
             ObjectOutputStream oos = new ObjectOutputStream(s.getOutputStream());
+            ObjectInputStream ois = new ObjectInputStream(s.getInputStream());
             oos.writeObject(new UpdateIpPacket(id, port));
+            System.out.println("Sent");
             oos.flush();
-            return ((IPsPacket) ois.readObject()).ips();
+            Map<String, SocketAddress> ips = ((IPsPacket) ois.readObject()).ips();
+            System.out.println("Received map " + ips);
+            return ips;
         } catch (IOException | ClassNotFoundException e) {
             throw new RuntimeException(e);
         }
