@@ -37,7 +37,9 @@ public class Client {
 
                 while (!serverSocket.isClosed()) {
                     try (Socket s = serverSocket.accept()) {
-                        executorService.execute(new ChatUpdater(s, new ObjectInputStream(s.getInputStream()), chats));
+                        var oos = new ObjectOutputStream(s.getOutputStream());
+                        var ois = new ObjectInputStream(s.getInputStream());
+                        executorService.execute(new ChatUpdater(s, ois, chats));
                     }
                 }
             } catch (IOException e) {
