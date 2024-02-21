@@ -16,7 +16,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class Client {
-    private static final InetSocketAddress DISCOVERY_SERVER = new InetSocketAddress("localhost", 8080);
+    private static final InetSocketAddress DISCOVERY_SERVER = new InetSocketAddress("192.168.3.51", 8080);
     private static final String id = "";
     private final int port = 12345;
     private Set<ChatRoom> chats;
@@ -67,7 +67,9 @@ public class Client {
     public void connect() {
         ips.forEach((id, addr) -> {
             try (Socket s = new Socket()) {
+                System.out.println("connecting to " + addr);
                 s.connect(addr);
+                System.out.println("connected");
                 executorService.execute(new ChatUpdater(s, new ObjectInputStream(s.getInputStream()), chats));
             } catch (IOException e) {
                 throw new RuntimeException(e);

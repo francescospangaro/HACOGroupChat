@@ -12,6 +12,7 @@ import java.net.Socket;
 import java.net.SocketAddress;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class DiscoveryServer {
 
@@ -36,7 +37,9 @@ public class DiscoveryServer {
                 ObjectInputStream ois = new ObjectInputStream(s.getInputStream());
                 UpdateIpPacket p = (UpdateIpPacket) ois.readObject();
                 System.out.println("Received " + p);
-                oos.writeObject(new IPsPacket(ips));
+                oos.writeObject(new IPsPacket(ips.entrySet().stream()
+                        .filter(ip -> !ip.getKey().equals(p.id()))
+                        .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue))));
                 System.out.println("sent");
                 oos.flush();
                 ips.put(p.id(), new InetSocketAddress(s.getInetAddress(), p.port()));
