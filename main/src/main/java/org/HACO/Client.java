@@ -66,11 +66,14 @@ public class Client {
 
     public void connect() {
         ips.forEach((id, addr) -> {
-            try (Socket s = new Socket()) {
+            try {
+                Socket s = new Socket();
                 System.out.println("connecting to " + addr);
                 s.connect(addr);
                 System.out.println("connected");
-                executorService.execute(new ChatUpdater(s, new ObjectInputStream(s.getInputStream()), chats));
+                var oos = new ObjectOutputStream(s.getOutputStream());
+                var ois = new ObjectInputStream(s.getInputStream());
+                executorService.execute(new ChatUpdater(s, ois, chats));
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }

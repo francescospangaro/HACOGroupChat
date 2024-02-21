@@ -23,6 +23,7 @@ public class ChatUpdater implements Runnable {
 
     @Override
     public void run() {
+        System.out.println("RUNNNNNNNNNNNNNN");
         while (!socket.isClosed()) {
             try {
                 Object o = ois.readObject();
