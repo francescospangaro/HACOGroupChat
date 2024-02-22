@@ -1,7 +1,9 @@
 package org.HACO.discovery;
 
-import org.HACO.packets.IPsPacket;
-import org.HACO.packets.UpdateIpPacket;
+import org.HACO.packets.discovery.ByePacket;
+import org.HACO.packets.discovery.IPsPacket;
+import org.HACO.packets.discovery.Peer2DiscoveryPacket;
+import org.HACO.packets.discovery.UpdateIpPacket;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -12,7 +14,6 @@ import java.net.Socket;
 import java.net.SocketAddress;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 public class DiscoveryServer {
 
@@ -35,14 +36,21 @@ public class DiscoveryServer {
                 System.out.println("connected");
                 ObjectOutputStream oos = new ObjectOutputStream(s.getOutputStream());
                 ObjectInputStream ois = new ObjectInputStream(s.getInputStream());
-                UpdateIpPacket p = (UpdateIpPacket) ois.readObject();
+                Peer2DiscoveryPacket p = (Peer2DiscoveryPacket) ois.readObject();
                 System.out.println("Received " + p);
-                oos.writeObject(new IPsPacket(ips.entrySet().stream()
-                        .filter(ip -> !ip.getKey().equals(p.id()))
-                        .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue))));
-                System.out.println("sent");
-                oos.flush();
-                ips.put(p.id(), new InetSocketAddress(s.getInetAddress(), p.port()));
+                switch (p) {
+                    case UpdateIpPacket ipPacket -> {
+                        oos.writeObject(new IPsPacket(ips
+//                                .entrySet().stream()
+//                                .filter(ip -> !ip.getKey().equals(ipPacket.id()))
+//                                .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue))
+                        ));
+                        oos.flush();
+                        System.out.println("sent");
+                        ips.put(ipPacket.id(), new InetSocketAddress(s.getInetAddress(), ipPacket.port()));
+                    }
+                    case ByePacket byePacket -> ips.remove(byePacket.id());
+                }
             } catch (IOException | ClassNotFoundException e) {
                 throw new RuntimeException(e);
             }

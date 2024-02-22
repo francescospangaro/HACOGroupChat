@@ -1,7 +1,7 @@
 package org.HACO;
 
-import org.HACO.packets.IPsPacket;
-import org.HACO.packets.UpdateIpPacket;
+import org.HACO.packets.discovery.IPsPacket;
+import org.HACO.packets.discovery.UpdateIpPacket;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
