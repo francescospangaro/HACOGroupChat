@@ -16,11 +16,6 @@ public class App {
 
     public void start() {
         System.out.println("Hello world!");
-        Client c = new Client(evt -> {
-            chatRomms.removeAllItems();
-            Set<ChatRoom> chats = (Set<ChatRoom>) evt.getNewValue();
-            chats.forEach(chat -> chatRomms.addItem(chat));
-        });
 
         JFrame frame = new JFrame();
         frame.setContentPane(new App().panel1);
@@ -28,6 +23,21 @@ public class App {
         Dimension d = Toolkit.getDefaultToolkit().getScreenSize();
         frame.setSize(d.width / 2, d.height / 2);
         frame.setVisible(true);
+
+        int port = -1;
+        do {
+            try {
+                port = Integer.parseInt(JOptionPane.showInputDialog(frame, "Insert a port", 12345));
+            } catch (NumberFormatException ignored) {
+                System.err.println(ignored);
+            }
+        } while (port <= 0);
+
+        Client c = new Client(port, evt -> {
+            chatRomms.removeAllItems();
+            Set<ChatRoom> chats = (Set<ChatRoom>) evt.getNewValue();
+            chats.forEach(chat -> chatRomms.addItem(chat));
+        });
 
     }
 

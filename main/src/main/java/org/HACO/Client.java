@@ -18,9 +18,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class Client {
-    private static final InetSocketAddress DISCOVERY_SERVER = new InetSocketAddress("192.168.3.51", 8080);
+    private static final InetSocketAddress DISCOVERY_SERVER = new InetSocketAddress("localhost", 8080);
     private static final String id = "";
-    private final int port = 12345;
+    private final int port;
     private Set<ChatRoom> chats;
     private final PropertyChangeSupport propertyChangeSupport;
     private static Scanner input = new Scanner(System.in);
@@ -30,7 +30,8 @@ public class Client {
 
     private final Map<String, SocketAddress> ips;
 
-    public Client(PropertyChangeListener chatRoomsChangeListener) {
+    public Client(int port, PropertyChangeListener chatRoomsChangeListener) {
+        this.port = port;
         chats = ConcurrentHashMap.newKeySet();
         propertyChangeSupport = new PropertyChangeSupport(chats);
         propertyChangeSupport.addPropertyChangeListener(chatRoomsChangeListener);
