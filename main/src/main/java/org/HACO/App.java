@@ -33,8 +33,6 @@ public class App {
     }
 
     public void start() {
-        System.out.println("Hello world!");
-
         JFrame frame = new JFrame();
         frame.setContentPane(panel1);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -49,7 +47,7 @@ public class App {
             } catch (NumberFormatException ignored) {
                 System.err.println(ignored);
             }
-        } while (port <= 0);
+        } while (port <= 1024);
 
         String id = JOptionPane.showInputDialog(frame, "Insert an id");
 
