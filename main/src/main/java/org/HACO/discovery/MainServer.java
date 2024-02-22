@@ -1,6 +1,6 @@
 package org.HACO.discovery;
 
-public class Main {
+public class MainServer {
 
     public static void main(String[] args) {
         DiscoveryServer s = new DiscoveryServer();

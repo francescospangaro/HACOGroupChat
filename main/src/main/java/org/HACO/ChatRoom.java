@@ -97,6 +97,10 @@ public class ChatRoom {
         return true;
     }
 
+    public Map<String, Integer> getVectorClocks() {
+        return vectorClocks;
+    }
+
     @Override
     public String toString() {
         return name;

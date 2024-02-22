@@ -26,7 +26,6 @@ public class Client {
     private final int port;
     private Set<ChatRoom> chats;
     private final PropertyChangeSupport propertyChangeSupport;
-    private static Scanner input = new Scanner(System.in);
 
     ExecutorService executorService = Executors.newFixedThreadPool(50);
     private ServerSocket serverSocket;
@@ -108,8 +107,11 @@ public class Client {
     }
 
     public void sendMessage(String msg, ChatRoom chat) {
-        //TODO: magie con vector clocks
-        Message m = new Message(msg, null, this.id);
+        List<Integer> vc = new ArrayList<>();
+        for(String s : chat.getUsers()){
+            vc.add(chat.getVectorClocks().get(s));
+        }
+        Message m = new Message(msg, vc, this.id);
         chat.push(m);
 
         chat.getUsers().forEach(id -> {
