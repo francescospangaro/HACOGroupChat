@@ -4,18 +4,19 @@ import org.HACO.packets.Message;
 
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 
 public class ChatRoom {
-    private final List<String> users;
+    private final Set<String> users;
     private List<Message> receivedMsgs;
     private final String id;
 
-    public ChatRoom(List<String> users) {
+    public ChatRoom(Set<String> users) {
         this.users = users;
         this.id = initId();
     }
 
-    public ChatRoom(List<String> users, String id) {
+    public ChatRoom(Set<String> users, String id) {
         this.users = users;
         this.id = id;
     }

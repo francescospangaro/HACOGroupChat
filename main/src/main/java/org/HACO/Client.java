@@ -1,5 +1,7 @@
 package org.HACO;
 
+import org.HACO.packets.CreateRoomPacket;
+import org.HACO.packets.HelloPacket;
 import org.HACO.packets.discovery.IPsPacket;
 import org.HACO.packets.discovery.UpdateIpPacket;
 
@@ -19,7 +21,7 @@ import java.util.concurrent.Executors;
 
 public class Client {
     private static final InetSocketAddress DISCOVERY_SERVER = new InetSocketAddress("localhost", 8080);
-    private static final String id = "";
+    private final String id;
     private final int port;
     private Set<ChatRoom> chats;
     private final PropertyChangeSupport propertyChangeSupport;
@@ -29,10 +31,16 @@ public class Client {
     private ServerSocket serverSocket;
 
     private final Map<String, SocketAddress> ips;
+    private final Map<String, SocketInfo> sockets;
 
-    public Client(int port, PropertyChangeListener chatRoomsChangeListener) {
+    private record SocketInfo(Socket s, ObjectOutputStream oos, ObjectInputStream ois) {
+    }
+
+    public Client(String id, int port, PropertyChangeListener chatRoomsChangeListener) {
+        this.id = id;
         this.port = port;
         chats = ConcurrentHashMap.newKeySet();
+        sockets = new HashMap<>();
         propertyChangeSupport = new PropertyChangeSupport(chats);
         propertyChangeSupport.addPropertyChangeListener(chatRoomsChangeListener);
         ips = register();
@@ -46,9 +54,12 @@ public class Client {
                     System.out.println(s.getRemoteSocketAddress() + " is connected");
                     var oos = new ObjectOutputStream(s.getOutputStream());
                     var ois = new ObjectInputStream(s.getInputStream());
-                    executorService.execute(new ChatUpdater(s, ois, chats));
+                    HelloPacket helloPacket = (HelloPacket) ois.readObject();
+                    sockets.put(helloPacket.id(), new SocketInfo(s, oos, ois));
+                    ips.put(helloPacket.id(), s.getRemoteSocketAddress());
+                    executorService.execute(new ChatUpdater(s, ois, chats, propertyChangeSupport));
                 }
-            } catch (IOException e) {
+            } catch (IOException | ClassNotFoundException e) {
                 throw new RuntimeException(e);
             }
         });
@@ -81,7 +92,11 @@ public class Client {
                 System.out.println("connected");
                 var oos = new ObjectOutputStream(s.getOutputStream());
                 var ois = new ObjectInputStream(s.getInputStream());
-                executorService.execute(new ChatUpdater(s, ois, chats));
+                sockets.put(id, new SocketInfo(s, oos, ois));
+                HelloPacket helloPacket = new HelloPacket(id);
+                oos.writeObject(helloPacket);
+                oos.flush();
+                executorService.execute(new ChatUpdater(s, ois, chats, propertyChangeSupport));
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -117,7 +132,7 @@ public class Client {
 
     private ChatRoom createChatRoom() throws NoIpsInsertedException {
         String s;
-        List<String> ips = new ArrayList<>();
+        Set<String> ips = new HashSet<>();
         System.out.println("Insert a component's IP(nothing for exit)\n");
         s = input.nextLine();
         while (s != null) {
@@ -141,4 +156,26 @@ public class Client {
         //
 
     }
+
+    public Map<String, SocketAddress> getIps() {
+        return Collections.unmodifiableMap(ips);
+    }
+
+    public String createRoom(Set<String> users) {
+        var old = Set.copyOf(chats);
+        ChatRoom newRoom = new ChatRoom(users);
+        chats.add(newRoom);
+        propertyChangeSupport.firePropertyChange("ADD_ROOM", old, Collections.unmodifiableSet(chats));
+
+        users.forEach(id -> {
+            try {
+                ObjectOutputStream oos = sockets.get(id).oos;
+                oos.writeObject(new CreateRoomPacket(newRoom.getId(), users));
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+        return newRoom.getId();
+    }
+
 }

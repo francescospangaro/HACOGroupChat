@@ -67,7 +67,7 @@
         <properties/>
         <border type="none"/>
         <children>
-          <component id="84b21" class="javax.swing.JComboBox" binding="chatRomms">
+          <component id="84b21" class="javax.swing.JComboBox" binding="chatRooms">
             <constraints/>
             <properties>
               <model/>
