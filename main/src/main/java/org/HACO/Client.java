@@ -3,6 +3,8 @@ package org.HACO;
 import org.HACO.packets.discovery.IPsPacket;
 import org.HACO.packets.discovery.UpdateIpPacket;
 
+import java.beans.PropertyChangeListener;
+import java.beans.PropertyChangeSupport;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -20,6 +22,7 @@ public class Client {
     private static final String id = "";
     private final int port = 12345;
     private Set<ChatRoom> chats;
+    private final PropertyChangeSupport propertyChangeSupport;
     private static Scanner input = new Scanner(System.in);
 
     ExecutorService executorService = Executors.newFixedThreadPool(50);
@@ -27,8 +30,10 @@ public class Client {
 
     private final Map<String, SocketAddress> ips;
 
-    public Client() {
+    public Client(PropertyChangeListener chatRoomsChangeListener) {
         chats = ConcurrentHashMap.newKeySet();
+        propertyChangeSupport = new PropertyChangeSupport(chats);
+        propertyChangeSupport.addPropertyChangeListener(chatRoomsChangeListener);
         ips = register();
         connect();
         executorService.execute(() -> {

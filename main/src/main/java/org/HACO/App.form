@@ -52,9 +52,11 @@
         <properties/>
         <border type="none"/>
         <children>
-          <component id="472ce" class="javax.swing.JTextArea" binding="textArea1" default-binding="true">
+          <component id="692aa" class="javax.swing.JList" binding="list1" default-binding="true">
             <constraints/>
-            <properties/>
+            <properties>
+              <model/>
+            </properties>
           </component>
         </children>
       </scrollpane>
@@ -65,7 +67,7 @@
         <properties/>
         <border type="none"/>
         <children>
-          <component id="84b21" class="javax.swing.JComboBox" binding="comboBox1" default-binding="true">
+          <component id="84b21" class="javax.swing.JComboBox" binding="chatRomms">
             <constraints/>
             <properties>
               <model/>
