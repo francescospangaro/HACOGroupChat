@@ -86,11 +86,10 @@ public class ChatRoom {
         }
         newClocks.put(m.sender(), vectorClocks.get(m.sender()) + 1);
         boolean justEnough = false;
-        Iterator<String> iter = users.iterator();
-        while (iter.hasNext()) {
-            if ((Objects.equals(newClocks.get(iter.next()), oldClocks.get(iter.next()) + 1) && !justEnough)) {
+        for (String temp : users) {
+            if ((Objects.equals(newClocks.get(temp), oldClocks.get(temp) + 1) && !justEnough)) {
                 justEnough = true;
-            } else if ((newClocks.get(iter.next()) > oldClocks.get(iter.next()))) {
+            } else if ((newClocks.get(temp) > oldClocks.get(temp))) {
                 return false;
             }
         }

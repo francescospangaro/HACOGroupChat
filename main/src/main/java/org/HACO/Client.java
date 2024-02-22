@@ -109,7 +109,10 @@ public class Client {
     public void sendMessage(String msg, ChatRoom chat) {
         List<Integer> vc = new ArrayList<>();
         for(String s : chat.getUsers()){
-            vc.add(chat.getVectorClocks().get(s));
+            if(s.equals(this.id))
+                vc.add(chat.getVectorClocks().get(s) + 1);
+            else
+                vc.add(chat.getVectorClocks().get(s));
         }
         Message m = new Message(msg, vc, this.id);
         chat.push(m);

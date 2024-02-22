@@ -30,6 +30,7 @@ public class App {
             String msg = msgArea.getText();
             ChatRoom chat = (ChatRoom) chatRooms.getSelectedItem();
             c.sendMessage(msg, chat);
+            msgArea.setText("");
         });
         deleteButton.addActionListener(e -> {});
         disconnectButton.addActionListener(e -> {});
