@@ -115,11 +115,13 @@ public class Client {
         chat.push(m);
 
         chat.getUsers().forEach(id -> {
-            try {
-                ObjectOutputStream oos = sockets.get(id).oos;
-                oos.writeObject(new MessagePacket(chat.getId(), this.id, m));
-            } catch (IOException e) {
-                throw new RuntimeException(e);
+            if (!id.equals(this.id)) {
+                try {
+                    ObjectOutputStream oos = sockets.get(id).oos;
+                    oos.writeObject(new MessagePacket(chat.getId(), this.id, m));
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
             }
         });
 
