@@ -42,11 +42,11 @@ public class Client {
                 serverSocket = new ServerSocket(port);
 
                 while (!serverSocket.isClosed()) {
-                    try (Socket s = serverSocket.accept()) {
-                        var oos = new ObjectOutputStream(s.getOutputStream());
-                        var ois = new ObjectInputStream(s.getInputStream());
-                        executorService.execute(new ChatUpdater(s, ois, chats));
-                    }
+                    Socket s = serverSocket.accept();
+                    System.out.println(s.getRemoteSocketAddress() + " is connected");
+                    var oos = new ObjectOutputStream(s.getOutputStream());
+                    var ois = new ObjectInputStream(s.getInputStream());
+                    executorService.execute(new ChatUpdater(s, ois, chats));
                 }
             } catch (IOException e) {
                 throw new RuntimeException(e);
