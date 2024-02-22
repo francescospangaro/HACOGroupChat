@@ -6,13 +6,13 @@ import java.util.Set;
 
 public class App {
     private JPanel panel1;
-    private JTextArea textArea2;
+    private JTextArea msgArea;
     private JButton Send;
     private JButton newButton;
     private JComboBox chatRooms;
     private JButton deleteButton;
     private JButton disconnectButton;
-    private JList list1;
+    private JList<String> msgList;
     private volatile Client c;
 
     public App() {
@@ -24,6 +24,11 @@ public class App {
                 String name = dialog.getRoomName();
                 c.createRoom(name, users);
             }
+        });
+        Send.addActionListener(e -> {
+            String msg = msgArea.getText();
+            ChatRoom chat = (ChatRoom) chatRooms.getSelectedItem();
+            c.sendMessage(msg, chat);
         });
     }
 
@@ -48,12 +53,20 @@ public class App {
 
         String id = JOptionPane.showInputDialog(frame, "Insert an id");
 
+        DefaultListModel msgListModel = new DefaultListModel();
+        msgList.setModel(msgListModel);
+
 
         c = new Client(id, port, evt -> {
             System.out.println("Rooms changed");
             chatRooms.removeAllItems();
             Set<ChatRoom> chats = (Set<ChatRoom>) evt.getNewValue();
             chats.forEach(chat -> SwingUtilities.invokeLater(() -> chatRooms.addItem(chat)));
+        }, evt -> {
+            System.out.println("msg changed");
+            if (evt.getPropertyName().equals("ADD_MSG")) {
+                msgListModel.addElement(evt.getNewValue());
+            }
         });
         System.out.println("started " + c);
 

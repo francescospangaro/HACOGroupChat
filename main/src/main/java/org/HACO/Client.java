@@ -2,6 +2,7 @@ package org.HACO;
 
 import org.HACO.packets.CreateRoomPacket;
 import org.HACO.packets.HelloPacket;
+import org.HACO.packets.MessagePacket;
 import org.HACO.packets.discovery.IPsPacket;
 import org.HACO.packets.discovery.UpdateIpPacket;
 
@@ -33,16 +34,19 @@ public class Client {
     private final Map<String, SocketAddress> ips;
     private final Map<String, SocketInfo> sockets;
 
+    private final PropertyChangeListener msgChangeListener;
+
     private record SocketInfo(Socket s, ObjectOutputStream oos, ObjectInputStream ois) {
     }
 
-    public Client(String id, int port, PropertyChangeListener chatRoomsChangeListener) {
+    public Client(String id, int port, PropertyChangeListener chatRoomsChangeListener, PropertyChangeListener msgChangeListener) {
         this.id = id;
         this.port = port;
         chats = ConcurrentHashMap.newKeySet();
         sockets = new HashMap<>();
         propertyChangeSupport = new PropertyChangeSupport(chats);
         propertyChangeSupport.addPropertyChangeListener(chatRoomsChangeListener);
+        this.msgChangeListener = msgChangeListener;
         ips = register();
         connect();
         executorService.execute(() -> {
@@ -57,7 +61,7 @@ public class Client {
                     HelloPacket helloPacket = (HelloPacket) ois.readObject();
                     sockets.put(helloPacket.id(), new SocketInfo(s, oos, ois));
                     ips.put(helloPacket.id(), s.getRemoteSocketAddress());
-                    executorService.execute(new ChatUpdater(s, ois, chats, propertyChangeSupport));
+                    executorService.execute(new ChatUpdater(s, ois, chats, propertyChangeSupport, msgChangeListener));
                 }
             } catch (IOException | ClassNotFoundException e) {
                 throw new RuntimeException(e);
@@ -96,7 +100,7 @@ public class Client {
                 HelloPacket helloPacket = new HelloPacket(id);
                 oos.writeObject(helloPacket);
                 oos.flush();
-                executorService.execute(new ChatUpdater(s, ois, chats, propertyChangeSupport));
+                executorService.execute(new ChatUpdater(s, ois, chats, propertyChangeSupport, msgChangeListener));
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -142,7 +146,7 @@ public class Client {
         }
         if (ips.size() == 0)
             throw new NoIpsInsertedException();
-        return new ChatRoom("", ips);
+        return new ChatRoom("", ips, null);
     }
 
     private void joinChat() {
@@ -151,9 +155,20 @@ public class Client {
     private void disconnect() {
     }
 
-    private void sendMessage() {
-        String msg = input.nextLine();
-        //
+    public void sendMessage(String msg, ChatRoom chat) {
+        //TODO: magie con vector clocks
+        Message m = new Message(msg, null);
+        chat.push(m);
+
+        chat.getUsers().forEach(id -> {
+            try {
+                ObjectOutputStream oos = sockets.get(id).oos;
+                oos.writeObject(new MessagePacket(chat.getId(), this.id, m));
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
 
     }
 
@@ -163,7 +178,7 @@ public class Client {
 
     public void createRoom(String name, Set<String> users) {
         var old = Set.copyOf(chats);
-        ChatRoom newRoom = new ChatRoom(name, users);
+        ChatRoom newRoom = new ChatRoom(name, users, msgChangeListener);
         chats.add(newRoom);
         propertyChangeSupport.firePropertyChange("ADD_ROOM", old, Collections.unmodifiableSet(chats));
 
