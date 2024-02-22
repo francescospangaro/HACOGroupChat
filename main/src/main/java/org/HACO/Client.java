@@ -97,7 +97,7 @@ public class Client {
                 var oos = new ObjectOutputStream(s.getOutputStream());
                 var ois = new ObjectInputStream(s.getInputStream());
                 sockets.put(id, new SocketInfo(s, oos, ois));
-                HelloPacket helloPacket = new HelloPacket(id);
+                HelloPacket helloPacket = new HelloPacket(this.id);
                 oos.writeObject(helloPacket);
                 oos.flush();
                 executorService.execute(new ChatUpdater(s, ois, chats, propertyChangeSupport, msgChangeListener));
@@ -106,6 +106,7 @@ public class Client {
             }
         });
     }
+
     public void sendMessage(String msg, ChatRoom chat) {
         //TODO: magie con vector clocks
         Message m = new Message(msg, null, this.id);
@@ -134,11 +135,13 @@ public class Client {
         propertyChangeSupport.firePropertyChange("ADD_ROOM", old, Collections.unmodifiableSet(chats));
 
         users.forEach(id -> {
-            try {
-                ObjectOutputStream oos = sockets.get(id).oos;
-                oos.writeObject(new CreateRoomPacket(newRoom.getId(), name, users));
-            } catch (IOException e) {
-                throw new RuntimeException(e);
+            if (!id.equals(this.id)) {
+                try {
+                    ObjectOutputStream oos = sockets.get(id).oos;
+                    oos.writeObject(new CreateRoomPacket(newRoom.getId(), name, users));
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
             }
         });
     }
