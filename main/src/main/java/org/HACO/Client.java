@@ -142,7 +142,7 @@ public class Client {
         }
         if (ips.size() == 0)
             throw new NoIpsInsertedException();
-        return new ChatRoom(ips);
+        return new ChatRoom("", ips);
     }
 
     private void joinChat() {
@@ -161,21 +161,20 @@ public class Client {
         return Collections.unmodifiableMap(ips);
     }
 
-    public String createRoom(Set<String> users) {
+    public void createRoom(String name, Set<String> users) {
         var old = Set.copyOf(chats);
-        ChatRoom newRoom = new ChatRoom(users);
+        ChatRoom newRoom = new ChatRoom(name, users);
         chats.add(newRoom);
         propertyChangeSupport.firePropertyChange("ADD_ROOM", old, Collections.unmodifiableSet(chats));
 
         users.forEach(id -> {
             try {
                 ObjectOutputStream oos = sockets.get(id).oos;
-                oos.writeObject(new CreateRoomPacket(newRoom.getId(), users));
+                oos.writeObject(new CreateRoomPacket(newRoom.getId(), name, users));
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
         });
-        return newRoom.getId();
     }
 
 }

@@ -9,14 +9,16 @@ import java.util.Set;
 public class ChatRoom {
     private final Set<String> users;
     private List<Message> receivedMsgs;
-    private final String id;
+    private final String id, name;
 
-    public ChatRoom(Set<String> users) {
+    public ChatRoom(String name, Set<String> users) {
+        this.name = name;
         this.users = users;
         this.id = initId();
     }
 
-    public ChatRoom(Set<String> users, String id) {
+    public ChatRoom(String name, Set<String> users, String id) {
+        this.name = name;
         this.users = users;
         this.id = id;
     }
@@ -37,8 +39,17 @@ public class ChatRoom {
         return id;
     }
 
+    public String getName() {
+        return name;
+    }
+
     public void push(Message m) {
         //TODO: check vector clocks
         receivedMsgs.add(m);
+    }
+
+    @Override
+    public String toString() {
+        return name;
     }
 }

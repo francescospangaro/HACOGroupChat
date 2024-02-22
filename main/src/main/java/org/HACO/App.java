@@ -19,8 +19,11 @@ public class App {
         newButton.addActionListener(e -> {
             System.out.println(c);
             CreateRoom dialog = new CreateRoom(c.getIps().keySet());
-            Set<String> users = dialog.getSelectedUsers();
-            String id = c.createRoom(users);
+            if (dialog.isConfirmed()) {
+                Set<String> users = dialog.getSelectedUsers();
+                String name = dialog.getRoomName();
+                c.createRoom(name, users);
+            }
         });
     }
 

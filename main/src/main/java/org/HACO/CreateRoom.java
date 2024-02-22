@@ -13,9 +13,12 @@ public class CreateRoom extends JDialog {
     private JButton buttonCancel;
     private JScrollPane scrollPane;
     private JList<String> userList;
+    private JTextField roomName;
 
     private Set<String> users;
     private Set<String> selected;
+
+    private boolean confirmed = false;
 
     public CreateRoom(Set<String> users) {
         this.users = new HashSet<>(users);
@@ -49,6 +52,7 @@ public class CreateRoom extends JDialog {
 
     private void onOK() {
         // add your code here
+        confirmed = true;
         dispose();
     }
 
@@ -57,7 +61,15 @@ public class CreateRoom extends JDialog {
         dispose();
     }
 
+    public String getRoomName() {
+        return roomName.getText();
+    }
+
     public Set<String> getSelectedUsers() {
         return Set.copyOf(userList.getSelectedValuesList());
+    }
+
+    public boolean isConfirmed() {
+        return confirmed;
     }
 }

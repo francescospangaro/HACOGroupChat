@@ -39,7 +39,7 @@ public class ChatUpdater implements Runnable {
                     case CreateRoomPacket crp -> {
                         System.out.println("Adding new room " + crp.id());
                         var old = Set.copyOf(chats);
-                        chats.add(new ChatRoom(crp.ids(), crp.id()));
+                        chats.add(new ChatRoom(crp.name(), crp.ids(), crp.id()));
                         propertyChangeSupport.firePropertyChange("ADD_ROOM", old, Collections.unmodifiableSet(chats));
                     }
                     case DeleteRoomPacket drp -> {
