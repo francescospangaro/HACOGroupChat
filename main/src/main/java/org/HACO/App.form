@@ -73,7 +73,7 @@
               <model/>
             </properties>
           </component>
-          <component id="4a9b1" class="javax.swing.JButton" binding="Send">
+          <component id="4a9b1" class="javax.swing.JButton" binding="sendButton">
             <constraints/>
             <properties>
               <text value="Send"/>

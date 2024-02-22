@@ -106,58 +106,9 @@ public class Client {
             }
         });
     }
-
-    public void startingMenu() {
-        int choice;
-
-        System.out.println("""
-                Choose one:\t
-                1. Create a new chatroom;\t
-                2. Join a chatroom with a specific id.\t
-                """);
-        choice = input.nextInt();
-        switch (choice) {
-            case 1:
-                try {
-                    chats.add(createChatRoom());
-                } catch (NoIpsInsertedException e) {
-                    throw new RuntimeException(e);
-                }
-                break;
-            case 2:
-                joinChat();
-                break;
-            default:
-                System.out.println("Closing the application.\n");
-                disconnect();
-                break;
-        }
-    }
-
-    private ChatRoom createChatRoom() throws NoIpsInsertedException {
-        String s;
-        Set<String> ips = new HashSet<>();
-        System.out.println("Insert a component's IP(nothing for exit)\n");
-        s = input.nextLine();
-        while (s != null) {
-            ips.add(s);
-            System.out.println("Insert a component's IP(nothing for exit)\n");
-            s = input.nextLine();
-        }
-        if (ips.size() == 0)
-            throw new NoIpsInsertedException();
-        return new ChatRoom("", ips, null);
-    }
-
-    private void joinChat() {
-    }
-
-    private void disconnect() {
-    }
-
     public void sendMessage(String msg, ChatRoom chat) {
         //TODO: magie con vector clocks
-        Message m = new Message(msg, null);
+        Message m = new Message(msg, null, this.id);
         chat.push(m);
 
         chat.getUsers().forEach(id -> {
@@ -192,4 +143,7 @@ public class Client {
         });
     }
 
+    public String getId() {
+        return id;
+    }
 }

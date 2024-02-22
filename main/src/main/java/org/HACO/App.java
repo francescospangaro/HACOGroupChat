@@ -7,7 +7,7 @@ import java.util.Set;
 public class App {
     private JPanel panel1;
     private JTextArea msgArea;
-    private JButton Send;
+    private JButton sendButton;
     private JButton newButton;
     private JComboBox chatRooms;
     private JButton deleteButton;
@@ -21,15 +21,18 @@ public class App {
             CreateRoom dialog = new CreateRoom(c.getIps().keySet());
             if (dialog.isConfirmed()) {
                 Set<String> users = dialog.getSelectedUsers();
+                users.add(c.getId());
                 String name = dialog.getRoomName();
                 c.createRoom(name, users);
             }
         });
-        Send.addActionListener(e -> {
+        sendButton.addActionListener(e -> {
             String msg = msgArea.getText();
             ChatRoom chat = (ChatRoom) chatRooms.getSelectedItem();
             c.sendMessage(msg, chat);
         });
+        deleteButton.addActionListener(e -> {});
+        disconnectButton.addActionListener(e -> {});
     }
 
     public void start() {

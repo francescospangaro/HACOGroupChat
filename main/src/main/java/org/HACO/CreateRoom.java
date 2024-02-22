@@ -14,7 +14,6 @@ public class CreateRoom extends JDialog {
     private JScrollPane scrollPane;
     private JList<String> userList;
     private JTextField roomName;
-
     private Set<String> users;
     private Set<String> selected;
 
@@ -66,7 +65,7 @@ public class CreateRoom extends JDialog {
     }
 
     public Set<String> getSelectedUsers() {
-        return Set.copyOf(userList.getSelectedValuesList());
+        return new HashSet<>(userList.getSelectedValuesList());
     }
 
     public boolean isConfirmed() {

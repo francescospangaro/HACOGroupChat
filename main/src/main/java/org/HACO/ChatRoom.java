@@ -2,14 +2,14 @@ package org.HACO;
 
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
-import java.util.List;
-import java.util.Random;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 public class ChatRoom {
     private final Set<String> users;
+    private List<Message> waiting;
     private List<Message> receivedMsgs = new CopyOnWriteArrayList<>();
+    private Map<String, Integer> vectorClocks;
     private final PropertyChangeSupport propertyChangeSupport = new PropertyChangeSupport(receivedMsgs);
 
     private final String id, name;
@@ -18,6 +18,11 @@ public class ChatRoom {
         this.name = name;
         this.users = users;
         this.id = initId();
+        waiting = new ArrayList<>();
+        vectorClocks = new HashMap<>();
+        for (String user : users) {
+            vectorClocks.put(user, 0);
+        }
         propertyChangeSupport.addPropertyChangeListener(msgChangeListener);
     }
 
@@ -25,6 +30,11 @@ public class ChatRoom {
         this.name = name;
         this.users = users;
         this.id = id;
+        waiting = new ArrayList<>();
+        vectorClocks = new HashMap<>();
+        for (String user : users) {
+            vectorClocks.put(user, 0);
+        }
         propertyChangeSupport.addPropertyChangeListener(msgChangeListener);
     }
 
@@ -48,14 +58,43 @@ public class ChatRoom {
         return name;
     }
 
+    // TODO: test vc implementation
     public void push(Message m) {
-        //TODO: check vector clocks!
-        receivedMsgs.add(m);
-        propertyChangeSupport.firePropertyChange("ADD_MSG", null, m);
+        if (checkVC(m)) {
+            vectorClocks.put(m.sender(), vectorClocks.get(m.sender()) + 1);
+            receivedMsgs.add(m);
+            waiting.remove(m);
+
+            propertyChangeSupport.firePropertyChange("ADD_MSG", null, m);
+            for(Message w : waiting){
+                push(w);
+            }
+        }else{
+            waiting.add(m);
+        }
     }
 
     public Set<String> getUsers() {
         return users;
+    }
+
+    private boolean checkVC(Message m) {
+        Map<String, Integer> oldClocks = Map.copyOf(vectorClocks);
+        Map<String, Integer> newClocks = new HashMap<>();
+        for(String s : oldClocks.keySet()){
+            newClocks.put(s, oldClocks.get(s));
+        }
+        newClocks.put(m.sender(), vectorClocks.get(m.sender()) + 1);
+        boolean justEnough = false;
+        Iterator<String> iter = users.iterator();
+        while (iter.hasNext()) {
+            if ((Objects.equals(newClocks.get(iter.next()), oldClocks.get(iter.next()) + 1) && !justEnough)) {
+                justEnough = true;
+            } else if ((newClocks.get(iter.next()) > oldClocks.get(iter.next()))) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override
