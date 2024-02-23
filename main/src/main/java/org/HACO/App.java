@@ -11,11 +11,14 @@ public class App {
     private JButton newButton;
     private JComboBox<ChatRoom> chatRooms;
     private JButton deleteButton;
-    private JButton disconnectButton;
+    private JButton disconnectReconnectButton;
     private JList<String> msgList;
     private JLabel usernameLable;
     private JLabel portLable;
+    private JLabel connectedLable;
     private volatile Client client;
+
+
 
     public App() {
         //Want to create a new Group for chatting
@@ -46,7 +49,8 @@ public class App {
         deleteButton.addActionListener(e -> {
         });
 
-        disconnectButton.addActionListener(e -> {
+        disconnectReconnectButton.addActionListener(e -> {
+            this.setConnected(!client.getConnected());
         });
     }
 
@@ -93,8 +97,26 @@ public class App {
             }
         });
         System.out.println("started " + client);
+        this.setConnected(true);
 
     }
+
+    private void setConnected(boolean connected){
+        client.setConnected(connected);
+
+        if(connected){
+            connectedLable.setText("connected");
+            connectedLable.setForeground(new Color(0, 153, 51));
+
+            disconnectReconnectButton.setText("Disconnect");
+        }else{
+            connectedLable.setText("disconnected");
+            connectedLable.setForeground(Color.red);
+
+            disconnectReconnectButton.setText("Reconnect");
+        }
+    }
+
 
     public static void main(String[] args) {
         new App().start();

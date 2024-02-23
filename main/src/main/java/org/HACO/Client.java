@@ -36,6 +36,8 @@ public class Client {
 
     private final PropertyChangeListener msgChangeListener;
 
+    private boolean connected;
+
     private record SocketInfo(Socket s, ObjectOutputStream oos, ObjectInputStream ois) {
     }
 
@@ -190,5 +192,12 @@ public class Client {
 
     public String getId() {
         return id;
+    }
+
+    public void setConnected(boolean connected){
+        this.connected=connected;
+    }
+    public boolean getConnected(){
+        return this.connected;
     }
 }
