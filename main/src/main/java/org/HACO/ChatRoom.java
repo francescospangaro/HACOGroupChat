@@ -26,7 +26,6 @@ public class ChatRoom {
         for (String user : users) {
             vectorClocks.put(user, 0);
         }
-
         propertyChangeSupport.addPropertyChangeListener(msgChangeListener);
     }
 
@@ -64,21 +63,22 @@ public class ChatRoom {
 
     // TODO: test vc implementation
     public void push(Message m) {
-        if (m.msg().equals("DELETECHAT::"+this.id)) {
-            propertyChangeSupport.firePropertyChange("DEL_ROOM", null, m);
-        } else {
-            if (checkVC(m)) {
-                vectorClocks.put(m.sender(), vectorClocks.get(m.sender()) + 1);
-                receivedMsgs.add(m);
-                waiting.remove(m);
-
-                propertyChangeSupport.firePropertyChange("ADD_MSG", null, m);
-                for (Message w : waiting) {
-                    push(w);
-                }
-            } else {
-                waiting.add(m);
+        //Checks if the user can accept the message arrived, or if he has to put it in a queue
+        if (checkVC(m)) {
+            //Increase the PID of the message sender
+            vectorClocks.put(m.sender(), vectorClocks.get(m.sender()) + 1);
+            receivedMsgs.add(m);
+            //Remove the message from the queue(if it was there)
+            waiting.remove(m);
+            propertyChangeSupport.firePropertyChange("ADD_MSG", null, m);
+            //Check the message queue to see if we can accept any other message
+            //RECURSION BABY LET'S GO
+            for (Message w : waiting) {
+                push(w);
             }
+        } else {
+            //puts the message in a queue
+            waiting.add(m);
         }
     }
 
@@ -86,14 +86,27 @@ public class ChatRoom {
         return users;
     }
 
+    /**
+     *
+     * @param m Is the message to check
+     * @return true if the message is in order
+     *              E.G. I have 2.0.1 and receive packet 2.1.1
+     *         false if the message is not in order
+     *              E.G. I have 2.0.1 and receive packet 3.1.1
+     *         returns true even if the message is not in order, but has been sent before one that I have
+     *              E.G. I have 2.0.1 and receive packet 0.1.0
+     */
     private boolean checkVC(Message m) {
         Map<String, Integer> oldClocks = Map.copyOf(vectorClocks);
         Map<String, Integer> newClocks = new HashMap<>(vectorClocks);
         newClocks.put(m.sender(), vectorClocks.get(m.sender()) + 1);
         boolean justEnough = false;
+        //Cycle through all users
         for (String temp : users) {
+            //If user's PID is increased by one from the one I have, and it's the first time this happens, then ok
             if ((Objects.equals(newClocks.get(temp), oldClocks.get(temp) + 1) && !justEnough)) {
                 justEnough = true;
+            //If user's PID is greater than expected, or if I find another PID greater than one of the ones I have, then put the message in a queue
             } else if ((newClocks.get(temp) > oldClocks.get(temp))) {
                 return false;
             }

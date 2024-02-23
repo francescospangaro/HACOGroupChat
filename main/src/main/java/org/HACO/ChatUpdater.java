@@ -39,7 +39,7 @@ public class ChatUpdater implements Runnable {
                 //Wait for a packet
                 Object o = ois.readObject();
 
-                //Handle the Message I received
+                //Message handler
                 switch (o) {
                     case MessagePacket m -> {
                         ChatRoom chat = chats.stream().filter(c -> Objects.equals(c.getId(), m.chatId())).findFirst().orElseThrow();

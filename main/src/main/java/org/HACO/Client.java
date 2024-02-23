@@ -136,7 +136,6 @@ public class Client {
     }
 
     public void sendMessage(String msg, ChatRoom chat) {
-        //I increment the position by +1 of my Clock in the VectorClock to send
         List<Integer> vc = new ArrayList<>();
         for (String s : chat.getUsers()) {
             if (s.equals(this.id))
@@ -145,11 +144,10 @@ public class Client {
                 vc.add(chat.getVectorClocks().get(s));
         }
 
-        //Create the Message with myVectorClock updated and the msg
         Message m = new Message(msg, vc, this.id);
         chat.push(m);
 
-        //I send a MessagePacket containing the Message just created to each User of the ChatRoom
+        //Send a MessagePacket containing the Message just created to each User of the ChatRoom
         chat.getUsers().forEach(id -> {
             if (!id.equals(this.id)) {
                 try {
@@ -173,10 +171,10 @@ public class Client {
         ChatRoom newRoom = new ChatRoom(name, users, msgChangeListener);
         chats.add(newRoom);
 
-        //Fire ADD_ROM Event in order to update the GUI
+        //Fires ADD_ROOM Event in order to update the GUI
         propertyChangeSupport.firePropertyChange("ADD_ROOM", null, newRoom);
 
-        //I inform all the users about the creation of the new group by sending to them a CreateRoomPacket
+        //Inform all the users about the creation of the new chat room by sending to them a CreateRoomPacket
         sendMsg(new CreateRoomPacket(newRoom.getId(), name, users), users);
     }
 
