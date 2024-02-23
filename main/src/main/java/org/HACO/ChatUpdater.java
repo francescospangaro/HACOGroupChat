@@ -54,6 +54,7 @@ public class ChatUpdater implements Runnable {
                     }
 
                     case DeleteRoomPacket drp -> {
+                        System.out.println("Deleting room " + drp.id());
                         ChatRoom toDelete = chats.stream().filter(c -> Objects.equals(c.getId(), drp.id())).findFirst().orElseThrow();
                         chats.remove(toDelete);
                         propertyChangeSupport.firePropertyChange("DEL_ROOM", toDelete, null);

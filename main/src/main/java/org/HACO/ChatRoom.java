@@ -13,7 +13,6 @@ public class ChatRoom {
     private List<Message> receivedMsgs = new CopyOnWriteArrayList<>();
     private Map<String, Integer> vectorClocks;
     private final PropertyChangeSupport propertyChangeSupport = new PropertyChangeSupport(receivedMsgs);
-
     private final String id, name;
 
     public ChatRoom(String name, Set<String> users, PropertyChangeListener msgChangeListener) {
@@ -65,17 +64,21 @@ public class ChatRoom {
 
     // TODO: test vc implementation
     public void push(Message m) {
-        if (checkVC(m)) {
-            vectorClocks.put(m.sender(), vectorClocks.get(m.sender()) + 1);
-            receivedMsgs.add(m);
-            waiting.remove(m);
+        if (m.msg().equals("DELETECHAT::"+this.id)) {
+            propertyChangeSupport.firePropertyChange("DEL_ROOM", null, m);
+        } else {
+            if (checkVC(m)) {
+                vectorClocks.put(m.sender(), vectorClocks.get(m.sender()) + 1);
+                receivedMsgs.add(m);
+                waiting.remove(m);
 
-            propertyChangeSupport.firePropertyChange("ADD_MSG", null, m);
-            for(Message w : waiting){
-                push(w);
+                propertyChangeSupport.firePropertyChange("ADD_MSG", null, m);
+                for (Message w : waiting) {
+                    push(w);
+                }
+            } else {
+                waiting.add(m);
             }
-        }else{
-            waiting.add(m);
         }
     }
 

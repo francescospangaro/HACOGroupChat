@@ -47,8 +47,11 @@ public class App {
         });
 
         deleteButton.addActionListener(e -> {
+            ChatRoom toDelete = (ChatRoom) chatRooms.getSelectedItem();
+            System.out.println("Deleting room " + toDelete.getId());
+            chatRooms.removeItem(toDelete);
+            c.deleteRoom(toDelete);
         });
-
         disconnectReconnectButton.addActionListener(e -> {
             this.setConnected(!client.getConnected());
         });
@@ -62,7 +65,7 @@ public class App {
         frame.setSize(d.width / 2, d.height / 2);
         frame.setVisible(true);
 
-        Integer port = -1;
+        int port = -1;
         do {
             try {
                 port = Integer.parseInt(JOptionPane.showInputDialog(frame, "Insert a port", 12345));
@@ -80,13 +83,13 @@ public class App {
         msgList.setModel(msgListModel);
 
 
-        client = new Client(id, port, evt -> {
+        c = new Client(id, port, evt -> {
             if (evt.getPropertyName().equals("ADD_ROOM")) {
                 System.out.println("Rooms added in gui");
                 ChatRoom chat = (ChatRoom) evt.getNewValue();
                 chatRooms.addItem(chat);
             } else if (evt.getPropertyName().equals("DEL_ROOM")) {
-                System.out.println("Rooms added in gui");
+                System.out.println("Rooms removed from gui");
                 ChatRoom chat = (ChatRoom) evt.getOldValue();
                 chatRooms.removeItem(chat);
             }
