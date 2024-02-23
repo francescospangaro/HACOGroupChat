@@ -9,7 +9,7 @@ public class App {
     private JTextArea msgArea;
     private JButton sendButton;
     private JButton newButton;
-    private JComboBox chatRooms;
+    private JComboBox<ChatRoom> chatRooms;
     private JButton deleteButton;
     private JButton disconnectButton;
     private JList<String> msgList;
@@ -32,8 +32,10 @@ public class App {
             c.sendMessage(msg, chat);
             msgArea.setText("");
         });
-        deleteButton.addActionListener(e -> {});
-        disconnectButton.addActionListener(e -> {});
+        deleteButton.addActionListener(e -> {
+        });
+        disconnectButton.addActionListener(e -> {
+        });
     }
 
     public void start() {
@@ -55,19 +57,24 @@ public class App {
 
         String id = JOptionPane.showInputDialog(frame, "Insert an id");
 
-        DefaultListModel msgListModel = new DefaultListModel();
+        DefaultListModel<String> msgListModel = new DefaultListModel<>();
         msgList.setModel(msgListModel);
 
 
         c = new Client(id, port, evt -> {
-            System.out.println("Rooms changed");
-            chatRooms.removeAllItems();
-            Set<ChatRoom> chats = (Set<ChatRoom>) evt.getNewValue();
-            chats.forEach(chat -> SwingUtilities.invokeLater(() -> chatRooms.addItem(chat)));
+            if (evt.getPropertyName().equals("ADD_ROOM")) {
+                System.out.println("Rooms added in gui");
+                ChatRoom chat = (ChatRoom) evt.getNewValue();
+                chatRooms.addItem(chat);
+            } else if (evt.getPropertyName().equals("DEL_ROOM")) {
+                System.out.println("Rooms added in gui");
+                ChatRoom chat = (ChatRoom) evt.getOldValue();
+                chatRooms.removeItem(chat);
+            }
         }, evt -> {
-            System.out.println("msg changed");
             if (evt.getPropertyName().equals("ADD_MSG")) {
-                msgListModel.addElement(evt.getNewValue());
+                System.out.println("Msg added in gui");
+                msgListModel.addElement(evt.getNewValue().toString());
             }
         });
         System.out.println("started " + c);

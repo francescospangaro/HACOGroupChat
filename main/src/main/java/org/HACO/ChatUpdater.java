@@ -9,7 +9,6 @@ import java.beans.PropertyChangeSupport;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.net.Socket;
-import java.util.Collections;
 import java.util.Objects;
 import java.util.Set;
 
@@ -43,15 +42,14 @@ public class ChatUpdater implements Runnable {
                     }
                     case CreateRoomPacket crp -> {
                         System.out.println("Adding new room " + crp.id());
-                        var old = Set.copyOf(chats);
-                        chats.add(new ChatRoom(crp.name(), crp.ids(), crp.id(), msgChangeListener));
-                        propertyChangeSupport.firePropertyChange("ADD_ROOM", old, Collections.unmodifiableSet(chats));
+                        ChatRoom newChat = new ChatRoom(crp.name(), crp.ids(), crp.id(), msgChangeListener);
+                        chats.add(newChat);
+                        propertyChangeSupport.firePropertyChange("ADD_ROOM", null, newChat);
                     }
                     case DeleteRoomPacket drp -> {
-                        var old = Set.copyOf(chats);
-                        ChatRoom toDelete = chats.stream().filter(c -> c.getId() == drp.id()).findFirst().orElseThrow();
+                        ChatRoom toDelete = chats.stream().filter(c -> Objects.equals(c.getId(), drp.id())).findFirst().orElseThrow();
                         chats.remove(toDelete);
-                        propertyChangeSupport.firePropertyChange("DEL_ROOM", old, Collections.unmodifiableSet(chats));
+                        propertyChangeSupport.firePropertyChange("DEL_ROOM", toDelete, null);
                     }
                     default -> throw new IllegalStateException("Unexpected value: " + o);
                 }

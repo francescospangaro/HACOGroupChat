@@ -136,10 +136,9 @@ public class Client {
     }
 
     public void createRoom(String name, Set<String> users) {
-        var old = Set.copyOf(chats);
         ChatRoom newRoom = new ChatRoom(name, users, msgChangeListener);
         chats.add(newRoom);
-        propertyChangeSupport.firePropertyChange("ADD_ROOM", old, Collections.unmodifiableSet(chats));
+        propertyChangeSupport.firePropertyChange("ADD_ROOM", null, newRoom);
 
         users.forEach(id -> {
             if (!id.equals(this.id)) {
