@@ -13,9 +13,9 @@ public class App {
     private JButton deleteButton;
     private JButton disconnectReconnectButton;
     private JList<String> msgList;
-    private JLabel usernameLable;
-    private JLabel portLable;
-    private JLabel connectedLable;
+    private JLabel usernameLabel;
+    private JLabel portLabel;
+    private JLabel connectedLabel;
     private volatile Client client;
 
 
@@ -50,7 +50,7 @@ public class App {
             ChatRoom toDelete = (ChatRoom) chatRooms.getSelectedItem();
             System.out.println("Deleting room " + toDelete.getId());
             chatRooms.removeItem(toDelete);
-            c.deleteRoom(toDelete);
+            //client.deleteRoom(toDelete);
         });
         disconnectReconnectButton.addActionListener(e -> {
             this.setConnected(!client.getConnected());
@@ -74,16 +74,16 @@ public class App {
             }
         } while (port <= 1024);
 
-        portLable.setText(port.toString());
+        portLabel.setText(String.valueOf(port));
 
         String id = JOptionPane.showInputDialog(frame, "Insert an id");
-        usernameLable.setText(id);
+        usernameLabel.setText(id);
 
         DefaultListModel<String> msgListModel = new DefaultListModel<>();
         msgList.setModel(msgListModel);
 
 
-        c = new Client(id, port, evt -> {
+        client = new Client(id, port, evt -> {
             if (evt.getPropertyName().equals("ADD_ROOM")) {
                 System.out.println("Rooms added in gui");
                 ChatRoom chat = (ChatRoom) evt.getNewValue();
@@ -108,13 +108,13 @@ public class App {
         client.setConnected(connected);
 
         if(connected){
-            connectedLable.setText("connected");
-            connectedLable.setForeground(new Color(0, 153, 51));
+            connectedLabel.setText("connected");
+            connectedLabel.setForeground(new Color(0, 153, 51));
 
             disconnectReconnectButton.setText("Disconnect");
         }else{
-            connectedLable.setText("disconnected");
-            connectedLable.setForeground(Color.red);
+            connectedLabel.setText("disconnected");
+            connectedLabel.setForeground(Color.red);
 
             disconnectReconnectButton.setText("Reconnect");
         }
