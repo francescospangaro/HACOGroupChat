@@ -30,8 +30,8 @@ public class Client {
     ExecutorService executorService = Executors.newFixedThreadPool(50);
     private ServerSocket serverSocket;
 
-    private final Map<String, SocketAddress> otherPeerAddress;
-    private final Map<String, SocketInfo> otherPeerSockets;
+    private final Map<String, SocketAddress> ips;
+    private final Map<String, SocketInfo> sockets;
 
     private final PropertyChangeListener msgChangeListener;
 
@@ -45,13 +45,13 @@ public class Client {
         this.port = port;
 
         chats = ConcurrentHashMap.newKeySet();
-        otherPeerSockets = new HashMap<>();
+        sockets = new HashMap<>();
 
         propertyChangeSupport = new PropertyChangeSupport(chats);
         propertyChangeSupport.addPropertyChangeListener(chatRoomsChangeListener);
         this.msgChangeListener = msgChangeListener;
 
-        otherPeerAddress = register();
+        ips = register();
 
         connect();
 
@@ -72,10 +72,10 @@ public class Client {
                     HelloPacket helloPacket = (HelloPacket) ois.readObject();
 
                     //Update the list of sockets of the other peers
-                    otherPeerSockets.put(helloPacket.id(), new SocketInfo(justConnectedClient, oos, ois));
+                    sockets.put(helloPacket.id(), new SocketInfo(justConnectedClient, oos, ois));
 
                     //Update the list of Addresses of the other peers
-                    otherPeerAddress.put(helloPacket.id(), justConnectedClient.getRemoteSocketAddress());
+                    ips.put(helloPacket.id(), justConnectedClient.getRemoteSocketAddress());
 
                     executorService.execute(new ChatUpdater(justConnectedClient, ois, chats, propertyChangeSupport, msgChangeListener));
                 }
@@ -112,7 +112,7 @@ public class Client {
 
     public void connect() {
         //For each peer in the network I try to connect to him by sending a helloPacket
-        otherPeerAddress.forEach((id, addr) -> {
+        ips.forEach((id, addr) -> {
             try {
                 Socket s = new Socket();
                 System.out.println("connecting to " + addr);
@@ -121,7 +121,7 @@ public class Client {
 
                 var oos = new ObjectOutputStream(s.getOutputStream());
                 var ois = new ObjectInputStream(s.getInputStream());
-                otherPeerSockets.put(id, new SocketInfo(s, oos, ois));
+                sockets.put(id, new SocketInfo(s, oos, ois));
 
                 //Send a helloPacket
                 HelloPacket helloPacket = new HelloPacket(this.id);
@@ -138,8 +138,8 @@ public class Client {
     public void sendMessage(String msg, ChatRoom chat) {
         //I increment the position by +1 of my Clock in the VectorClock to send
         List<Integer> vc = new ArrayList<>();
-        for(String s : chat.getUsers()){
-            if(s.equals(this.id))
+        for (String s : chat.getUsers()) {
+            if (s.equals(this.id))
                 vc.add(chat.getVectorClocks().get(s) + 1);
             else
                 vc.add(chat.getVectorClocks().get(s));
@@ -153,7 +153,7 @@ public class Client {
         chat.getUsers().forEach(id -> {
             if (!id.equals(this.id)) {
                 try {
-                    ObjectOutputStream oos = otherPeerSockets.get(id).oos;
+                    ObjectOutputStream oos = sockets.get(id).oos;
                     oos.writeObject(new MessagePacket(chat.getId(), this.id, m));
                 } catch (IOException e) {
                     throw new RuntimeException(e);
@@ -164,8 +164,8 @@ public class Client {
 
     }
 
-    public Map<String, SocketAddress> getOtherPeerAddress() {
-        return Collections.unmodifiableMap(otherPeerAddress);
+    public Map<String, SocketAddress> getIps() {
+        return Collections.unmodifiableMap(ips);
     }
 
     public void createRoom(String name, Set<String> users) {
@@ -177,27 +177,25 @@ public class Client {
         propertyChangeSupport.firePropertyChange("ADD_ROOM", null, newRoom);
 
         //I inform all the users about the creation of the new group by sending to them a CreateRoomPacket
-        sendMsgToAllPeers(new CreateRoomPacket(newRoom.getId(), name, users),users);
+        sendMsg(new CreateRoomPacket(newRoom.getId(), name, users), users);
+    }
+
+    public void deleteRoom(ChatRoom toDelete) {
+        propertyChangeSupport.firePropertyChange("DEL_ROOM", null, toDelete);
+        chats.remove(toDelete);
+
+        sendMsg(new DeleteRoomPacket(toDelete.getId()), toDelete.getUsers());
     }
 
     public String getId() {
         return id;
     }
 
-    private Set<String> getAllIDsOfOthersPeers(){
-        return new HashSet<>(otherPeerAddress.keySet());
-    }
-
-    private void sendMsgToAllPeers(P2PPacket packet, Set<String> IDofPeers){
-        //If IDofPeers is null then I send the packet to all the peers I am aware of
-        if(IDofPeers==null){
-            IDofPeers=getAllIDsOfOthersPeers();
-        }
-
-        IDofPeers.forEach(id -> {
+    private void sendMsg(P2PPacket packet, Set<String> ids) {
+        ids.forEach(id -> {
             if (!id.equals(this.id)) {
                 try {
-                    ObjectOutputStream oos = otherPeerSockets.get(id).oos;
+                    ObjectOutputStream oos = sockets.get(id).oos;
                     oos.writeObject(packet);
                 } catch (IOException e) {
                     throw new RuntimeException(e);
@@ -206,7 +204,7 @@ public class Client {
         });
     }
 
-    private void sendMsgToDiscoveryServer(Peer2DiscoveryPacket packet){
+    private void connect(Peer2DiscoveryPacket packet) {
         //I send to the DISCOVERY_SERVER my ID and Port
         try (Socket s = new Socket()) {
             s.connect(DISCOVERY_SERVER);
@@ -214,7 +212,6 @@ public class Client {
 
             //Send a UpdateIpPacket
             ObjectOutputStream oos = new ObjectOutputStream(s.getOutputStream());
-            ObjectInputStream ois = new ObjectInputStream(s.getInputStream());
             oos.writeObject(packet);
             System.out.println("Sent");
 
@@ -225,15 +222,16 @@ public class Client {
         }
     }
 
-    public void setConnected(boolean connected){
-        this.connected=connected;
+    public void setConnected(boolean connected) {
+        this.connected = connected;
 
-        if(!this.connected){
-            sendMsgToDiscoveryServer(new ByePacket(this.id));
+        if (!this.connected) {
+            connect(new ByePacket(this.id));
         }
 
     }
-    public boolean getConnected(){
+
+    public boolean getConnected() {
         return this.connected;
     }
 }

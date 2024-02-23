@@ -16,7 +16,7 @@ public class App {
     private JLabel usernameLabel;
     private JLabel portLabel;
     private JLabel connectedLabel;
-    private volatile Client client;
+    private Client client;
 
 
 
@@ -24,7 +24,7 @@ public class App {
         //Want to create a new Group for chatting
         newButton.addActionListener(e -> {
             System.out.println(client);
-            CreateRoom dialog = new CreateRoom(client.getOtherPeerAddress().keySet());
+            CreateRoom dialog = new CreateRoom(client.getIps().keySet());
 
             if (dialog.isConfirmed()) {
                 Set<String> users = dialog.getSelectedUsers();
@@ -50,7 +50,7 @@ public class App {
             ChatRoom toDelete = (ChatRoom) chatRooms.getSelectedItem();
             System.out.println("Deleting room " + toDelete.getId());
             chatRooms.removeItem(toDelete);
-            //client.deleteRoom(toDelete);
+            client.deleteRoom(toDelete);
         });
         disconnectReconnectButton.addActionListener(e -> {
             this.setConnected(!client.getConnected());
