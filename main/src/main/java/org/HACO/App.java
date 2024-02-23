@@ -13,6 +13,7 @@ public class App {
     private JButton deleteButton;
     private JButton disconnectButton;
     private JList<String> msgList;
+    private JLabel usernameLable;
     private volatile Client c;
 
     public App() {
@@ -57,6 +58,7 @@ public class App {
 
         String id = JOptionPane.showInputDialog(frame, "Insert an id");
 
+        usernameLable.setText(id);
         DefaultListModel<String> msgListModel = new DefaultListModel<>();
         msgList.setModel(msgListModel);
 
