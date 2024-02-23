@@ -1,10 +1,9 @@
 package org.HACO;
 
-import org.HACO.packets.CreateRoomPacket;
-import org.HACO.packets.HelloPacket;
-import org.HACO.packets.Message;
-import org.HACO.packets.MessagePacket;
+import org.HACO.packets.*;
+import org.HACO.packets.discovery.ByePacket;
 import org.HACO.packets.discovery.IPsPacket;
+import org.HACO.packets.discovery.Peer2DiscoveryPacket;
 import org.HACO.packets.discovery.UpdateIpPacket;
 
 import java.beans.PropertyChangeListener;
@@ -178,11 +177,28 @@ public class Client {
         propertyChangeSupport.firePropertyChange("ADD_ROOM", null, newRoom);
 
         //I inform all the users about the creation of the new group by sending to them a CreateRoomPacket
-        users.forEach(id -> {
+        sendMsgToAllPeers(new CreateRoomPacket(newRoom.getId(), name, users),users);
+    }
+
+    public String getId() {
+        return id;
+    }
+
+    private Set<String> getAllIDsOfOthersPeers(){
+        return new HashSet<>(otherPeerAddress.keySet());
+    }
+
+    private void sendMsgToAllPeers(P2PPacket packet, Set<String> IDofPeers){
+        //If IDofPeers is null then I send the packet to all the peers I am aware of
+        if(IDofPeers==null){
+            IDofPeers=getAllIDsOfOthersPeers();
+        }
+
+        IDofPeers.forEach(id -> {
             if (!id.equals(this.id)) {
                 try {
                     ObjectOutputStream oos = otherPeerSockets.get(id).oos;
-                    oos.writeObject(new CreateRoomPacket(newRoom.getId(), name, users));
+                    oos.writeObject(packet);
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
@@ -190,12 +206,32 @@ public class Client {
         });
     }
 
-    public String getId() {
-        return id;
+    private void sendMsgToDiscoveryServer(Peer2DiscoveryPacket packet){
+        //I send to the DISCOVERY_SERVER my ID and Port
+        try (Socket s = new Socket()) {
+            s.connect(DISCOVERY_SERVER);
+            System.out.println("Connected");
+
+            //Send a UpdateIpPacket
+            ObjectOutputStream oos = new ObjectOutputStream(s.getOutputStream());
+            ObjectInputStream ois = new ObjectInputStream(s.getInputStream());
+            oos.writeObject(packet);
+            System.out.println("Sent");
+
+            oos.flush();
+
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public void setConnected(boolean connected){
         this.connected=connected;
+
+        if(!this.connected){
+            sendMsgToDiscoveryServer(new ByePacket(this.id));
+        }
+
     }
     public boolean getConnected(){
         return this.connected;

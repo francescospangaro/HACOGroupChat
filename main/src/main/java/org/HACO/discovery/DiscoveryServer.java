@@ -52,7 +52,10 @@ public class DiscoveryServer {
                         System.out.println("sent");
                         ips.put(ipPacket.id(), new InetSocketAddress(s.getInetAddress(), ipPacket.port()));
                     }
-                    case ByePacket byePacket -> ips.remove(byePacket.id());
+                    case ByePacket byePacket -> {
+                        ips.remove(byePacket.id());
+                        System.out.println("Client disconnected id: "+byePacket.id());
+                    }
                 }
             } catch (IOException | ClassNotFoundException e) {
                 throw new RuntimeException(e);
