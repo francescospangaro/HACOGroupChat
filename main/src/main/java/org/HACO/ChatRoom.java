@@ -20,11 +20,14 @@ public class ChatRoom {
         this.name = name;
         this.users = users;
         this.id = initId();
+
         waiting = new HashSet<>();
         vectorClocks = new HashMap<>();
+
         for (String user : users) {
             vectorClocks.put(user, 0);
         }
+
         propertyChangeSupport.addPropertyChangeListener(msgChangeListener);
     }
 

@@ -13,16 +13,16 @@ import java.util.Objects;
 import java.util.Set;
 
 public class ChatUpdater implements Runnable {
-    private final Socket socket;
+    private final Socket otherPeerSocket;
     private final ObjectInputStream ois;
     private final Set<ChatRoom> chats;
     private final PropertyChangeSupport propertyChangeSupport;
     private final PropertyChangeListener msgChangeListener;
 
 
-    public ChatUpdater(Socket socket, ObjectInputStream ois, Set<ChatRoom> chats,
+    public ChatUpdater(Socket otherPeerSocket, ObjectInputStream ois, Set<ChatRoom> chats,
                        PropertyChangeSupport propertyChangeSupport, PropertyChangeListener msgChangeListener) {
-        this.socket = socket;
+        this.otherPeerSocket = otherPeerSocket;
         this.chats = chats;
         this.ois = ois;
         this.propertyChangeSupport = propertyChangeSupport;
@@ -31,21 +31,28 @@ public class ChatUpdater implements Runnable {
 
     @Override
     public void run() {
+        //Ready to handle messages received from the peer associated with otherPeerSocket
         System.out.println("Run");
-        while (!socket.isClosed()) {
+
+        while (!otherPeerSocket.isClosed()) {
             try {
+                //Wait for a packet
                 Object o = ois.readObject();
+
+                //Handle the Message I received
                 switch (o) {
                     case MessagePacket m -> {
                         ChatRoom chat = chats.stream().filter(c -> Objects.equals(c.getId(), m.chatId())).findFirst().orElseThrow();
                         chat.push(m.msg());
                     }
+
                     case CreateRoomPacket crp -> {
                         System.out.println("Adding new room " + crp.id());
                         ChatRoom newChat = new ChatRoom(crp.name(), crp.ids(), crp.id(), msgChangeListener);
                         chats.add(newChat);
                         propertyChangeSupport.firePropertyChange("ADD_ROOM", null, newChat);
                     }
+
                     case DeleteRoomPacket drp -> {
                         ChatRoom toDelete = chats.stream().filter(c -> Objects.equals(c.getId(), drp.id())).findFirst().orElseThrow();
                         chats.remove(toDelete);

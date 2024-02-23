@@ -34,10 +34,13 @@ public class DiscoveryServer {
             System.out.println("Waiting connection...");
             try (Socket s = serverSocket.accept()) {
                 System.out.println("connected");
+
                 ObjectOutputStream oos = new ObjectOutputStream(s.getOutputStream());
                 ObjectInputStream ois = new ObjectInputStream(s.getInputStream());
+
                 Peer2DiscoveryPacket p = (Peer2DiscoveryPacket) ois.readObject();
                 System.out.println("Received " + p);
+
                 switch (p) {
                     case UpdateIpPacket ipPacket -> {
                         oos.writeObject(new IPsPacket(ips

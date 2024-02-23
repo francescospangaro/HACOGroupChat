@@ -15,27 +15,37 @@ public class App {
     private JList<String> msgList;
     private JLabel usernameLable;
     private JLabel portLable;
-    private volatile Client c;
+    private volatile Client client;
 
     public App() {
+        //Want to create a new Group for chatting
         newButton.addActionListener(e -> {
-            System.out.println(c);
-            CreateRoom dialog = new CreateRoom(c.getIps().keySet());
+            System.out.println(client);
+            CreateRoom dialog = new CreateRoom(client.getOtherPeerAddress().keySet());
+
             if (dialog.isConfirmed()) {
                 Set<String> users = dialog.getSelectedUsers();
-                users.add(c.getId());
+                users.add(client.getId());
                 String name = dialog.getRoomName();
-                c.createRoom(name, users);
+
+                //Request the creation of the room with this name and with all the users
+                client.createRoom(name, users);
             }
         });
+
+        //Want to send a message to a ChatRoom
         sendButton.addActionListener(e -> {
             String msg = msgArea.getText();
+            //Get the ChatRoom selected by the user in which he wants to send the msg
             ChatRoom chat = (ChatRoom) chatRooms.getSelectedItem();
-            c.sendMessage(msg, chat);
+
+            client.sendMessage(msg, chat);
             msgArea.setText("");
         });
+
         deleteButton.addActionListener(e -> {
         });
+
         disconnectButton.addActionListener(e -> {
         });
     }
@@ -66,7 +76,7 @@ public class App {
         msgList.setModel(msgListModel);
 
 
-        c = new Client(id, port, evt -> {
+        client = new Client(id, port, evt -> {
             if (evt.getPropertyName().equals("ADD_ROOM")) {
                 System.out.println("Rooms added in gui");
                 ChatRoom chat = (ChatRoom) evt.getNewValue();
@@ -82,7 +92,7 @@ public class App {
                 msgListModel.addElement(evt.getNewValue().toString());
             }
         });
-        System.out.println("started " + c);
+        System.out.println("started " + client);
 
     }
 

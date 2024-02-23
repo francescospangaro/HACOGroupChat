@@ -31,8 +31,8 @@ public class Client {
     ExecutorService executorService = Executors.newFixedThreadPool(50);
     private ServerSocket serverSocket;
 
-    private final Map<String, SocketAddress> ips;
-    private final Map<String, SocketInfo> sockets;
+    private final Map<String, SocketAddress> otherPeerAddress;
+    private final Map<String, SocketInfo> otherPeerSockets;
 
     private final PropertyChangeListener msgChangeListener;
 
@@ -42,26 +42,41 @@ public class Client {
     public Client(String id, int port, PropertyChangeListener chatRoomsChangeListener, PropertyChangeListener msgChangeListener) {
         this.id = id;
         this.port = port;
+
         chats = ConcurrentHashMap.newKeySet();
-        sockets = new HashMap<>();
+        otherPeerSockets = new HashMap<>();
+
         propertyChangeSupport = new PropertyChangeSupport(chats);
         propertyChangeSupport.addPropertyChangeListener(chatRoomsChangeListener);
         this.msgChangeListener = msgChangeListener;
-        ips = register();
+
+        otherPeerAddress = register();
+
         connect();
+
         executorService.execute(() -> {
             try {
+                //Waiting for incoming packets by creating a serverSocket
                 serverSocket = new ServerSocket(port);
 
                 while (!serverSocket.isClosed()) {
-                    Socket s = serverSocket.accept();
-                    System.out.println(s.getRemoteSocketAddress() + " is connected");
-                    var oos = new ObjectOutputStream(s.getOutputStream());
-                    var ois = new ObjectInputStream(s.getInputStream());
+                    Socket justConnectedClient = serverSocket.accept();
+                    //Someone has just connected to me
+                    System.out.println(justConnectedClient.getRemoteSocketAddress() + " is connected");
+
+                    var oos = new ObjectOutputStream(justConnectedClient.getOutputStream());
+                    var ois = new ObjectInputStream(justConnectedClient.getInputStream());
+
+                    //I will receive a helloPacket from him containing his ID
                     HelloPacket helloPacket = (HelloPacket) ois.readObject();
-                    sockets.put(helloPacket.id(), new SocketInfo(s, oos, ois));
-                    ips.put(helloPacket.id(), s.getRemoteSocketAddress());
-                    executorService.execute(new ChatUpdater(s, ois, chats, propertyChangeSupport, msgChangeListener));
+
+                    //Update the list of sockets of the other peers
+                    otherPeerSockets.put(helloPacket.id(), new SocketInfo(justConnectedClient, oos, ois));
+
+                    //Update the list of Addresses of the other peers
+                    otherPeerAddress.put(helloPacket.id(), justConnectedClient.getRemoteSocketAddress());
+
+                    executorService.execute(new ChatUpdater(justConnectedClient, ois, chats, propertyChangeSupport, msgChangeListener));
                 }
             } catch (IOException | ClassNotFoundException e) {
                 throw new RuntimeException(e);
@@ -71,16 +86,23 @@ public class Client {
     }
 
     private Map<String, SocketAddress> register() {
+        //I send to the DISCOVERY_SERVER my ID and Port
         try (Socket s = new Socket()) {
             s.connect(DISCOVERY_SERVER);
             System.out.println("Connected");
+
+            //Send a UpdateIpPacket
             ObjectOutputStream oos = new ObjectOutputStream(s.getOutputStream());
             ObjectInputStream ois = new ObjectInputStream(s.getInputStream());
             oos.writeObject(new UpdateIpPacket(id, port));
             System.out.println("Sent");
+
             oos.flush();
+
+            //Waiting list of <ID_otherPeer,HisSocketAddress> from DISCOVERY_SERVER
             Map<String, SocketAddress> ips = ((IPsPacket) ois.readObject()).ips();
             System.out.println("Received map " + ips);
+
             return ips;
         } catch (IOException | ClassNotFoundException e) {
             throw new RuntimeException(e);
@@ -88,17 +110,22 @@ public class Client {
     }
 
     public void connect() {
-        ips.forEach((id, addr) -> {
+        //For each peer in the network I try to connect to him by sending a helloPacket
+        otherPeerAddress.forEach((id, addr) -> {
             try {
                 Socket s = new Socket();
                 System.out.println("connecting to " + addr);
                 s.connect(addr);
                 System.out.println("connected");
+
                 var oos = new ObjectOutputStream(s.getOutputStream());
                 var ois = new ObjectInputStream(s.getInputStream());
-                sockets.put(id, new SocketInfo(s, oos, ois));
+                otherPeerSockets.put(id, new SocketInfo(s, oos, ois));
+
+                //Send a helloPacket
                 HelloPacket helloPacket = new HelloPacket(this.id);
                 oos.writeObject(helloPacket);
+
                 oos.flush();
                 executorService.execute(new ChatUpdater(s, ois, chats, propertyChangeSupport, msgChangeListener));
             } catch (IOException e) {
@@ -108,6 +135,7 @@ public class Client {
     }
 
     public void sendMessage(String msg, ChatRoom chat) {
+        //I increment the position by +1 of my Clock in the VectorClock to send
         List<Integer> vc = new ArrayList<>();
         for(String s : chat.getUsers()){
             if(s.equals(this.id))
@@ -115,13 +143,16 @@ public class Client {
             else
                 vc.add(chat.getVectorClocks().get(s));
         }
+
+        //Create the Message with myVectorClock updated and the msg
         Message m = new Message(msg, vc, this.id);
         chat.push(m);
 
+        //I send a MessagePacket containing the Message just created to each User of the ChatRoom
         chat.getUsers().forEach(id -> {
             if (!id.equals(this.id)) {
                 try {
-                    ObjectOutputStream oos = sockets.get(id).oos;
+                    ObjectOutputStream oos = otherPeerSockets.get(id).oos;
                     oos.writeObject(new MessagePacket(chat.getId(), this.id, m));
                 } catch (IOException e) {
                     throw new RuntimeException(e);
@@ -132,19 +163,23 @@ public class Client {
 
     }
 
-    public Map<String, SocketAddress> getIps() {
-        return Collections.unmodifiableMap(ips);
+    public Map<String, SocketAddress> getOtherPeerAddress() {
+        return Collections.unmodifiableMap(otherPeerAddress);
     }
 
     public void createRoom(String name, Set<String> users) {
+        //Add the ChatRoom to the list of available ChatRooms
         ChatRoom newRoom = new ChatRoom(name, users, msgChangeListener);
         chats.add(newRoom);
+
+        //Fire ADD_ROM Event in order to update the GUI
         propertyChangeSupport.firePropertyChange("ADD_ROOM", null, newRoom);
 
+        //I inform all the users about the creation of the new group by sending to them a CreateRoomPacket
         users.forEach(id -> {
             if (!id.equals(this.id)) {
                 try {
-                    ObjectOutputStream oos = sockets.get(id).oos;
+                    ObjectOutputStream oos = otherPeerSockets.get(id).oos;
                     oos.writeObject(new CreateRoomPacket(newRoom.getId(), name, users));
                 } catch (IOException e) {
                     throw new RuntimeException(e);
