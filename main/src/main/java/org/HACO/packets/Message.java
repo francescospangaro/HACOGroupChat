@@ -1,4 +1,4 @@
-package org.HACO;
+package org.HACO.packets;
 
 import java.io.Serializable;
 import java.util.List;

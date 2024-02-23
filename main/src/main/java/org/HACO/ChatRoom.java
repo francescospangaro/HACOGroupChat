@@ -1,5 +1,7 @@
 package org.HACO;
 
+import org.HACO.packets.Message;
+
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
 import java.util.*;
@@ -7,7 +9,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 public class ChatRoom {
     private final Set<String> users;
-    private List<Message> waiting;
+    private Set<Message> waiting;
     private List<Message> receivedMsgs = new CopyOnWriteArrayList<>();
     private Map<String, Integer> vectorClocks;
     private final PropertyChangeSupport propertyChangeSupport = new PropertyChangeSupport(receivedMsgs);
@@ -18,7 +20,7 @@ public class ChatRoom {
         this.name = name;
         this.users = users;
         this.id = initId();
-        waiting = new ArrayList<>();
+        waiting = new HashSet<>();
         vectorClocks = new HashMap<>();
         for (String user : users) {
             vectorClocks.put(user, 0);
@@ -30,7 +32,7 @@ public class ChatRoom {
         this.name = name;
         this.users = users;
         this.id = id;
-        waiting = new ArrayList<>();
+        waiting = new HashSet<>();
         vectorClocks = new HashMap<>();
         for (String user : users) {
             vectorClocks.put(user, 0);
@@ -80,10 +82,7 @@ public class ChatRoom {
 
     private boolean checkVC(Message m) {
         Map<String, Integer> oldClocks = Map.copyOf(vectorClocks);
-        Map<String, Integer> newClocks = new HashMap<>();
-        for(String s : oldClocks.keySet()){
-            newClocks.put(s, oldClocks.get(s));
-        }
+        Map<String, Integer> newClocks = new HashMap<>(vectorClocks);
         newClocks.put(m.sender(), vectorClocks.get(m.sender()) + 1);
         boolean justEnough = false;
         for (String temp : users) {

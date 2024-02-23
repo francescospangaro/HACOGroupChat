@@ -2,6 +2,7 @@ package org.HACO;
 
 import org.HACO.packets.CreateRoomPacket;
 import org.HACO.packets.HelloPacket;
+import org.HACO.packets.Message;
 import org.HACO.packets.MessagePacket;
 import org.HACO.packets.discovery.IPsPacket;
 import org.HACO.packets.discovery.UpdateIpPacket;
