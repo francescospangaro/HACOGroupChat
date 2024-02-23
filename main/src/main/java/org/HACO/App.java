@@ -14,6 +14,7 @@ public class App {
     private JButton disconnectButton;
     private JList<String> msgList;
     private JLabel usernameLable;
+    private JLabel portLable;
     private volatile Client c;
 
     public App() {
@@ -47,7 +48,7 @@ public class App {
         frame.setSize(d.width / 2, d.height / 2);
         frame.setVisible(true);
 
-        int port = -1;
+        Integer port = -1;
         do {
             try {
                 port = Integer.parseInt(JOptionPane.showInputDialog(frame, "Insert a port", 12345));
@@ -56,9 +57,11 @@ public class App {
             }
         } while (port <= 1024);
 
-        String id = JOptionPane.showInputDialog(frame, "Insert an id");
+        portLable.setText(port.toString());
 
+        String id = JOptionPane.showInputDialog(frame, "Insert an id");
         usernameLable.setText(id);
+
         DefaultListModel<String> msgListModel = new DefaultListModel<>();
         msgList.setModel(msgListModel);
 
