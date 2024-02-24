@@ -17,6 +17,7 @@ public class App {
     private JLabel portLabel;
     private JLabel connectedLabel;
     private JTextField delayTime;
+    private JList<String> connectedList;
     private Client client;
 
 
@@ -43,13 +44,13 @@ public class App {
             ChatRoom chat = (ChatRoom) chatRooms.getSelectedItem();
 
             Integer delay;
-            try{
-                delay=Integer.valueOf(delayTime.getText());
-                if(delay<0){
+            try {
+                delay = Integer.valueOf(delayTime.getText());
+                if (delay < 0) {
                     throw new NumberFormatException();
                 }
-            }catch (NumberFormatException ignored){
-                delay=0;
+            } catch (NumberFormatException ignored) {
+                delay = 0;
             }
 
             client.sendMessage(msg, chat, delay);
@@ -110,6 +111,9 @@ public class App {
         DefaultListModel<String> msgListModel = new DefaultListModel<>();
         msgList.setModel(msgListModel);
 
+        DefaultListModel<String> connectedModelList = new DefaultListModel<>();
+        connectedList.setModel(connectedModelList);
+
 
         client = new Client(id, port, evt -> {
             if (evt.getPropertyName().equals("ADD_ROOM")) {
@@ -120,6 +124,13 @@ public class App {
                 ChatRoom chat = (ChatRoom) evt.getOldValue();
                 System.out.println("Room " + chat + " removed from gui");
                 chatRooms.removeItem(chat);
+            }
+        }, evt -> {
+            if (evt.getPropertyName().equals("USER_CONNECTED")) {
+                connectedModelList.addElement((String) evt.getNewValue());
+            } else {
+                System.out.println("Removing " + evt.getOldValue() + " " + connectedModelList.removeElement(evt.getOldValue()));
+
             }
         }, evt -> {
             if (evt.getPropertyName().equals("ADD_MSG")) {

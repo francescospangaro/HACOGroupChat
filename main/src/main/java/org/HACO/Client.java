@@ -26,7 +26,8 @@ public class Client {
     private final String id;
     private final int port;
     private Set<ChatRoom> chats;
-    private final PropertyChangeSupport propertyChangeSupport;
+    private final PropertyChangeSupport roomsPropertyChangeSupport;
+    private final PropertyChangeSupport usersPropertyChangeSupport;
 
     ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor();
     private ServerSocket serverSocket;
@@ -41,15 +42,22 @@ public class Client {
     private record SocketInfo(Socket s, ObjectOutputStream oos, ObjectInputStream ois) {
     }
 
-    public Client(String id, int port, PropertyChangeListener chatRoomsChangeListener, PropertyChangeListener msgChangeListener) {
+    public Client(String id, int port,
+                  PropertyChangeListener chatRoomsChangeListener,
+                  PropertyChangeListener usersChangeListener,
+                  PropertyChangeListener msgChangeListener) {
         this.id = id;
         this.port = port;
 
         chats = ConcurrentHashMap.newKeySet();
         sockets = new HashMap<>();
 
-        propertyChangeSupport = new PropertyChangeSupport(chats);
-        propertyChangeSupport.addPropertyChangeListener(chatRoomsChangeListener);
+        roomsPropertyChangeSupport = new PropertyChangeSupport(chats);
+        roomsPropertyChangeSupport.addPropertyChangeListener(chatRoomsChangeListener);
+
+        usersPropertyChangeSupport = new PropertyChangeSupport(this);
+        usersPropertyChangeSupport.addPropertyChangeListener(usersChangeListener);
+
         this.msgChangeListener = msgChangeListener;
 
         start();
@@ -104,10 +112,13 @@ public class Client {
 
                 oos.flush();
 
-                CompletableFuture.runAsync(new ChatUpdater(s, ois, chats, propertyChangeSupport, msgChangeListener), executorService)
+                usersPropertyChangeSupport.firePropertyChange("USER_CONNECTED", null, id);
+
+                CompletableFuture.runAsync(new ChatUpdater(s, ois, chats, roomsPropertyChangeSupport, msgChangeListener), executorService)
                         .thenRun(() -> {
                             ips.put(id, null);
                             sockets.put(id, null);
+                            usersPropertyChangeSupport.firePropertyChange("USER_DISCONNECTED", id, null);
                             System.err.println(id + " disconnected");
                         });
             } catch (IOException e) {
@@ -148,14 +159,14 @@ public class Client {
         chats.add(newRoom);
 
         //Fires ADD_ROOM Event in order to update the GUI
-        propertyChangeSupport.firePropertyChange("ADD_ROOM", null, newRoom);
+        roomsPropertyChangeSupport.firePropertyChange("ADD_ROOM", null, newRoom);
 
         //Inform all the users about the creation of the new chat room by sending to them a CreateRoomPacket
         sendPacket(new CreateRoomPacket(newRoom.getId(), name, users), users);
     }
 
     public void deleteRoom(ChatRoom toDelete) {
-        propertyChangeSupport.firePropertyChange("DEL_ROOM", toDelete, null);
+        roomsPropertyChangeSupport.firePropertyChange("DEL_ROOM", toDelete, null);
         chats.remove(toDelete);
 
         sendPacket(new DeleteRoomPacket(toDelete.getId()), toDelete.getUsers());
@@ -259,12 +270,16 @@ public class Client {
                 //Update the list of Addresses of the other peers
                 ips.put(helloPacket.id(), justConnectedClient.getRemoteSocketAddress());
 
+                usersPropertyChangeSupport.firePropertyChange("USER_CONNECTED", null, helloPacket.id());
+
+
                 //TODO: send enqueued packets (if any)
 
-                CompletableFuture.runAsync(new ChatUpdater(justConnectedClient, ois, chats, propertyChangeSupport, msgChangeListener), executorService)
+                CompletableFuture.runAsync(new ChatUpdater(justConnectedClient, ois, chats, roomsPropertyChangeSupport, msgChangeListener), executorService)
                         .thenRun(() -> {
                             ips.put(id, null);
                             sockets.put(id, null);
+                            usersPropertyChangeSupport.firePropertyChange("USER_DISCONNECTED", helloPacket.id(), null);
                             System.err.println(helloPacket.id() + " disconnected");
                         });
             }
