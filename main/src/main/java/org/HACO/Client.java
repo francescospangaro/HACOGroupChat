@@ -27,7 +27,7 @@ public class Client {
     private Set<ChatRoom> chats;
     private final PropertyChangeSupport propertyChangeSupport;
 
-    ExecutorService executorService = Executors.newFixedThreadPool(50);
+    ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor();
     private ServerSocket serverSocket;
 
     private final Map<String, SocketAddress> ips;
