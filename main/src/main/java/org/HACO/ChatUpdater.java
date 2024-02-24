@@ -4,12 +4,15 @@ import org.HACO.packets.CreateRoomPacket;
 import org.HACO.packets.DelayedMessagePacket;
 import org.HACO.packets.DeleteRoomPacket;
 import org.HACO.packets.MessagePacket;
+import org.HACO.packets.P2PPacket;
 
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
@@ -39,7 +42,7 @@ public class ChatUpdater extends Thread {
         while (!otherPeerSocket.isClosed()) {
             try {
                 //Wait for a packet
-                Object o = ois.readObject();
+                P2PPacket o = (P2PPacket) ois.readObject();
 
                 //Message handler
                 switch (o) {
@@ -70,7 +73,11 @@ public class ChatUpdater extends Thread {
                     }
                     default -> throw new IllegalStateException("Unexpected value: " + o);
                 }
+            } catch (SocketException | EOFException ignored) {
+                //Peer disconnected
+                return;
             } catch (IOException | ClassNotFoundException | InterruptedException e) {
+                e.printStackTrace();
                 throw new RuntimeException(e);
             }
         }

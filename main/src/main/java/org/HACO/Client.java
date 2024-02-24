@@ -11,11 +11,12 @@ import java.beans.PropertyChangeSupport;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.net.InetSocketAddress;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.net.SocketAddress;
-import java.util.*;
+import java.net.*;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -102,7 +103,13 @@ public class Client {
                 oos.writeObject(helloPacket);
 
                 oos.flush();
-                executorService.execute(new ChatUpdater(s, ois, chats, propertyChangeSupport, msgChangeListener));
+
+                CompletableFuture.runAsync(new ChatUpdater(s, ois, chats, propertyChangeSupport, msgChangeListener), executorService)
+                        .thenRun(() -> {
+                            ips.put(id, null);
+                            sockets.put(id, null);
+                            System.err.println(id + " disconnected");
+                        });
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -125,20 +132,11 @@ public class Client {
         chat.push(m);
 
         //Send a MessagePacket containing the Message just created to each User of the ChatRoom
-        chat.getUsers().forEach(id -> {
-            if (!id.equals(this.id)) {
-                try {
-                    ObjectOutputStream oos = sockets.get(id).oos;
-                    if (!isDelayed)
-                        oos.writeObject(new MessagePacket(chat.getId(), this.id, m));
-                    else
-                        oos.writeObject(new DelayedMessagePacket(chat.getId(), this.id, m, delayedTime));
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-        });
-    }
+        if (!isDelayed)
+            sendPacket(new MessagePacket(chat.getId(), this.id, m), chat.getUsers());
+        else
+            sendPacket(new DelayedMessagePacket(chat.getId(), this.id, m, delayedTime), chat.getUsers());
+}
 
     public Map<String, SocketAddress> getIps() {
         return Collections.unmodifiableMap(ips);
@@ -153,26 +151,32 @@ public class Client {
         propertyChangeSupport.firePropertyChange("ADD_ROOM", null, newRoom);
 
         //Inform all the users about the creation of the new chat room by sending to them a CreateRoomPacket
-        sendMsg(new CreateRoomPacket(newRoom.getId(), name, users), users);
+        sendPacket(new CreateRoomPacket(newRoom.getId(), name, users), users);
     }
 
     public void deleteRoom(ChatRoom toDelete) {
         propertyChangeSupport.firePropertyChange("DEL_ROOM", toDelete, null);
         chats.remove(toDelete);
 
-        sendMsg(new DeleteRoomPacket(toDelete.getId()), toDelete.getUsers());
+        sendPacket(new DeleteRoomPacket(toDelete.getId()), toDelete.getUsers());
     }
 
     public String getId() {
         return id;
     }
 
-    private void sendMsg(P2PPacket packet, Set<String> ids) {
+    private void sendPacket(P2PPacket packet, Set<String> ids) {
         ids.forEach(id -> {
             if (!id.equals(this.id)) {
                 try {
-                    ObjectOutputStream oos = sockets.get(id).oos;
-                    oos.writeObject(packet);
+                    SocketInfo socketInfo = sockets.get(id);
+                    if (socketInfo != null) {
+                        ObjectOutputStream oos = sockets.get(id).oos;
+                        oos.writeObject(packet);
+                    } else {
+                        System.out.println("Peer " + id + " currently disconnected, enqueuing packet...");
+                        //TODO: enqueue the packet
+                    }
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
@@ -199,18 +203,21 @@ public class Client {
     }
 
     public void disconnect() {
+        System.out.println("Disconnecting...");
         this.connected = false;
         sendToDiscovery(new ByePacket(this.id));
         try {
             serverSocket.close();
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            e.printStackTrace();
         }
         sockets.forEach((id, socketInfo) -> {
-            try {
-                socketInfo.s.close();
-            } catch (IOException e) {
-                throw new RuntimeException(e);
+            if (socketInfo != null) {
+                try {
+                    socketInfo.s.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
         });
         sockets.clear();
@@ -243,10 +250,19 @@ public class Client {
                 //Update the list of Addresses of the other peers
                 ips.put(helloPacket.id(), justConnectedClient.getRemoteSocketAddress());
 
-                executorService.execute(new ChatUpdater(justConnectedClient, ois, chats, propertyChangeSupport, msgChangeListener));
+                //TODO: send enqueued packets (if any)
+
+                CompletableFuture.runAsync(new ChatUpdater(justConnectedClient, ois, chats, propertyChangeSupport, msgChangeListener), executorService)
+                        .thenRun(() -> {
+                            ips.put(id, null);
+                            sockets.put(id, null);
+                            System.err.println(helloPacket.id() + " disconnected");
+                        });
             }
+        } catch (SocketException ignored) {
+            System.err.println("Server shut down");
         } catch (IOException | ClassNotFoundException e) {
-            throw new RuntimeException(e);
+            e.printStackTrace();
         }
     }
 }
