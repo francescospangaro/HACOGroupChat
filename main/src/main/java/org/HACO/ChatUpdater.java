@@ -1,6 +1,7 @@
 package org.HACO;
 
 import org.HACO.packets.CreateRoomPacket;
+import org.HACO.packets.DelayedMessagePacket;
 import org.HACO.packets.DeleteRoomPacket;
 import org.HACO.packets.MessagePacket;
 
@@ -10,9 +11,10 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.net.Socket;
 import java.util.Objects;
+import java.util.Random;
 import java.util.Set;
 
-public class ChatUpdater implements Runnable {
+public class ChatUpdater extends Thread {
     private final Socket otherPeerSocket;
     private final ObjectInputStream ois;
     private final Set<ChatRoom> chats;
@@ -45,6 +47,13 @@ public class ChatUpdater implements Runnable {
                         ChatRoom chat = chats.stream().filter(c -> Objects.equals(c.getId(), m.chatId())).findFirst().orElseThrow();
                         chat.push(m.msg());
                     }
+                    //Sends a message with a delay of 7 seconds, in order to test the vector clocks ordering
+                    case DelayedMessagePacket dm -> {
+                        System.out.println("Message delayed!");
+                        sleep(7000);
+                        ChatRoom chat = chats.stream().filter(c -> Objects.equals(c.getId(), dm.chatId())).findFirst().orElseThrow();
+                        chat.push(dm.msg());
+                    }
 
                     case CreateRoomPacket crp -> {
                         System.out.println("Adding new room " + crp.id());
@@ -61,7 +70,7 @@ public class ChatUpdater implements Runnable {
                     }
                     default -> throw new IllegalStateException("Unexpected value: " + o);
                 }
-            } catch (IOException | ClassNotFoundException e) {
+            } catch (IOException | ClassNotFoundException | InterruptedException e) {
                 throw new RuntimeException(e);
             }
         }

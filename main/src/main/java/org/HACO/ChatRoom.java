@@ -9,8 +9,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 public class ChatRoom {
     private final Set<String> users;
-    private Set<Message> waiting;
-    private List<Message> receivedMsgs = new CopyOnWriteArrayList<>();
+    private final Set<Message> waiting;
+    private final List<Message> receivedMsgs = new CopyOnWriteArrayList<>();
     private Map<String, Integer> vectorClocks;
     private final PropertyChangeSupport propertyChangeSupport = new PropertyChangeSupport(receivedMsgs);
     private final String id, name;
@@ -66,7 +66,11 @@ public class ChatRoom {
         //Checks if the user can accept the message arrived, or if he has to put it in a queue
         if (checkVC(m)) {
             //Increase the PID of the message sender
-            vectorClocks.put(m.sender(), vectorClocks.get(m.sender()) + 1);
+            Map<String, Integer> tempClocks = new HashMap<>();
+            for(String key : m.vectorClocks().keySet()){
+                tempClocks.put(key, vectorClocks.get(key) > m.vectorClocks().get(key) ? vectorClocks.get(key) : m.vectorClocks().get(key));
+            }
+            vectorClocks = new HashMap<>(tempClocks);
             receivedMsgs.add(m);
             //Remove the message from the queue(if it was there)
             waiting.remove(m);
@@ -97,9 +101,9 @@ public class ChatRoom {
      *              E.G. I have 2.0.1 and receive packet 0.1.0
      */
     private boolean checkVC(Message m) {
-        Map<String, Integer> oldClocks = Map.copyOf(vectorClocks);
-        Map<String, Integer> newClocks = new HashMap<>(vectorClocks);
-        newClocks.put(m.sender(), vectorClocks.get(m.sender()) + 1);
+        Map<String, Integer> oldClocks = Map.copyOf(m.vectorClocks());
+        Map<String, Integer> newClocks = new HashMap<>(m.vectorClocks());
+        newClocks.put(m.sender(), oldClocks.get(m.sender()) + 1);
         boolean justEnough = false;
         //Cycle through all users
         for (String temp : users) {

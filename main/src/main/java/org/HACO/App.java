@@ -2,13 +2,14 @@ package org.HACO;
 
 import javax.swing.*;
 import java.awt.*;
+import java.util.Random;
 import java.util.Set;
 
 public class App {
     private JPanel panel1;
     private JTextArea msgArea;
     private JButton sendButton;
-    private JButton newButton;
+    private JButton newChatButton;
     private JComboBox<ChatRoom> chatRooms;
     private JButton deleteButton;
     private JButton disconnectReconnectButton;
@@ -16,13 +17,14 @@ public class App {
     private JLabel usernameLabel;
     private JLabel portLabel;
     private JLabel connectedLabel;
+    private JButton sendDelayed;
     private Client client;
 
 
 
     public App() {
         //Want to create a new Group for chatting
-        newButton.addActionListener(e -> {
+        newChatButton.addActionListener(e -> {
             System.out.println(client);
             CreateRoom dialog = new CreateRoom(client.getIps().keySet());
 
@@ -42,7 +44,16 @@ public class App {
             //Get the ChatRoom selected by the user in which he wants to send the msg
             ChatRoom chat = (ChatRoom) chatRooms.getSelectedItem();
 
-            client.sendMessage(msg, chat);
+            client.sendMessage(msg, chat, false);
+            msgArea.setText("");
+        });
+
+        //Just like the send button method, but this introduces an artificial delay, to check the VC implementation
+        sendDelayed.addActionListener(e -> {
+            String msg = msgArea.getText();
+            //Get the ChatRoom selected by the user in which he wants to send the msg
+            ChatRoom chat = (ChatRoom) chatRooms.getSelectedItem();
+            client.sendMessage(msg, chat, true);
             msgArea.setText("");
         });
 

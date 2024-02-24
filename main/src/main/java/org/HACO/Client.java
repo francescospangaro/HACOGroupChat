@@ -135,13 +135,13 @@ public class Client {
         });
     }
 
-    public void sendMessage(String msg, ChatRoom chat) {
-        List<Integer> vc = new ArrayList<>();
+    public void sendMessage(String msg, ChatRoom chat, boolean isDelayed) {
+        Map<String, Integer> vc = new HashMap<>();
         for (String s : chat.getUsers()) {
             if (s.equals(this.id))
-                vc.add(chat.getVectorClocks().get(s) + 1);
+                vc.put(this.id, chat.getVectorClocks().get(s) + 1);
             else
-                vc.add(chat.getVectorClocks().get(s));
+                vc.put(s, chat.getVectorClocks().get(s));
         }
 
         Message m = new Message(msg, vc, this.id);
@@ -152,14 +152,15 @@ public class Client {
             if (!id.equals(this.id)) {
                 try {
                     ObjectOutputStream oos = sockets.get(id).oos;
-                    oos.writeObject(new MessagePacket(chat.getId(), this.id, m));
+                    if (!isDelayed)
+                        oos.writeObject(new MessagePacket(chat.getId(), this.id, m));
+                    else
+                        oos.writeObject(new DelayedMessagePacket(chat.getId(), this.id, m));
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
             }
         });
-
-
     }
 
     public Map<String, SocketAddress> getIps() {

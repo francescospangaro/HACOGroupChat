@@ -17,7 +17,7 @@
         <properties/>
         <border type="none"/>
         <children>
-          <component id="a93df" class="javax.swing.JButton" binding="newButton" default-binding="true">
+          <component id="a93df" class="javax.swing.JButton" binding="newChatButton" default-binding="true">
             <constraints/>
             <properties>
               <text value="New"/>
@@ -86,6 +86,12 @@
             <constraints/>
             <properties>
               <text value="Send"/>
+            </properties>
+          </component>
+          <component id="3edae" class="javax.swing.JButton" binding="sendDelayed">
+            <constraints/>
+            <properties>
+              <text value="Send with delay"/>
             </properties>
           </component>
         </children>
