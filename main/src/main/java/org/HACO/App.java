@@ -16,7 +16,6 @@ public class App {
     private JLabel usernameLabel;
     private JLabel portLabel;
     private JLabel connectedLabel;
-    private JButton sendDelayed;
     private JTextField delayTime;
     private Client client;
 
@@ -44,18 +43,20 @@ public class App {
             //Get the ChatRoom selected by the user in which he wants to send the msg
             ChatRoom chat = (ChatRoom) chatRooms.getSelectedItem();
 
-            client.sendMessage(msg, chat, false, 0);
+            Integer delay;
+            try{
+                delay=Integer.valueOf(delayTime.getText());
+                if(delay<0){
+                    throw new NumberFormatException();
+                }
+            }catch (NumberFormatException ignored){
+                delay=0;
+            }
+
+            client.sendMessage(msg, chat, delay);
             msgArea.setText("");
         });
 
-        //Just like the send button method, but this introduces an artificial delay, to check the VC implementation
-        sendDelayed.addActionListener(e -> {
-            String msg = msgArea.getText();
-            //Get the ChatRoom selected by the user in which he wants to send the msg
-            ChatRoom chat = (ChatRoom) chatRooms.getSelectedItem();
-            client.sendMessage(msg, chat, true, delayTime.getText() == null ? 7 : Integer.parseInt(delayTime.getText()));
-            msgArea.setText("");
-        });
 
         deleteButton.addActionListener(e -> {
             ChatRoom toDelete = (ChatRoom) chatRooms.getSelectedItem();

@@ -135,7 +135,9 @@ public class Client {
         });
     }
 
-    public void sendMessage(String msg, ChatRoom chat, boolean isDelayed, int delayedTime) {
+    public void sendMessage(String msg, ChatRoom chat, int delayedTime) {
+        boolean isDelayed = delayedTime != 0;
+
         Map<String, Integer> vc = new HashMap<>();
         for (String s : chat.getUsers()) {
             if (s.equals(this.id))
