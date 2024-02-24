@@ -43,9 +43,9 @@ public class App {
             //Get the ChatRoom selected by the user in which he wants to send the msg
             ChatRoom chat = (ChatRoom) chatRooms.getSelectedItem();
 
-            Integer delay;
+            int delay;
             try {
-                delay = Integer.valueOf(delayTime.getText());
+                delay = Integer.parseInt(delayTime.getText());
                 if (delay < 0) {
                     throw new NumberFormatException();
                 }
@@ -89,8 +89,7 @@ public class App {
             try {
                 String input = JOptionPane.showInputDialog(frame, "Insert a port", 12345);
                 if (input == null) {
-                    frame.dispose();
-                    return;
+                    System.exit(0);
                 }
                 port = Integer.parseInt(input);
             } catch (NumberFormatException e) {
@@ -103,8 +102,9 @@ public class App {
         String id;
         do {
             id = JOptionPane.showInputDialog(frame, "Insert an id");
-            if (id == null)
+            if (id == null) {
                 System.exit(0);
+            }
         } while (id.isEmpty());
         usernameLabel.setText(id);
 
