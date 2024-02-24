@@ -133,6 +133,7 @@ public class Client {
                 throw new RuntimeException(e);
             }
         });
+        connected = true;
     }
 
     public void sendMessage(String msg, ChatRoom chat, int delayedTime) {
@@ -205,7 +206,7 @@ public class Client {
         });
     }
 
-    private void connect(Peer2DiscoveryPacket packet) {
+    private void sendToDiscovery(Peer2DiscoveryPacket packet) {
         //I send to the DISCOVERY_SERVER my ID and Port
         try (Socket s = new Socket()) {
             s.connect(DISCOVERY_SERVER);
@@ -223,13 +224,9 @@ public class Client {
         }
     }
 
-    public void setConnected(boolean connected) {
-        this.connected = connected;
-
-        if (!this.connected) {
-            connect(new ByePacket(this.id));
-        }
-
+    public void disconnect() {
+        this.connected = false;
+        sendToDiscovery(new ByePacket(this.id));
     }
 
     public boolean getConnected() {

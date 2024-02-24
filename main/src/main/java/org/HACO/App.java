@@ -63,25 +63,34 @@ public class App {
             client.deleteRoom(toDelete);
         });
         disconnectReconnectButton.addActionListener(e -> {
-            this.setConnected(!client.getConnected());
+            setConnected(!client.getConnected());
         });
     }
 
     public void start() {
         JFrame frame = new JFrame();
         frame.setContentPane(panel1);
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         Dimension d = Toolkit.getDefaultToolkit().getScreenSize();
         frame.setSize(d.width / 2, d.height / 2);
         frame.setVisible(true);
+        frame.addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowClosed(java.awt.event.WindowEvent windowEvent) {
+                client.disconnect();
+            }
+        });
+
         delayTime.setColumns(10);
 
         int port = -1;
         do {
             try {
                 String input = JOptionPane.showInputDialog(frame, "Insert a port", 12345);
-                if (input == null)
-                    System.exit(0);
+                if (input == null) {
+                    frame.dispose();
+                    return;
+                }
                 port = Integer.parseInt(input);
             } catch (NumberFormatException e) {
                 System.err.println("Port not valid " + e);
@@ -119,19 +128,17 @@ public class App {
             }
         });
         System.out.println("started " + client);
-        this.setConnected(true);
-
     }
 
     private void setConnected(boolean connected) {
-        client.setConnected(connected);
-
         if (connected) {
+            client.connect();
             connectedLabel.setText("connected");
             connectedLabel.setForeground(new Color(0, 153, 51));
 
             disconnectReconnectButton.setText("Disconnect");
         } else {
+            client.disconnect();
             connectedLabel.setText("disconnected");
             connectedLabel.setForeground(Color.red);
 
