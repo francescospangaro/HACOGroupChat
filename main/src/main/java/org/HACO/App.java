@@ -20,7 +20,6 @@ public class App {
     private Client client;
 
 
-
     public App() {
         //Want to create a new Group for chatting
         newChatButton.addActionListener(e -> {
@@ -61,7 +60,6 @@ public class App {
         deleteButton.addActionListener(e -> {
             ChatRoom toDelete = (ChatRoom) chatRooms.getSelectedItem();
             System.out.println("Deleting room " + toDelete.getId());
-            chatRooms.removeItem(toDelete);
             client.deleteRoom(toDelete);
         });
         disconnectReconnectButton.addActionListener(e -> {
@@ -98,12 +96,12 @@ public class App {
 
         client = new Client(id, port, evt -> {
             if (evt.getPropertyName().equals("ADD_ROOM")) {
-                System.out.println("Rooms added in gui");
                 ChatRoom chat = (ChatRoom) evt.getNewValue();
+                System.out.println("Room " + chat + " added in gui");
                 chatRooms.addItem(chat);
             } else if (evt.getPropertyName().equals("DEL_ROOM")) {
-                System.out.println("Rooms removed from gui");
                 ChatRoom chat = (ChatRoom) evt.getOldValue();
+                System.out.println("Room " + chat + " removed from gui");
                 chatRooms.removeItem(chat);
             }
         }, evt -> {
@@ -117,15 +115,15 @@ public class App {
 
     }
 
-    private void setConnected(boolean connected){
+    private void setConnected(boolean connected) {
         client.setConnected(connected);
 
-        if(connected){
+        if (connected) {
             connectedLabel.setText("connected");
             connectedLabel.setForeground(new Color(0, 153, 51));
 
             disconnectReconnectButton.setText("Disconnect");
-        }else{
+        } else {
             connectedLabel.setText("disconnected");
             connectedLabel.setForeground(Color.red);
 

@@ -182,7 +182,7 @@ public class Client {
     }
 
     public void deleteRoom(ChatRoom toDelete) {
-        propertyChangeSupport.firePropertyChange("DEL_ROOM", null, toDelete);
+        propertyChangeSupport.firePropertyChange("DEL_ROOM", toDelete, null);
         chats.remove(toDelete);
 
         sendMsg(new DeleteRoomPacket(toDelete.getId()), toDelete.getUsers());
