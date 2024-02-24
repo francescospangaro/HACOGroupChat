@@ -33,7 +33,7 @@ public class DiscoveryServer {
         while (!serverSocket.isClosed()) {
             System.out.println("Waiting connection...");
             try (Socket s = serverSocket.accept()) {
-                System.out.println("connected");
+                System.out.println("A Peer connected");
 
                 ObjectOutputStream oos = new ObjectOutputStream(s.getOutputStream());
                 ObjectInputStream ois = new ObjectInputStream(s.getInputStream());
@@ -49,12 +49,17 @@ public class DiscoveryServer {
 //                                .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue))
                         ));
                         oos.flush();
-                        System.out.println("sent");
+                        System.out.println("Send info of all peers");
                         ips.put(ipPacket.id(), new InetSocketAddress(s.getInetAddress(), ipPacket.port()));
                     }
                     case ByePacket byePacket -> {
                         ips.remove(byePacket.id());
                         System.out.println("Client disconnected id: "+byePacket.id());
+
+                        //Let the peer know that I received his request avoiding that he closes the connection
+                        // while I have not read all the bytes
+                        oos.writeObject(new IPsPacket(null));
+                        oos.flush();
                     }
                 }
             } catch (IOException | ClassNotFoundException e) {

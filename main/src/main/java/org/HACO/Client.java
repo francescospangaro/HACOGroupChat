@@ -136,7 +136,7 @@ public class Client {
             sendPacket(new MessagePacket(chat.getId(), this.id, m), chat.getUsers());
         else
             sendPacket(new DelayedMessagePacket(chat.getId(), this.id, m, delayedTime), chat.getUsers());
-}
+    }
 
     public Map<String, SocketAddress> getIps() {
         return Collections.unmodifiableMap(ips);
@@ -174,7 +174,7 @@ public class Client {
                         ObjectOutputStream oos = sockets.get(id).oos;
                         oos.writeObject(packet);
                     } else {
-                        System.out.println("Peer " + id + " currently disconnected, enqueuing packet...");
+                        System.out.println("Peer " + id + " currently disconnected, enqueuing packet only for him...");
                         //TODO: enqueue the packet
                     }
                 } catch (IOException e) {
@@ -188,16 +188,23 @@ public class Client {
         //I send to the DISCOVERY_SERVER my ID and Port
         try (Socket s = new Socket()) {
             s.connect(DISCOVERY_SERVER);
-            System.out.println("Connected");
+            System.out.println("Connected to DISCOVERY_SERVER");
 
             //Send a UpdateIpPacket
             ObjectOutputStream oos = new ObjectOutputStream(s.getOutputStream());
             oos.writeObject(packet);
-            System.out.println("Sent");
+            var ois = new ObjectInputStream(s.getInputStream());
+            System.out.println("Sent to DISCOVERY_SERVER");
 
             oos.flush();
 
+            //Waiting ACK from DISCOVERY_SERVER
+            Map<String, SocketAddress> ack = ((IPsPacket) ois.readObject()).ips();
+            System.out.println("Received ACK");
+
         } catch (IOException e) {
+            throw new RuntimeException(e);
+        } catch (ClassNotFoundException e) {
             throw new RuntimeException(e);
         }
     }
@@ -205,7 +212,9 @@ public class Client {
     public void disconnect() {
         System.out.println("Disconnecting...");
         this.connected = false;
+
         sendToDiscovery(new ByePacket(this.id));
+
         try {
             serverSocket.close();
         } catch (IOException e) {
