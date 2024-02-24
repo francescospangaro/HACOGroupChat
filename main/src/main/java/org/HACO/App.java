@@ -79,15 +79,23 @@ public class App {
         int port = -1;
         do {
             try {
-                port = Integer.parseInt(JOptionPane.showInputDialog(frame, "Insert a port", 12345));
-            } catch (NumberFormatException ignored) {
-                System.err.println(ignored);
+                String input = JOptionPane.showInputDialog(frame, "Insert a port", 12345);
+                if (input == null)
+                    System.exit(0);
+                port = Integer.parseInt(input);
+            } catch (NumberFormatException e) {
+                System.err.println("Port not valid " + e);
             }
-        } while (port <= 1024);
+        } while (port <= 1024 || port > 65535);
 
         portLabel.setText(String.valueOf(port));
 
-        String id = JOptionPane.showInputDialog(frame, "Insert an id");
+        String id;
+        do {
+            id = JOptionPane.showInputDialog(frame, "Insert an id");
+            if (id == null)
+                System.exit(0);
+        } while (id.isEmpty());
         usernameLabel.setText(id);
 
         DefaultListModel<String> msgListModel = new DefaultListModel<>();

@@ -14,14 +14,10 @@ public class CreateRoom extends JDialog {
     private JScrollPane scrollPane;
     private JList<String> userList;
     private JTextField roomName;
-    private Set<String> users;
-    private Set<String> selected;
 
     private boolean confirmed = false;
 
     public CreateRoom(Set<String> users) {
-        this.users = new HashSet<>(users);
-        selected = new HashSet<>();
         setContentPane(contentPane);
         setModal(true);
         getRootPane().setDefaultButton(buttonOK);
@@ -51,8 +47,10 @@ public class CreateRoom extends JDialog {
 
     private void onOK() {
         // add your code here
-        confirmed = true;
-        dispose();
+        if (!roomName.getText().isEmpty()) {
+            confirmed = true;
+            dispose();
+        }
     }
 
     private void onCancel() {
