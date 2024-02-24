@@ -132,7 +132,7 @@ public class App {
 
     private void setConnected(boolean connected) {
         if (connected) {
-            client.connect();
+            client.start();
             connectedLabel.setText("connected");
             connectedLabel.setForeground(new Color(0, 153, 51));
 

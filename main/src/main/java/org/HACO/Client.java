@@ -30,7 +30,7 @@ public class Client {
     ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor();
     private ServerSocket serverSocket;
 
-    private final Map<String, SocketAddress> ips;
+    private Map<String, SocketAddress> ips;
     private final Map<String, SocketInfo> sockets;
 
     private final PropertyChangeListener msgChangeListener;
@@ -51,39 +51,13 @@ public class Client {
         propertyChangeSupport.addPropertyChangeListener(chatRoomsChangeListener);
         this.msgChangeListener = msgChangeListener;
 
+        start();
+    }
+
+    public void start() {
         ips = register();
-
         connect();
-
-        executorService.execute(() -> {
-            try {
-                //Waiting for incoming packets by creating a serverSocket
-                serverSocket = new ServerSocket(port);
-
-                while (!serverSocket.isClosed()) {
-                    Socket justConnectedClient = serverSocket.accept();
-                    //Someone has just connected to me
-                    System.out.println(justConnectedClient.getRemoteSocketAddress() + " is connected");
-
-                    var oos = new ObjectOutputStream(justConnectedClient.getOutputStream());
-                    var ois = new ObjectInputStream(justConnectedClient.getInputStream());
-
-                    //I will receive a helloPacket from him containing his ID
-                    HelloPacket helloPacket = (HelloPacket) ois.readObject();
-
-                    //Update the list of sockets of the other peers
-                    sockets.put(helloPacket.id(), new SocketInfo(justConnectedClient, oos, ois));
-
-                    //Update the list of Addresses of the other peers
-                    ips.put(helloPacket.id(), justConnectedClient.getRemoteSocketAddress());
-
-                    executorService.execute(new ChatUpdater(justConnectedClient, ois, chats, propertyChangeSupport, msgChangeListener));
-                }
-            } catch (IOException | ClassNotFoundException e) {
-                throw new RuntimeException(e);
-            }
-        });
-
+        executorService.execute(this::runServer);
     }
 
     private Map<String, SocketAddress> register() {
@@ -227,9 +201,52 @@ public class Client {
     public void disconnect() {
         this.connected = false;
         sendToDiscovery(new ByePacket(this.id));
+        try {
+            serverSocket.close();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        sockets.forEach((id, socketInfo) -> {
+            try {
+                socketInfo.s.close();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+        sockets.clear();
+        ips.clear();
     }
 
     public boolean getConnected() {
         return this.connected;
+    }
+
+    private void runServer() {
+        try {
+            //Waiting for incoming packets by creating a serverSocket
+            serverSocket = new ServerSocket(port);
+
+            while (connected) {
+                Socket justConnectedClient = serverSocket.accept();
+                //Someone has just connected to me
+                System.out.println(justConnectedClient.getRemoteSocketAddress() + " is connected");
+
+                var oos = new ObjectOutputStream(justConnectedClient.getOutputStream());
+                var ois = new ObjectInputStream(justConnectedClient.getInputStream());
+
+                //I will receive a helloPacket from him containing his ID
+                HelloPacket helloPacket = (HelloPacket) ois.readObject();
+
+                //Update the list of sockets of the other peers
+                sockets.put(helloPacket.id(), new SocketInfo(justConnectedClient, oos, ois));
+
+                //Update the list of Addresses of the other peers
+                ips.put(helloPacket.id(), justConnectedClient.getRemoteSocketAddress());
+
+                executorService.execute(new ChatUpdater(justConnectedClient, ois, chats, propertyChangeSupport, msgChangeListener));
+            }
+        } catch (IOException | ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
     }
 }
