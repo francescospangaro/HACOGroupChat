@@ -135,7 +135,7 @@ public class Client {
         });
     }
 
-    public void sendMessage(String msg, ChatRoom chat, boolean isDelayed) {
+    public void sendMessage(String msg, ChatRoom chat, boolean isDelayed, int delayedTime) {
         Map<String, Integer> vc = new HashMap<>();
         for (String s : chat.getUsers()) {
             if (s.equals(this.id))
@@ -155,7 +155,7 @@ public class Client {
                     if (!isDelayed)
                         oos.writeObject(new MessagePacket(chat.getId(), this.id, m));
                     else
-                        oos.writeObject(new DelayedMessagePacket(chat.getId(), this.id, m));
+                        oos.writeObject(new DelayedMessagePacket(chat.getId(), this.id, m, delayedTime));
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }

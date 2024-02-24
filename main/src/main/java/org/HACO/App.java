@@ -2,7 +2,6 @@ package org.HACO;
 
 import javax.swing.*;
 import java.awt.*;
-import java.util.Random;
 import java.util.Set;
 
 public class App {
@@ -18,6 +17,7 @@ public class App {
     private JLabel portLabel;
     private JLabel connectedLabel;
     private JButton sendDelayed;
+    private JTextField delayTime;
     private Client client;
 
 
@@ -44,7 +44,7 @@ public class App {
             //Get the ChatRoom selected by the user in which he wants to send the msg
             ChatRoom chat = (ChatRoom) chatRooms.getSelectedItem();
 
-            client.sendMessage(msg, chat, false);
+            client.sendMessage(msg, chat, false, 0);
             msgArea.setText("");
         });
 
@@ -53,7 +53,7 @@ public class App {
             String msg = msgArea.getText();
             //Get the ChatRoom selected by the user in which he wants to send the msg
             ChatRoom chat = (ChatRoom) chatRooms.getSelectedItem();
-            client.sendMessage(msg, chat, true);
+            client.sendMessage(msg, chat, true, delayTime.getText() == null ? 7 : Integer.parseInt(delayTime.getText()));
             msgArea.setText("");
         });
 
@@ -75,6 +75,7 @@ public class App {
         Dimension d = Toolkit.getDefaultToolkit().getScreenSize();
         frame.setSize(d.width / 2, d.height / 2);
         frame.setVisible(true);
+        delayTime.setColumns(10);
 
         int port = -1;
         do {

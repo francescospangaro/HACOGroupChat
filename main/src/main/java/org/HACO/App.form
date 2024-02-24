@@ -94,6 +94,13 @@
               <text value="Send with delay"/>
             </properties>
           </component>
+          <component id="e6254" class="javax.swing.JTextField" binding="delayTime">
+            <constraints/>
+            <properties>
+              <text value="Seconds"/>
+              <toolTipText value=""/>
+            </properties>
+          </component>
         </children>
       </grid>
       <grid id="52185" layout-manager="GridLayoutManager" row-count="3" column-count="2" same-size-horizontally="false" same-size-vertically="false" hgap="-1" vgap="-1">

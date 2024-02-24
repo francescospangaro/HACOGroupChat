@@ -50,7 +50,7 @@ public class ChatUpdater extends Thread {
                     //Sends a message with a delay of 7 seconds, in order to test the vector clocks ordering
                     case DelayedMessagePacket dm -> {
                         System.out.println("Message delayed!");
-                        sleep(7000);
+                        sleep(dm.delayedTime() * 1000L);
                         ChatRoom chat = chats.stream().filter(c -> Objects.equals(c.getId(), dm.chatId())).findFirst().orElseThrow();
                         chat.push(dm.msg());
                     }
