@@ -144,9 +144,9 @@ public class Client {
 
         //Send a MessagePacket containing the Message just created to each User of the ChatRoom
         if (!isDelayed)
-            sendPacket(new MessagePacket(chat.getId(), this.id, m), chat.getUsers());
+            sendPacket(new MessagePacket(chat.getId(), m), chat.getUsers());
         else
-            sendPacket(new DelayedMessagePacket(chat.getId(), this.id, m, delayedTime), chat.getUsers());
+            sendPacket(new DelayedMessagePacket(chat.getId(), m, delayedTime), chat.getUsers());
     }
 
     public Map<String, SocketAddress> getIps() {
