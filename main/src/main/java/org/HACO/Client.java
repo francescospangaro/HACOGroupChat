@@ -50,7 +50,7 @@ public class Client {
         this.port = port;
 
         chats = ConcurrentHashMap.newKeySet();
-        sockets = new HashMap<>();
+        sockets = new ConcurrentHashMap<>();
 
         roomsPropertyChangeSupport = new PropertyChangeSupport(chats);
         roomsPropertyChangeSupport.addPropertyChangeListener(chatRoomsChangeListener);
@@ -84,7 +84,7 @@ public class Client {
             oos.flush();
 
             //Waiting list of <ID_otherPeer,HisSocketAddress> from DISCOVERY_SERVER
-            Map<String, SocketAddress> ips = ((IPsPacket) ois.readObject()).ips();
+            Map<String, SocketAddress> ips = new ConcurrentHashMap<>(((IPsPacket) ois.readObject()).ips());
             System.out.println("Received map " + ips);
 
             return ips;
