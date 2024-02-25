@@ -15,7 +15,7 @@ import java.net.SocketAddress;
 import java.util.HashMap;
 import java.util.Map;
 
-public class DiscoveryServer {
+public class DiscoveryServer implements Runnable{
 
     private final Map<String, SocketAddress> ips;
     private final ServerSocket serverSocket;
@@ -29,6 +29,7 @@ public class DiscoveryServer {
         }
     }
 
+    @Override
     public void run() {
         while (!serverSocket.isClosed()) {
             System.out.println("Waiting connection...");
