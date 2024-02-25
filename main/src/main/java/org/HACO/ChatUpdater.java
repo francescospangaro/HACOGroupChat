@@ -1,10 +1,6 @@
 package org.HACO;
 
-import org.HACO.packets.CreateRoomPacket;
-import org.HACO.packets.DelayedMessagePacket;
-import org.HACO.packets.DeleteRoomPacket;
-import org.HACO.packets.MessagePacket;
-import org.HACO.packets.P2PPacket;
+import org.HACO.packets.*;
 
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
@@ -14,7 +10,6 @@ import java.io.ObjectInputStream;
 import java.net.Socket;
 import java.net.SocketException;
 import java.util.Objects;
-import java.util.Random;
 import java.util.Set;
 
 public class ChatUpdater extends Thread {
@@ -77,8 +72,7 @@ public class ChatUpdater extends Thread {
                 //Peer disconnected
                 return;
             } catch (IOException | ClassNotFoundException | InterruptedException e) {
-                e.printStackTrace();
-                throw new RuntimeException(e);
+                throw new Error(e);
             }
         }
     }

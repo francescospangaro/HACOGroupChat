@@ -25,7 +25,7 @@ public class Client {
     private static final InetSocketAddress DISCOVERY_SERVER = new InetSocketAddress("localhost", 8080);
     private final String id;
     private final int port;
-    private Set<ChatRoom> chats;
+    private final Set<ChatRoom> chats;
     private final PropertyChangeSupport roomsPropertyChangeSupport;
     private final PropertyChangeSupport usersPropertyChangeSupport;
 
@@ -89,7 +89,7 @@ public class Client {
 
             return ips;
         } catch (IOException | ClassNotFoundException e) {
-            throw new RuntimeException(e);
+            throw new Error(e);
         }
     }
 
@@ -122,7 +122,7 @@ public class Client {
                             System.err.println(id + " disconnected");
                         });
             } catch (IOException e) {
-                throw new RuntimeException(e);
+                throw new Error(e);
             }
         });
         connected = true;
@@ -189,7 +189,7 @@ public class Client {
                         //TODO: enqueue the packet
                     }
                 } catch (IOException e) {
-                    throw new RuntimeException(e);
+                    throw new Error(e);
                 }
             }
         });
@@ -210,21 +210,19 @@ public class Client {
             oos.flush();
 
             //Waiting ACK from DISCOVERY_SERVER
-            Map<String, SocketAddress> ack = ((IPsPacket) ois.readObject()).ips();
+            ois.readObject();
             System.out.println("Received ACK");
 
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        } catch (ClassNotFoundException e) {
-            throw new RuntimeException(e);
+        } catch (IOException | ClassNotFoundException e) {
+            throw new Error(e);
         }
     }
 
     public void disconnect() {
         System.out.println("Disconnecting...");
-        this.connected = false;
+        connected = false;
 
-        sendToDiscovery(new ByePacket(this.id));
+        sendToDiscovery(new ByePacket(id));
 
         try {
             serverSocket.close();
@@ -244,7 +242,7 @@ public class Client {
         ips.clear();
     }
 
-    public boolean getConnected() {
+    public boolean isConnected() {
         return this.connected;
     }
 
@@ -286,7 +284,7 @@ public class Client {
         } catch (SocketException ignored) {
             System.err.println("Server shut down");
         } catch (IOException | ClassNotFoundException e) {
-            e.printStackTrace();
+            throw new Error(e);
         }
     }
 }

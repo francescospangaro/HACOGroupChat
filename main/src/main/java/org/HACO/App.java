@@ -64,7 +64,22 @@ public class App {
             client.deleteRoom(toDelete);
         });
         disconnectReconnectButton.addActionListener(e -> {
-            setConnected(!client.getConnected());
+            setConnected(!client.isConnected());
+        });
+
+        Thread.setDefaultUncaughtExceptionHandler((t, e) -> {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(JOptionPane.getRootFrame(),
+                    "Unexpected error. The application will terminate.\n" + e.getMessage(),
+                    "Fatal error",
+                    JOptionPane.ERROR_MESSAGE);
+
+            //Try to disconnect before killing
+            if (client != null && client.isConnected()) {
+                client.disconnect();
+            }
+
+            System.exit(-1);
         });
     }
 
@@ -130,7 +145,6 @@ public class App {
                 connectedModelList.addElement((String) evt.getNewValue());
             } else {
                 System.out.println("Removing " + evt.getOldValue() + " " + connectedModelList.removeElement(evt.getOldValue()));
-
             }
         }, evt -> {
             if (evt.getPropertyName().equals("ADD_MSG")) {
@@ -156,7 +170,6 @@ public class App {
             disconnectReconnectButton.setText("Reconnect");
         }
     }
-
 
     public static void main(String[] args) {
         new App().start();
