@@ -300,7 +300,7 @@ public class Client {
                 for (ChatRoom c : chats) {
                     if (!c.getDisconnectMsgs().get(id).isEmpty()) {
                         for(P2PPacket packet : c.getDisconnectMsgs().get(id)){
-                            this.sendSinglePeer(packet, id);
+                            this.sendPacket(packet, c.getUsers(), c);
                         }
                     }
                 }
