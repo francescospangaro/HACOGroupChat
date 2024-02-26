@@ -5,6 +5,7 @@ import org.HACO.packets.Message;
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
@@ -21,8 +22,8 @@ public class ChatRoom {
         this.users = users;
         this.id = initId();
 
-        waiting = new HashSet<>();
-        vectorClocks = new HashMap<>();
+        waiting = ConcurrentHashMap.newKeySet();
+        vectorClocks = new ConcurrentHashMap<>();
 
         for (String user : users) {
             vectorClocks.put(user, 0);
@@ -34,8 +35,8 @@ public class ChatRoom {
         this.name = name;
         this.users = users;
         this.id = id;
-        waiting = new HashSet<>();
-        vectorClocks = new HashMap<>();
+        waiting = ConcurrentHashMap.newKeySet();
+        vectorClocks = new ConcurrentHashMap<>();
         for (String user : users) {
             vectorClocks.put(user, 0);
         }
@@ -106,7 +107,7 @@ public class ChatRoom {
      *         returns true even if the message is not in order, but has been sent before one that I have
      *              E.G. I have 2.0.1 and receive packet 0.1.0
      */
-    private boolean checkVC(Message m) {
+    private synchronized boolean checkVC(Message m) {
         Map<String, Integer> oldClocks = Map.copyOf(m.vectorClocks());
         Map<String, Integer> newClocks = new HashMap<>(m.vectorClocks());
         newClocks.put(m.sender(), oldClocks.get(m.sender()) + 1);
