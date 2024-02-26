@@ -16,6 +16,7 @@ public class ChatRoom {
     private final List<Message> receivedMsgs = new CopyOnWriteArrayList<>();
     private final Map<String, Integer> vectorClocks;
     private final Map<String, List<P2PPacket>> disconnectMsgs = new ConcurrentHashMap<>();
+    private final List<P2PPacket> myDisconnectedMsgs = new CopyOnWriteArrayList<>();
     private final PropertyChangeSupport propertyChangeSupport = new PropertyChangeSupport(receivedMsgs);
     private final String id, name;
 
@@ -141,7 +142,15 @@ public class ChatRoom {
         disconnectMsgs.get(id).add(m);
     }
 
+    public void addMyDisconnectedMsg(P2PPacket m){
+        myDisconnectedMsgs.add(m);
+    }
+
     public Map<String, List<P2PPacket>> getDisconnectMsgs(){
         return disconnectMsgs;
+    }
+
+    public List<P2PPacket> getMyDisconnectedMsgs() {
+        return myDisconnectedMsgs;
     }
 }

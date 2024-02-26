@@ -196,7 +196,7 @@ public class Client {
                         oos.writeObject(packet);
                     } else {
                         System.out.println("[" + this.id + "] Peer " + id + " currently disconnected, enqueuing packet only for him...");
-                        chatRoom.addDisconnectedPeerMsg(packet, id);
+                        chatRoom.addMyDisconnectedMsg(packet);
                     }
                 } catch (IOException e) {
                     throw new Error(e);
@@ -298,8 +298,8 @@ public class Client {
                 usersPropertyChangeSupport.firePropertyChange("USER_CONNECTED", null, helloPacket.id());
 
                 for (ChatRoom c : chats) {
-                    if (!c.getDisconnectMsgs().get(id).isEmpty()) {
-                        for(P2PPacket packet : c.getDisconnectMsgs().get(id)){
+                    if (!c.getMyDisconnectedMsgs().isEmpty()) {
+                        for(P2PPacket packet : c.getMyDisconnectedMsgs()){
                             this.sendPacket(packet, c.getUsers(), c);
                         }
                     }
