@@ -151,7 +151,7 @@ public class App {
                 System.out.println("Msg added in gui");
                 msgListModel.addElement(evt.getNewValue().toString());
             }
-        });
+        }, false);
         System.out.println("started " + client);
     }
 

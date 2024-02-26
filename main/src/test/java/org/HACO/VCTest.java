@@ -34,11 +34,11 @@ class VCTest {
         CompletableFuture<String> c2Promise = new CompletableFuture<>();
         Client c1 = new Client("id1", 12345, e -> {
         }, e -> c1Promise.complete((String) e.getNewValue()), e -> {
-        });
+        }, true);
 
         Client c2 = new Client("id2", 12346, e -> {
         }, e -> c2Promise.complete((String) e.getNewValue()), e -> {
-        });
+        }, true);
 
         String u1 = c1Promise.get(500, TimeUnit.MILLISECONDS);
         String u2 = c2Promise.get(500, TimeUnit.MILLISECONDS);
@@ -58,10 +58,10 @@ class VCTest {
         CompletableFuture<ChatRoom> chat2Promise = new CompletableFuture<>();
         Client c1 = new Client("id1", 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
                 e -> c1Promise.complete((String) e.getNewValue()), e -> {
-        });
+        }, true);
         Client c2 = new Client("id2", 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
                 e -> c2Promise.complete((String) e.getNewValue()), e -> {
-        });
+        }, true);
         c1Promise.get(500, TimeUnit.MILLISECONDS);
         c2Promise.get(500, TimeUnit.MILLISECONDS);
 
@@ -91,11 +91,11 @@ class VCTest {
         CompletableFuture<Message> msg2Promise = new CompletableFuture<>();
         Client c1 = new Client("id1", 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
                 e -> c1Promise.complete((String) e.getNewValue()),
-                e -> msg1Promise.complete((Message) e.getNewValue()));
+                e -> msg1Promise.complete((Message) e.getNewValue()), true);
 
         Client c2 = new Client("id2", 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
                 e -> c2Promise.complete((String) e.getNewValue()),
-                e -> msg2Promise.complete((Message) e.getNewValue()));
+                e -> msg2Promise.complete((Message) e.getNewValue()), true);
 
         System.out.println(c1Promise.get(500, TimeUnit.MILLISECONDS));
         System.out.println(c2Promise.get(500, TimeUnit.MILLISECONDS));
@@ -138,18 +138,18 @@ class VCTest {
                     System.out.println("PD " + e);
                     users1.countDown();
                 },
-                e -> msg1Promise.complete((Message) e.getNewValue()));
+                e -> msg1Promise.complete((Message) e.getNewValue()), true);
 
         Client c2 = new Client("id2", 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
                 e -> users2.countDown(),
-                e -> msg2Promise.complete((Message) e.getNewValue()));
+                e -> msg2Promise.complete((Message) e.getNewValue()), true);
 
         Client c3 = new Client("id3", 12347, e -> chat3Promise.complete((ChatRoom) e.getNewValue()),
                 e -> users3.countDown(),
                 e -> {
                     msg3List.add((Message) e.getNewValue());
                     msg3.countDown();
-                });
+                }, true);
         assertTrue(users1.await(500, TimeUnit.MILLISECONDS));
         assertTrue(users2.await(500, TimeUnit.MILLISECONDS));
         assertTrue(users3.await(500, TimeUnit.MILLISECONDS));

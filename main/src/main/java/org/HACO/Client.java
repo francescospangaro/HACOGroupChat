@@ -21,6 +21,7 @@ import java.util.concurrent.Executors;
 public class Client {
     private static final InetSocketAddress DISCOVERY_SERVER = new InetSocketAddress("localhost", 8080);
     private final String id;
+    private final boolean testing;
     private final int port;
     private final Set<ChatRoom> chats;
     private final PropertyChangeSupport roomsPropertyChangeSupport;
@@ -44,9 +45,11 @@ public class Client {
     public Client(String id, int port,
                   PropertyChangeListener chatRoomsChangeListener,
                   PropertyChangeListener usersChangeListener,
-                  PropertyChangeListener msgChangeListener) {
+                  PropertyChangeListener msgChangeListener,
+                  boolean testing) {
         this.id = id;
         this.port = port;
+        this.testing = testing;
 
         chats = ConcurrentHashMap.newKeySet();
         sockets = new ConcurrentHashMap<>();
@@ -153,9 +156,11 @@ public class Client {
         //Send a MessagePacket containing the Message just created to each User of the ChatRoom
         if (!isDelayed) {
             Set<String> normalPeers = new HashSet<>(chat.getUsers());
-            normalPeers.removeAll(degradedConnections);
+            if (testing)
+                normalPeers.removeAll(degradedConnections);
             sendPacket(new MessagePacket(chat.getId(), m), normalPeers, chat);
-            sendPacket(new DelayedMessagePacket(chat.getId(), m, 2), degradedConnections, chat);
+            if (testing)
+                sendPacket(new DelayedMessagePacket(chat.getId(), m, 2), degradedConnections, chat);
         } else
             sendPacket(new DelayedMessagePacket(chat.getId(), m, delayedTime), chat.getUsers(), chat);
     }
@@ -299,7 +304,7 @@ public class Client {
 
                 for (ChatRoom c : chats) {
                     if (!c.getMyDisconnectedMsgs().isEmpty()) {
-                        for(P2PPacket packet : c.getMyDisconnectedMsgs()){
+                        for (P2PPacket packet : c.getMyDisconnectedMsgs()) {
                             this.sendPacket(packet, c.getUsers(), c);
                         }
                     }
