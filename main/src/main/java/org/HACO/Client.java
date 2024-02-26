@@ -65,6 +65,7 @@ public class Client {
     }
 
     public void start() {
+        System.out.println("STARTING " + id);
         executorService.execute(this::runServer);
         ips.putAll(register());
         connect();
@@ -74,19 +75,19 @@ public class Client {
         //I send to the DISCOVERY_SERVER my ID and Port
         try (Socket s = new Socket()) {
             s.connect(DISCOVERY_SERVER);
-            System.out.println("Connected");
+            System.out.println("[" + id + "] Connected");
 
             //Send a UpdateIpPacket
             ObjectOutputStream oos = new ObjectOutputStream(s.getOutputStream());
             ObjectInputStream ois = new ObjectInputStream(s.getInputStream());
             oos.writeObject(new UpdateIpPacket(id, port));
-            System.out.println("Sent");
+            System.out.println("[" + id + "] Sent");
 
             oos.flush();
 
             //Waiting list of <ID_otherPeer,HisSocketAddress> from DISCOVERY_SERVER
             Map<String, SocketAddress> ips = ((IPsPacket) ois.readObject()).ips();
-            System.out.println("Received map " + ips);
+            System.out.println("[" + id + "] Received map" + ips);
 
             return ips;
         } catch (IOException | ClassNotFoundException e) {
@@ -99,9 +100,9 @@ public class Client {
         ips.forEach((id, addr) -> {
             try {
                 Socket s = new Socket();
-                System.out.println("connecting to " + addr);
+                System.out.println("[" + this.id + "] connecting to " + id);
                 s.connect(addr);
-                System.out.println("connected");
+                System.out.println("[" + this.id + "] connected");
 
                 var oos = new ObjectOutputStream(s.getOutputStream());
                 var ois = new ObjectInputStream(s.getInputStream());
@@ -120,7 +121,7 @@ public class Client {
                             ips.put(id, null);
                             sockets.put(id, null);
                             usersPropertyChangeSupport.firePropertyChange("USER_DISCONNECTED", id, null);
-                            System.err.println(id + " disconnected");
+                            System.err.println("[" + this.id + "]" + id + " disconnected");
                         });
             } catch (IOException e) {
                 throw new Error(e);
@@ -189,7 +190,7 @@ public class Client {
                         ObjectOutputStream oos = sockets.get(id).oos;
                         oos.writeObject(packet);
                     } else {
-                        System.out.println("Peer " + id + " currently disconnected, enqueuing packet only for him...");
+                        System.out.println("[" + this.id + "] Peer " + id + " currently disconnected, enqueuing packet only for him...");
                         //TODO: enqueue the packet
                     }
                 } catch (IOException e) {
@@ -203,19 +204,19 @@ public class Client {
         //I send to the DISCOVERY_SERVER my ID and Port
         try (Socket s = new Socket()) {
             s.connect(DISCOVERY_SERVER);
-            System.out.println("Connected to DISCOVERY_SERVER");
+            System.out.println("[" + id + "] Connected to DISCOVERY_SERVER");
 
             //Send a UpdateIpPacket
             ObjectOutputStream oos = new ObjectOutputStream(s.getOutputStream());
             oos.writeObject(packet);
             var ois = new ObjectInputStream(s.getInputStream());
-            System.out.println("Sent to DISCOVERY_SERVER");
+            System.out.println("[" + id + "] Sent to DISCOVERY_SERVER");
 
             oos.flush();
 
             //Waiting ACK from DISCOVERY_SERVER
             ois.readObject();
-            System.out.println("Received ACK");
+            System.out.println("[" + id + "] Received ACK");
 
         } catch (IOException | ClassNotFoundException e) {
             throw new Error(e);
@@ -223,7 +224,7 @@ public class Client {
     }
 
     public void disconnect() {
-        System.out.println("Disconnecting...");
+        System.out.println("[" + id + "] Disconnecting...");
         connected = false;
 
         sendToDiscovery(new ByePacket(id));
@@ -263,10 +264,11 @@ public class Client {
             //Waiting for incoming packets by creating a serverSocket
             serverSocket = new ServerSocket(port);
 
+            System.out.println("[" + id + "] server started");
             while (true) {
                 Socket justConnectedClient = serverSocket.accept();
                 //Someone has just connected to me
-                System.out.println(justConnectedClient.getRemoteSocketAddress() + " is connected");
+                System.out.println("[" + id + "]" + justConnectedClient.getRemoteSocketAddress() + " is connected");
 
                 var oos = new ObjectOutputStream(justConnectedClient.getOutputStream());
                 var ois = new ObjectInputStream(justConnectedClient.getInputStream());
@@ -290,11 +292,11 @@ public class Client {
                             ips.put(id, null);
                             sockets.put(id, null);
                             usersPropertyChangeSupport.firePropertyChange("USER_DISCONNECTED", helloPacket.id(), null);
-                            System.err.println(helloPacket.id() + " disconnected");
+                            System.err.println("[" + id + "]" + helloPacket.id() + " disconnected");
                         });
             }
-        } catch (SocketException ignored) {
-            System.err.println("Server shut down " + ignored);
+        } catch (SocketException e) {
+            System.err.println("[" + id + "] Server shut down " + e);
         } catch (IOException | ClassNotFoundException e) {
             throw new Error(e);
         }
