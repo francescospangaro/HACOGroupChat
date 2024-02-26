@@ -11,7 +11,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.*;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class VCTest {
 
@@ -142,9 +143,6 @@ class VCTest {
 
     @Test
     void vcTest() throws ExecutionException, InterruptedException, TimeoutException {
-        CompletableFuture<String> c1Promise = new CompletableFuture<>();
-        CompletableFuture<String> c2Promise = new CompletableFuture<>();
-        CompletableFuture<String> c3Promise = new CompletableFuture<>();
         CompletableFuture<ChatRoom> chat1Promise = new CompletableFuture<>();
         CompletableFuture<ChatRoom> chat2Promise = new CompletableFuture<>();
         CompletableFuture<ChatRoom> chat3Promise = new CompletableFuture<>();
@@ -152,22 +150,28 @@ class VCTest {
         CompletableFuture<Message> msg2Promise = new CompletableFuture<>();
         List<Message> msg3List = new CopyOnWriteArrayList<>();
         CountDownLatch msg3 = new CountDownLatch(2);
+        CountDownLatch users1 = new CountDownLatch(2);
+        CountDownLatch users2 = new CountDownLatch(2);
+        CountDownLatch users3 = new CountDownLatch(2);
         Client c1 = new Client("id1", 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
-                e -> c1Promise.complete((String) e.getNewValue()),
+                e -> {
+                    System.out.println("PD " + e);
+                    users1.countDown();
+                },
                 e -> msg1Promise.complete((Message) e.getNewValue()));
 
         //Waits for the client to open sockets
         Thread.sleep(10);
 
         Client c2 = new Client("id2", 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
-                e -> c2Promise.complete((String) e.getNewValue()),
+                e -> users2.countDown(),
                 e -> msg2Promise.complete((Message) e.getNewValue()));
 
         //Waits for the client to open sockets
         Thread.sleep(10);
 
         Client c3 = new Client("id3", 12347, e -> chat3Promise.complete((ChatRoom) e.getNewValue()),
-                e -> c3Promise.complete((String) e.getNewValue()),
+                e -> users3.countDown(),
                 e -> {
                     msg3List.add((Message) e.getNewValue());
                     msg3.countDown();
@@ -176,9 +180,9 @@ class VCTest {
         //Waits for the client to open sockets
         Thread.sleep(10);
 
-        System.out.println(c1Promise.get(500, TimeUnit.MILLISECONDS));
-        System.out.println(c2Promise.get(500, TimeUnit.MILLISECONDS));
-        System.out.println(c3Promise.get(500, TimeUnit.MILLISECONDS));
+        users1.await();
+        users2.await();
+        users3.await();
 
         Set<String> users = Set.of("id1", "id2", "id3");
         c1.createRoom("room", users);
