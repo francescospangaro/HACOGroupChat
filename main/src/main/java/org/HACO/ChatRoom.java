@@ -64,6 +64,7 @@ public class ChatRoom {
 
     public void pushWithoutCheck(Message m){
         receivedMsgs.add(m);
+        propertyChangeSupport.firePropertyChange("ADD_MSG", null, m);
     }
 
     // TODO: test vc implementation
