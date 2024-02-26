@@ -181,6 +181,8 @@ class VCTest {
 
         Thread.sleep(100);
         assertTrue(msg3List.isEmpty());
+        assertEquals(1, chat3.getWaiting().size());
+        assertEquals("TEST2", chat3.getWaiting().stream().findFirst().orElseThrow().msg());
 
         assertTrue(msg3.await(2000, TimeUnit.MILLISECONDS));
 

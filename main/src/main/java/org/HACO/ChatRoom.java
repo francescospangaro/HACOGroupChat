@@ -1,6 +1,7 @@
 package org.HACO;
 
 import org.HACO.packets.Message;
+import org.jetbrains.annotations.VisibleForTesting;
 
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
@@ -95,14 +96,13 @@ public class ChatRoom {
     }
 
     /**
-     *
      * @param m Is the message to check
      * @return true if the message is in order
-     *              E.G. I have 2.0.1 and receive packet 2.1.1
-     *         false if the message is not in order
-     *              E.G. I have 2.0.1 and receive packet 3.1.1
-     *         returns true even if the message is not in order, but has been sent before one that I have
-     *              E.G. I have 2.0.1 and receive packet 0.1.0
+     * E.G. I have 2.0.1 and receive packet 2.1.1
+     * false if the message is not in order
+     * E.G. I have 2.0.1 and receive packet 3.1.1
+     * returns true even if the message is not in order, but has been sent before one that I have
+     * E.G. I have 2.0.1 and receive packet 0.1.0
      */
     private boolean checkVC(Message m) {
         Map<String, Integer> newClocks = Map.copyOf(m.vectorClocks());
@@ -118,6 +118,11 @@ public class ChatRoom {
             }
         }
         return true;
+    }
+
+    @VisibleForTesting
+    public Set<Message> getWaiting() {
+        return Collections.unmodifiableSet(waiting);
     }
 
     public Map<String, Integer> getVectorClocks() {
