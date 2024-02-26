@@ -150,9 +150,9 @@ class VCTest {
                     msg3List.add((Message) e.getNewValue());
                     msg3.countDown();
                 });
-        users1.await();
-        users2.await();
-        users3.await();
+        assertTrue(users1.await(500, TimeUnit.MILLISECONDS));
+        assertTrue(users2.await(500, TimeUnit.MILLISECONDS));
+        assertTrue(users3.await(500, TimeUnit.MILLISECONDS));
 
         Set<String> users = Set.of("id1", "id2", "id3");
         c1.createRoom("room", users);
