@@ -12,10 +12,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.*;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -39,6 +36,8 @@ public class Client {
 
     private boolean connected;
 
+    private final Set<String> degradedConnections;
+
     private record SocketInfo(Socket s, ObjectOutputStream oos, ObjectInputStream ois) {
     }
 
@@ -51,6 +50,8 @@ public class Client {
 
         chats = ConcurrentHashMap.newKeySet();
         sockets = new ConcurrentHashMap<>();
+        degradedConnections = ConcurrentHashMap.newKeySet();
+        ips = new ConcurrentHashMap<>();
 
         roomsPropertyChangeSupport = new PropertyChangeSupport(chats);
         roomsPropertyChangeSupport.addPropertyChangeListener(chatRoomsChangeListener);
@@ -64,9 +65,9 @@ public class Client {
     }
 
     public void start() {
-        ips = register();
-        connect();
         executorService.execute(this::runServer);
+        ips.putAll(register());
+        connect();
     }
 
     private Map<String, SocketAddress> register() {
@@ -84,7 +85,7 @@ public class Client {
             oos.flush();
 
             //Waiting list of <ID_otherPeer,HisSocketAddress> from DISCOVERY_SERVER
-            Map<String, SocketAddress> ips = new ConcurrentHashMap<>(((IPsPacket) ois.readObject()).ips());
+            Map<String, SocketAddress> ips = ((IPsPacket) ois.readObject()).ips();
             System.out.println("Received map " + ips);
 
             return ips;
@@ -143,9 +144,12 @@ public class Client {
         chat.pushWithoutCheck(m);
 
         //Send a MessagePacket containing the Message just created to each User of the ChatRoom
-        if (!isDelayed)
-            sendPacket(new MessagePacket(chat.getId(), m), chat.getUsers());
-        else
+        if (!isDelayed) {
+            Set<String> normalPeers = new HashSet<>(chat.getUsers());
+            normalPeers.removeAll(degradedConnections);
+            sendPacket(new MessagePacket(chat.getId(), m), normalPeers);
+            sendPacket(new DelayedMessagePacket(chat.getId(), m, 2), degradedConnections);
+        } else
             sendPacket(new DelayedMessagePacket(chat.getId(), m, delayedTime), chat.getUsers());
     }
 
@@ -242,6 +246,14 @@ public class Client {
         ips.clear();
     }
 
+    public void degradePerformance(String id) {
+        degradedConnections.add(id);
+    }
+
+    public void resetDegradedPerformance() {
+        degradedConnections.clear();
+    }
+
     public boolean isConnected() {
         return this.connected;
     }
@@ -251,7 +263,7 @@ public class Client {
             //Waiting for incoming packets by creating a serverSocket
             serverSocket = new ServerSocket(port);
 
-            while (connected) {
+            while (true) {
                 Socket justConnectedClient = serverSocket.accept();
                 //Someone has just connected to me
                 System.out.println(justConnectedClient.getRemoteSocketAddress() + " is connected");
@@ -282,7 +294,7 @@ public class Client {
                         });
             }
         } catch (SocketException ignored) {
-            System.err.println("Server shut down");
+            System.err.println("Server shut down " + ignored);
         } catch (IOException | ClassNotFoundException e) {
             throw new Error(e);
         }

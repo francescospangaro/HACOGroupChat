@@ -7,7 +7,6 @@ import java.beans.PropertyChangeSupport;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.stream.Collectors;
 
 public class ChatRoom {
     private final Set<String> users;
@@ -63,21 +62,21 @@ public class ChatRoom {
         return name;
     }
 
-    public void pushWithoutCheck(Message m){
+    public void pushWithoutCheck(Message m) {
         receivedMsgs.add(m);
         propertyChangeSupport.firePropertyChange("ADD_MSG", null, m);
     }
 
     // TODO: test vc implementation
-    public void push(Message m) {
+    public synchronized void push(Message m) {
         //Checks if the user can accept the message arrived, or if he has to put it in a queue
         if (checkVC(m)) {
             //Increase the PID of the message sender
             Map<String, Integer> tempClocks = new HashMap<>();
-            for(String key : m.vectorClocks().keySet()){
+            for (String key : m.vectorClocks().keySet()) {
                 tempClocks.put(key, vectorClocks.get(key) > m.vectorClocks().get(key) ? vectorClocks.get(key) : m.vectorClocks().get(key));
             }
-            vectorClocks = new HashMap<>(tempClocks);
+            vectorClocks = new ConcurrentHashMap<>(tempClocks);
             receivedMsgs.add(m);
             //Remove the message from the queue(if it was there)
             waiting.remove(m);
@@ -107,18 +106,16 @@ public class ChatRoom {
      *         returns true even if the message is not in order, but has been sent before one that I have
      *              E.G. I have 2.0.1 and receive packet 0.1.0
      */
-    private synchronized boolean checkVC(Message m) {
-        Map<String, Integer> oldClocks = Map.copyOf(m.vectorClocks());
-        Map<String, Integer> newClocks = new HashMap<>(m.vectorClocks());
-        newClocks.put(m.sender(), oldClocks.get(m.sender()) + 1);
+    private boolean checkVC(Message m) {
+        Map<String, Integer> newClocks = Map.copyOf(m.vectorClocks());
         boolean justEnough = false;
         //Cycle through all users
-        for (String temp : users.stream().filter(x -> !x.equals(m.sender())).collect(Collectors.toSet())) {
+        for (String temp : users) {
             //If user's PID is increased by one from the one I have, and it's the first time this happens, then ok
-            if ((Objects.equals(newClocks.get(temp), oldClocks.get(temp) + 1) && !justEnough)) {
+            if ((Objects.equals(newClocks.get(temp), vectorClocks.get(temp) + 1) && !justEnough)) {
                 justEnough = true;
-            //If user's PID is greater than expected, or if I find another PID greater than one of the ones I have, then put the message in a queue
-            } else if ((newClocks.get(temp) > oldClocks.get(temp))) {
+                //If user's PID is greater than expected, or if I find another PID greater than one of the ones I have, then put the message in a queue
+            } else if ((newClocks.get(temp) > vectorClocks.get(temp))) {
                 return false;
             }
         }

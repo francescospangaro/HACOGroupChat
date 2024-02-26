@@ -15,7 +15,7 @@ import java.net.SocketAddress;
 import java.util.HashMap;
 import java.util.Map;
 
-public class DiscoveryServer implements Runnable{
+public class DiscoveryServer implements Runnable {
 
     private final Map<String, SocketAddress> ips;
     private final ServerSocket serverSocket;
@@ -55,7 +55,7 @@ public class DiscoveryServer implements Runnable{
                     }
                     case ByePacket byePacket -> {
                         ips.remove(byePacket.id());
-                        System.out.println("Client disconnected id: "+byePacket.id());
+                        System.out.println("Client disconnected id: " + byePacket.id());
 
                         //Let the peer know that I received his request avoiding that he closes the connection
                         // while I have not read all the bytes
@@ -67,6 +67,11 @@ public class DiscoveryServer implements Runnable{
                 throw new RuntimeException(e);
             }
         }
+    }
+
+    public void close() throws IOException {
+        serverSocket.close();
+        System.out.println("closed discovery");
     }
 
 

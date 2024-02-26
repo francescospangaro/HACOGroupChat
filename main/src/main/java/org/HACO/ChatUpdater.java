@@ -48,9 +48,15 @@ public class ChatUpdater extends Thread {
                     //Sends a message with a delay of 7 seconds, in order to test the vector clocks ordering
                     case DelayedMessagePacket dm -> {
                         System.out.println("Message delayed!");
-                        sleep(dm.delayedTime() * 1000L);
-                        ChatRoom chat = chats.stream().filter(c -> Objects.equals(c.getId(), dm.chatId())).findFirst().orElseThrow();
-                        chat.push(dm.msg());
+                        new Thread(() -> {
+                            try {
+                                sleep(dm.delayedTime() * 1000L);
+                            } catch (InterruptedException e) {
+                                throw new RuntimeException(e);
+                            }
+                            ChatRoom chat = chats.stream().filter(c -> Objects.equals(c.getId(), dm.chatId())).findFirst().orElseThrow();
+                            chat.push(dm.msg());
+                        }).start();
                     }
 
                     case CreateRoomPacket crp -> {
@@ -71,7 +77,7 @@ public class ChatUpdater extends Thread {
             } catch (SocketException | EOFException ignored) {
                 //Peer disconnected
                 return;
-            } catch (IOException | ClassNotFoundException | InterruptedException e) {
+            } catch (IOException | ClassNotFoundException e) {
                 throw new Error(e);
             }
         }
