@@ -66,6 +66,11 @@ public class Client {
 
     public void start() {
         System.out.println("STARTING " + id);
+        try {
+            serverSocket = new ServerSocket(port);
+        } catch (IOException e) {
+            throw new Error(e);
+        }
         executorService.execute(this::runServer);
         ips.putAll(register());
         connect();
@@ -262,8 +267,6 @@ public class Client {
     private void runServer() {
         try {
             //Waiting for incoming packets by creating a serverSocket
-            serverSocket = new ServerSocket(port);
-
             System.out.println("[" + id + "] server started");
             while (true) {
                 Socket justConnectedClient = serverSocket.accept();
