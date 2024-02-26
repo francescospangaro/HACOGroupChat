@@ -30,7 +30,7 @@ public class Client {
     ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor();
     private ServerSocket serverSocket;
 
-    private Map<String, SocketAddress> ips;
+    private final Map<String, SocketAddress> ips;
     private final Map<String, SocketInfo> sockets;
 
     private final PropertyChangeListener msgChangeListener;
@@ -156,11 +156,11 @@ public class Client {
         //Send a MessagePacket containing the Message just created to each User of the ChatRoom
         if (!isDelayed) {
             Set<String> normalPeers = new HashSet<>(chat.getUsers());
-            if (testing)
+            if (testing) {
                 normalPeers.removeAll(degradedConnections);
-            sendPacket(new MessagePacket(chat.getId(), m), normalPeers, chat);
-            if (testing)
                 sendPacket(new DelayedMessagePacket(chat.getId(), m, 2), degradedConnections, chat);
+            }
+            sendPacket(new MessagePacket(chat.getId(), m), normalPeers, chat);
         } else
             sendPacket(new DelayedMessagePacket(chat.getId(), m, delayedTime), chat.getUsers(), chat);
     }
@@ -279,6 +279,7 @@ public class Client {
         return this.connected;
     }
 
+    @SuppressWarnings("InfiniteLoopStatement")
     private void runServer() {
         try {
             //Waiting for incoming packets by creating a serverSocket
