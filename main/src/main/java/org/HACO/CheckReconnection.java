@@ -32,6 +32,7 @@ public class CheckReconnection extends Thread {
             for (Client c : alwaysConnected) {
                 for (Client d : reconnected) {
                     List<P2PPacket> toSend = new CopyOnWriteArrayList<>(chatRoom.getDisconnectMsgs().get(d.getId()));
+                    chatRoom.sentMsgsToReconnectedPeer(d.getId());
                     for (P2PPacket m : toSend)
                         c.sendSinglePeer(m, d.getId());
                 }

@@ -156,6 +156,10 @@ public class ChatRoom {
         return disconnectedPeers;
     }
 
+    public void sentMsgsToReconnectedPeer(String id){
+        disconnectMsgs.remove(id);
+    }
+
     public void addMyDisconnectedMsg(P2PPacket m) {
         myDisconnectedMsgs.add(m);
     }
