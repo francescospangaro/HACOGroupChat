@@ -36,15 +36,9 @@ class VCTest {
         }, e -> c1Promise.complete((String) e.getNewValue()), e -> {
         });
 
-        //Waits for the client to open sockets
-        Thread.sleep(10);
-
         Client c2 = new Client("id2", 12346, e -> {
         }, e -> c2Promise.complete((String) e.getNewValue()), e -> {
         });
-
-        //Waits for the client to open sockets
-        Thread.sleep(10);
 
         String u1 = c1Promise.get(500, TimeUnit.MILLISECONDS);
         String u2 = c2Promise.get(500, TimeUnit.MILLISECONDS);
@@ -65,17 +59,9 @@ class VCTest {
         Client c1 = new Client("id1", 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
                 e -> c1Promise.complete((String) e.getNewValue()), e -> {
         });
-
-        //Waits for the client to open sockets
-        Thread.sleep(10);
-
         Client c2 = new Client("id2", 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
                 e -> c2Promise.complete((String) e.getNewValue()), e -> {
         });
-
-        //Waits for the client to open sockets
-        Thread.sleep(10);
-
         c1Promise.get(500, TimeUnit.MILLISECONDS);
         c2Promise.get(500, TimeUnit.MILLISECONDS);
 
@@ -107,15 +93,9 @@ class VCTest {
                 e -> c1Promise.complete((String) e.getNewValue()),
                 e -> msg1Promise.complete((Message) e.getNewValue()));
 
-        //Waits for the client to open sockets
-        Thread.sleep(10);
-
         Client c2 = new Client("id2", 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
                 e -> c2Promise.complete((String) e.getNewValue()),
                 e -> msg2Promise.complete((Message) e.getNewValue()));
-
-        //Waits for the client to open sockets
-        Thread.sleep(10);
 
         System.out.println(c1Promise.get(500, TimeUnit.MILLISECONDS));
         System.out.println(c2Promise.get(500, TimeUnit.MILLISECONDS));
@@ -160,15 +140,9 @@ class VCTest {
                 },
                 e -> msg1Promise.complete((Message) e.getNewValue()));
 
-        //Waits for the client to open sockets
-        Thread.sleep(10);
-
         Client c2 = new Client("id2", 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
                 e -> users2.countDown(),
                 e -> msg2Promise.complete((Message) e.getNewValue()));
-
-        //Waits for the client to open sockets
-        Thread.sleep(10);
 
         Client c3 = new Client("id3", 12347, e -> chat3Promise.complete((ChatRoom) e.getNewValue()),
                 e -> users3.countDown(),
@@ -176,10 +150,6 @@ class VCTest {
                     msg3List.add((Message) e.getNewValue());
                     msg3.countDown();
                 });
-
-        //Waits for the client to open sockets
-        Thread.sleep(10);
-
         users1.await();
         users2.await();
         users3.await();
@@ -197,7 +167,7 @@ class VCTest {
         c1.sendMessage("TEST", chat1, 0);
 
         Message m1 = msg1Promise.get(500, TimeUnit.MILLISECONDS);
-        Message m2 = msg2Promise.get(1000, TimeUnit.MILLISECONDS);
+        Message m2 = msg2Promise.get(500, TimeUnit.MILLISECONDS);
 
         Thread.sleep(100);
         assertTrue(msg3List.isEmpty());
