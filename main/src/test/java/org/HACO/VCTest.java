@@ -162,7 +162,6 @@ class VCTest {
         ChatRoom chat3 = chat3Promise.get(500, TimeUnit.MILLISECONDS);
 
         c1.degradePerformance("id3");
-        Thread.sleep(1);
 
         c1.sendMessage("TEST", chat1, 0);
 
@@ -179,8 +178,8 @@ class VCTest {
         assertEquals("id1", m2.sender());
 
         c2.sendMessage("TEST2", chat2, 0);
-        Thread.sleep(100);
 
+        Thread.sleep(100);
         assertTrue(msg3List.isEmpty());
 
         assertTrue(msg3.await(2000, TimeUnit.MILLISECONDS));
