@@ -155,14 +155,21 @@ public class Client {
 
         //Send a MessagePacket containing the Message just created to each User of the ChatRoom
         if (!isDelayed) {
+            for (Client c : chat.getDisconnectedPeers()) {
+                chat.addDisconnectedPeerMsg(new MessagePacket(chat.getId(), m), c.id);
+            }
             Set<String> normalPeers = new HashSet<>(chat.getUsers());
             if (testing) {
                 normalPeers.removeAll(degradedConnections);
                 sendPacket(new DelayedMessagePacket(chat.getId(), m, 2), degradedConnections, chat);
             }
             sendPacket(new MessagePacket(chat.getId(), m), normalPeers, chat);
-        } else
+        } else {
+            for (Client c : chat.getDisconnectedPeers()) {
+                chat.addDisconnectedPeerMsg(new DelayedMessagePacket(chat.getId(), m, delayedTime), c.id);
+            }
             sendPacket(new DelayedMessagePacket(chat.getId(), m, delayedTime), chat.getUsers(), chat);
+        }
     }
 
     public Map<String, SocketAddress> getIps() {
@@ -210,7 +217,7 @@ public class Client {
         });
     }
 
-    private void sendSinglePeer(P2PPacket packet, String id) {
+    public void sendSinglePeer(P2PPacket packet, String id) {
         try {
             ObjectOutputStream oos = sockets.get(id).oos;
             oos.writeObject(packet);
@@ -246,6 +253,9 @@ public class Client {
     public void disconnect() {
         System.out.println("[" + id + "] Disconnecting...");
         connected = false;
+        for (ChatRoom c : chats) {
+            c.peerDisconnected(this);
+        }
 
         sendToDiscovery(new ByePacket(id));
 
@@ -304,6 +314,7 @@ public class Client {
                 usersPropertyChangeSupport.firePropertyChange("USER_CONNECTED", null, helloPacket.id());
 
                 for (ChatRoom c : chats) {
+                    c.peerReconnected(this);
                     if (!c.getMyDisconnectedMsgs().isEmpty()) {
                         for (P2PPacket packet : c.getMyDisconnectedMsgs()) {
                             this.sendPacket(packet, c.getUsers(), c);
