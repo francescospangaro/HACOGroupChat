@@ -36,6 +36,8 @@ public class CheckReconnection extends Thread {
                         c.sendSinglePeer(m, d.getId());
                 }
             }
+            toCheck = ConcurrentHashMap.newKeySet();
+            toCheck.addAll(chatRoom.getDisconnectedPeers());
         }
     }
 }
