@@ -6,6 +6,7 @@ import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.stream.Collectors;
 
 public class ChatRoom {
     private final Set<String> users;
@@ -61,6 +62,10 @@ public class ChatRoom {
         return name;
     }
 
+    public void pushWithoutCheck(Message m){
+        receivedMsgs.add(m);
+    }
+
     // TODO: test vc implementation
     public void push(Message m) {
         //Checks if the user can accept the message arrived, or if he has to put it in a queue
@@ -106,7 +111,7 @@ public class ChatRoom {
         newClocks.put(m.sender(), oldClocks.get(m.sender()) + 1);
         boolean justEnough = false;
         //Cycle through all users
-        for (String temp : users) {
+        for (String temp : users.stream().filter(x -> !x.equals(m.sender())).collect(Collectors.toSet())) {
             //If user's PID is increased by one from the one I have, and it's the first time this happens, then ok
             if ((Objects.equals(newClocks.get(temp), oldClocks.get(temp) + 1) && !justEnough)) {
                 justEnough = true;

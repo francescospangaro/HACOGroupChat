@@ -140,7 +140,7 @@ public class Client {
         }
 
         Message m = new Message(msg, vc, this.id);
-        chat.push(m);
+        chat.pushWithoutCheck(m);
 
         //Send a MessagePacket containing the Message just created to each User of the ChatRoom
         if (!isDelayed)
