@@ -72,11 +72,9 @@ public class ChatRoom {
         //Checks if the user can accept the message arrived, or if he has to put it in a queue
         if (checkVC(m)) {
             //Increase the PID of the message sender
-            Map<String, Integer> tempClocks = new HashMap<>();
             for (String key : m.vectorClocks().keySet()) {
-                tempClocks.put(key, vectorClocks.get(key) > m.vectorClocks().get(key) ? vectorClocks.get(key) : m.vectorClocks().get(key));
+                vectorClocks.put(key, vectorClocks.get(key) > m.vectorClocks().get(key) ? vectorClocks.get(key) : m.vectorClocks().get(key));
             }
-            vectorClocks = new ConcurrentHashMap<>(tempClocks);
             receivedMsgs.add(m);
             //Remove the message from the queue(if it was there)
             waiting.remove(m);
