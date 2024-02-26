@@ -135,6 +135,7 @@ public class Client {
         connected = true;
     }
 
+
     public void sendMessage(String msg, ChatRoom chat, int delayedTime) {
         boolean isDelayed = delayedTime != 0;
 
@@ -153,10 +154,10 @@ public class Client {
         if (!isDelayed) {
             Set<String> normalPeers = new HashSet<>(chat.getUsers());
             normalPeers.removeAll(degradedConnections);
-            sendPacket(new MessagePacket(chat.getId(), m), normalPeers);
-            sendPacket(new DelayedMessagePacket(chat.getId(), m, 2), degradedConnections);
+            sendPacket(new MessagePacket(chat.getId(), m), normalPeers, chat);
+            sendPacket(new DelayedMessagePacket(chat.getId(), m, 2), degradedConnections, chat);
         } else
-            sendPacket(new DelayedMessagePacket(chat.getId(), m, delayedTime), chat.getUsers());
+            sendPacket(new DelayedMessagePacket(chat.getId(), m, delayedTime), chat.getUsers(), chat);
     }
 
     public Map<String, SocketAddress> getIps() {
@@ -172,37 +173,46 @@ public class Client {
         roomsPropertyChangeSupport.firePropertyChange("ADD_ROOM", null, newRoom);
 
         //Inform all the users about the creation of the new chat room by sending to them a CreateRoomPacket
-        sendPacket(new CreateRoomPacket(newRoom.getId(), name, users), users);
+        sendPacket(new CreateRoomPacket(newRoom.getId(), name, users), users, newRoom);
     }
 
     public void deleteRoom(ChatRoom toDelete) {
         roomsPropertyChangeSupport.firePropertyChange("DEL_ROOM", toDelete, null);
         chats.remove(toDelete);
 
-        sendPacket(new DeleteRoomPacket(toDelete.getId()), toDelete.getUsers());
+        sendPacket(new DeleteRoomPacket(toDelete.getId()), toDelete.getUsers(), toDelete);
     }
 
     public String getId() {
         return id;
     }
 
-    private void sendPacket(P2PPacket packet, Set<String> ids) {
+    private void sendPacket(P2PPacket packet, Set<String> ids, ChatRoom chatRoom) {
         ids.forEach(id -> {
             if (!id.equals(this.id)) {
                 try {
-                    SocketInfo socketInfo = sockets.get(id);
-                    if (socketInfo != null) {
+                    if (sockets.get(id) != null) {
                         ObjectOutputStream oos = sockets.get(id).oos;
                         oos.writeObject(packet);
                     } else {
                         System.out.println("[" + this.id + "] Peer " + id + " currently disconnected, enqueuing packet only for him...");
-                        //TODO: enqueue the packet
+                        chatRoom.addDisconnectedPeerMsg(packet, id);
                     }
                 } catch (IOException e) {
                     throw new Error(e);
                 }
             }
         });
+    }
+
+    private void sendSinglePeer(P2PPacket packet, String id) {
+        try {
+            ObjectOutputStream oos = sockets.get(id).oos;
+            oos.writeObject(packet);
+
+        } catch (IOException e) {
+            throw new Error(e);
+        }
     }
 
     private void sendToDiscovery(Peer2DiscoveryPacket packet) {
@@ -287,8 +297,13 @@ public class Client {
 
                 usersPropertyChangeSupport.firePropertyChange("USER_CONNECTED", null, helloPacket.id());
 
-
-                //TODO: send enqueued packets (if any)
+                for (ChatRoom c : chats) {
+                    if (!c.getDisconnectMsgs().get(id).isEmpty()) {
+                        for(P2PPacket packet : c.getDisconnectMsgs().get(id)){
+                            this.sendSinglePeer(packet, id);
+                        }
+                    }
+                }
 
                 CompletableFuture.runAsync(new ChatUpdater(justConnectedClient, ois, chats, roomsPropertyChangeSupport, msgChangeListener), executorService)
                         .thenRun(() -> {
