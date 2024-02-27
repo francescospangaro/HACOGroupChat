@@ -1,7 +1,6 @@
 package org.HACO;
 
 import org.HACO.packets.Message;
-import org.HACO.packets.P2PPacket;
 import org.jetbrains.annotations.VisibleForTesting;
 
 import java.beans.PropertyChangeListener;
@@ -14,11 +13,7 @@ public class ChatRoom {
     private final Set<String> users;
     private final Set<Message> waiting;
     private final List<Message> receivedMsgs = new CopyOnWriteArrayList<>();
-    private final Set<Client> disconnectedPeers = ConcurrentHashMap.newKeySet();
-    //private final Set<Client> allPeers = ConcurrentHashMap.newKeySet();
     private final Map<String, Integer> vectorClocks;
-    private final Map<String, List<P2PPacket>> disconnectMsgs = new ConcurrentHashMap<>();
-    private final List<P2PPacket> myDisconnectedMsgs = new CopyOnWriteArrayList<>();
     private final PropertyChangeSupport propertyChangeSupport = new PropertyChangeSupport(receivedMsgs);
     private final String id, name;
 
@@ -140,36 +135,4 @@ public class ChatRoom {
         return name;
     }
 
-    public void addDisconnectedPeerMsg(P2PPacket m, String id) {
-        disconnectMsgs.computeIfAbsent(id, k -> new ArrayList<>());
-        disconnectMsgs.get(id).add(m);
-    }
-
-    public void peerReconnected(Client c) {
-        disconnectedPeers.remove(c);
-    }
-
-    public void peerDisconnected(Client c) {
-        disconnectedPeers.add(c);
-    }
-
-    public Set<Client> getDisconnectedPeers() {
-        return disconnectedPeers;
-    }
-
-    public void sentMsgsToReconnectedPeer(String id){
-        disconnectMsgs.remove(id);
-    }
-
-    public void addMyDisconnectedMsg(P2PPacket m) {
-        myDisconnectedMsgs.add(m);
-    }
-
-    public Map<String, List<P2PPacket>> getDisconnectMsgs() {
-        return disconnectMsgs;
-    }
-
-    public List<P2PPacket> getMyDisconnectedMsgs() {
-        return myDisconnectedMsgs;
-    }
 }

@@ -44,7 +44,6 @@ public class ChatUpdater extends Thread {
                     case MessagePacket m -> {
                         ChatRoom chat = chats.stream().filter(c -> Objects.equals(c.getId(), m.chatId())).findFirst().orElseThrow();
                         chat.push(m.msg());
-                        setDisconnectedPeersMsgs(chat, m);
                     }
                     //Sends a message with a delay of 7 seconds, in order to test the vector clocks ordering
                     case DelayedMessagePacket dm -> {
@@ -57,7 +56,6 @@ public class ChatUpdater extends Thread {
                             }
                             ChatRoom chat = chats.stream().filter(c -> Objects.equals(c.getId(), dm.chatId())).findFirst().orElseThrow();
                             chat.push(dm.msg());
-                            setDisconnectedPeersMsgs(chat, dm);
                         }).start();
                     }
 
@@ -65,14 +63,12 @@ public class ChatUpdater extends Thread {
                         System.out.println("Adding new room " + crp.id());
                         ChatRoom newChat = new ChatRoom(crp.name(), crp.ids(), crp.id(), msgChangeListener);
                         chats.add(newChat);
-                        setDisconnectedPeersMsgs(newChat, crp);
                         propertyChangeSupport.firePropertyChange("ADD_ROOM", null, newChat);
                     }
 
                     case DeleteRoomPacket drp -> {
                         System.out.println("Deleting room " + drp.id());
                         ChatRoom toDelete = chats.stream().filter(c -> Objects.equals(c.getId(), drp.id())).findFirst().orElseThrow();
-                        setDisconnectedPeersMsgs(toDelete, drp);
                         chats.remove(toDelete);
                         propertyChangeSupport.firePropertyChange("DEL_ROOM", toDelete, null);
                     }
@@ -84,12 +80,6 @@ public class ChatUpdater extends Thread {
             } catch (IOException | ClassNotFoundException e) {
                 throw new Error(e);
             }
-        }
-    }
-
-    private void setDisconnectedPeersMsgs(ChatRoom chatRoom, P2PPacket m){
-        for(Client c : chatRoom.getDisconnectedPeers()){
-            chatRoom.addDisconnectedPeerMsg(m, c.getId());
         }
     }
 }
