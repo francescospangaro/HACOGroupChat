@@ -72,7 +72,8 @@ public class ChatRoom {
     // TODO: test vc implementation
     public synchronized void push(Message m) {
         //Checks if the user can accept the message arrived, or if he has to put it in a queue
-        if (checkVC(m)) {
+        int res = checkVC(m);
+        if (res == 1) {
             //Increase the PID of the message sender
             for (String key : m.vectorClocks().keySet()) {
                 vectorClocks.put(key, vectorClocks.get(key) > m.vectorClocks().get(key) ? vectorClocks.get(key) : m.vectorClocks().get(key));
@@ -86,10 +87,11 @@ public class ChatRoom {
             for (Message w : waiting) {
                 push(w);
             }
-        } else {
+        } else if (res == -1){
             //puts the message in a queue
             waiting.add(m);
         }
+        //If it doesn't enter any of the above ifs ignore the received message
     }
 
     public Set<String> getUsers() {
@@ -98,15 +100,18 @@ public class ChatRoom {
 
     /**
      * @param m Is the message to check
-     * @return true if the message is in order
+     * @return 1 if the message is in order
      * E.G. I have 2.0.1 and receive packet 2.1.1
-     * false if the message is not in order
+     * -1 if the message is not in order
      * E.G. I have 2.0.1 and receive packet 3.1.1
-     * returns true even if the message is not in order, but has been sent before one that I have
+     * returns 1 even if the message is not in order, but has been sent before one that I have
      * E.G. I have 2.0.1 and receive packet 0.1.0
+     * returns 0 if I already have received the message
+     * E.G. I have 2.0.1 and receive packet 1.0.1
      */
-    private boolean checkVC(Message m) {
+    private int checkVC(Message m) {
         Map<String, Integer> newClocks = Map.copyOf(m.vectorClocks());
+        int checker = 0;
         boolean justEnough = false;
         //Cycle through all users
         for (String temp : users) {
@@ -115,10 +120,15 @@ public class ChatRoom {
                 justEnough = true;
                 //If user's PID is greater than expected, or if I find another PID greater than one of the ones I have, then put the message in a queue
             } else if ((newClocks.get(temp) > vectorClocks.get(temp))) {
-                return false;
+                return -1;
+            } else if(newClocks.get(temp) <= vectorClocks.get(temp)){
+                checker++;
             }
         }
-        return true;
+        //If all VCs are <= then mine do nothing
+        if(checker == vectorClocks.size())
+            return 0;
+        return 1;
     }
 
     @VisibleForTesting
