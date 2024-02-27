@@ -38,7 +38,7 @@ public class Peer {
     private boolean connected;
 
     private final Set<String> degradedConnections;
-    private final Map<String, List<P2PPacket>> disconnectMsgs = new ConcurrentHashMap<>();
+    private final Map<String, Set<P2PPacket>> disconnectMsgs = new ConcurrentHashMap<>();
 
     private record SocketInfo(Socket s, ObjectOutputStream oos, ObjectInputStream ois) {
     }
@@ -90,13 +90,13 @@ public class Peer {
             ObjectOutputStream oos = new ObjectOutputStream(s.getOutputStream());
             ObjectInputStream ois = new ObjectInputStream(s.getInputStream());
             oos.writeObject(new UpdateIpPacket(id, port));
-            System.out.println("[" + id + "] Sent");
+            System.out.println("[" + id + "] Sent subscribe message to discovery");
 
             oos.flush();
 
             //Waiting list of <ID_otherPeer,HisSocketAddress> from DISCOVERY_SERVER
             Map<String, SocketAddress> ips = ((IPsPacket) ois.readObject()).ips();
-            System.out.println("[" + id + "] Received map" + ips);
+            System.out.println("[" + id + "] Received peers map " + ips);
 
             return ips;
         } catch (IOException | ClassNotFoundException e) {
@@ -143,11 +143,12 @@ public class Peer {
 
     private void resendQueued(String id) {
         if (disconnectMsgs.containsKey(id)) {
-            ListIterator<P2PPacket> iter = disconnectMsgs.get(id).listIterator();
+            Iterator<P2PPacket> iter = disconnectMsgs.get(id).iterator();
             while (iter.hasNext()) {
-                iter.remove();
                 if (!sendSinglePeer(iter.next(), id)) {
                     break;
+                } else {
+                    iter.remove();
                 }
             }
         }
@@ -173,11 +174,11 @@ public class Peer {
             Set<String> normalPeers = new HashSet<>(chat.getUsers());
             if (testing) {
                 normalPeers.removeAll(degradedConnections);
-                sendPacket(new DelayedMessagePacket(chat.getId(), m, 2), degradedConnections, chat);
+                sendPacket(new DelayedMessagePacket(chat.getId(), m, 2), degradedConnections);
             }
-            sendPacket(new MessagePacket(chat.getId(), m), normalPeers, chat);
+            sendPacket(new MessagePacket(chat.getId(), m), normalPeers);
         } else {
-            sendPacket(new DelayedMessagePacket(chat.getId(), m, delayedTime), chat.getUsers(), chat);
+            sendPacket(new DelayedMessagePacket(chat.getId(), m, delayedTime), chat.getUsers());
         }
     }
 
@@ -194,21 +195,21 @@ public class Peer {
         roomsPropertyChangeSupport.firePropertyChange("ADD_ROOM", null, newRoom);
 
         //Inform all the users about the creation of the new chat room by sending to them a CreateRoomPacket
-        sendPacket(new CreateRoomPacket(newRoom.getId(), name, users), users, newRoom);
+        sendPacket(new CreateRoomPacket(newRoom.getId(), name, users), users);
     }
 
     public void deleteRoom(ChatRoom toDelete) {
         roomsPropertyChangeSupport.firePropertyChange("DEL_ROOM", toDelete, null);
         chats.remove(toDelete);
 
-        sendPacket(new DeleteRoomPacket(toDelete.getId()), toDelete.getUsers(), toDelete);
+        sendPacket(new DeleteRoomPacket(toDelete.getId()), toDelete.getUsers());
     }
 
     public String getId() {
         return id;
     }
 
-    private void sendPacket(P2PPacket packet, Set<String> ids, ChatRoom chatRoom) {
+    private void sendPacket(P2PPacket packet, Set<String> ids) {
         ids.forEach(id -> {
             if (!id.equals(this.id)) {
                 if (sockets.containsKey(id)) {
@@ -216,7 +217,7 @@ public class Peer {
                     sendSinglePeer(packet, id);
                 } else {
                     System.out.println("[" + this.id + "] Peer " + id + " currently disconnected, enqueuing packet only for him...");
-                    disconnectMsgs.computeIfAbsent(id, k -> new ArrayList<>());
+                    disconnectMsgs.computeIfAbsent(id, k -> ConcurrentHashMap.newKeySet());
                     disconnectMsgs.get(id).add(packet);
                 }
             }
@@ -232,7 +233,7 @@ public class Peer {
         } catch (IOException e) {
             System.err.println("[" + this.id + "] Error sending message to +" + id + ". Enqueuing it...");
             disconnectPeer(id);
-            disconnectMsgs.computeIfAbsent(id, k -> new ArrayList<>());
+            disconnectMsgs.computeIfAbsent(id, k -> ConcurrentHashMap.newKeySet());
             disconnectMsgs.get(id).add(packet);
         }
         return false;
