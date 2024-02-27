@@ -69,6 +69,7 @@ public class ChatRoom {
     }
 
     public void pushWithoutCheck(Message m) {
+        vectorClocks.put(m.sender(), vectorClocks.get(m.sender()) + 1);
         receivedMsgs.add(m);
         propertyChangeSupport.firePropertyChange("ADD_MSG", null, m);
     }
