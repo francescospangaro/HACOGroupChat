@@ -142,11 +142,13 @@ public class Peer {
     }
 
     private void resendQueued(String id) {
-        ListIterator<P2PPacket> iter = disconnectMsgs.get(id).listIterator();
-        while (iter.hasNext()) {
-            iter.remove();
-            if (!sendSinglePeer(iter.next(), id)) {
-                break;
+        if (disconnectMsgs.containsKey(id)) {
+            ListIterator<P2PPacket> iter = disconnectMsgs.get(id).listIterator();
+            while (iter.hasNext()) {
+                iter.remove();
+                if (!sendSinglePeer(iter.next(), id)) {
+                    break;
+                }
             }
         }
     }
