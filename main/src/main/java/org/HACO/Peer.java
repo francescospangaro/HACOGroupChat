@@ -111,6 +111,8 @@ public class Peer {
                 Socket s = new Socket();
                 System.out.println("[" + this.id + "] connecting to " + id);
                 s.connect(addr);
+                s.setTcpNoDelay(true);
+
                 System.out.println("[" + this.id + "] connected");
 
                 var oos = new ObjectOutputStream(s.getOutputStream());
@@ -313,6 +315,8 @@ public class Peer {
             System.out.println("[" + id + "] server started");
             while (true) {
                 Socket justConnectedClient = serverSocket.accept();
+                justConnectedClient.setTcpNoDelay(true);
+
                 //Someone has just connected to me
                 System.out.println("[" + id + "]" + justConnectedClient.getRemoteSocketAddress() + " is connected");
 
