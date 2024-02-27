@@ -13,7 +13,10 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.*;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class Peer {
     private static final InetSocketAddress DISCOVERY_SERVER = new InetSocketAddress("localhost", 8080);
@@ -121,12 +124,7 @@ public class Peer {
 
                 usersPropertyChangeSupport.firePropertyChange("USER_CONNECTED", null, id);
 
-                if (disconnectMsgs.containsKey(id)) {
-                    for (P2PPacket packet : disconnectMsgs.get(id)) {
-                        sendSinglePeer(packet, id);
-                    }
-                }
-                disconnectMsgs.remove(id);
+                resendQueued(id);
 
                 CompletableFuture.runAsync(new ChatUpdater(s, ois, chats, roomsPropertyChangeSupport, msgChangeListener), executorService)
                         .thenRun(() -> {
@@ -136,10 +134,21 @@ public class Peer {
                             System.err.println("[" + this.id + "] " + id + " disconnected");
                         });
             } catch (IOException e) {
-                throw new Error(e);
+                //TODO: retry???
+                disconnectPeer(id);
             }
         });
         connected = true;
+    }
+
+    private void resendQueued(String id) {
+        ListIterator<P2PPacket> iter = disconnectMsgs.get(id).listIterator();
+        while (iter.hasNext()) {
+            iter.remove();
+            if (!sendSinglePeer(iter.next(), id)) {
+                break;
+            }
+        }
     }
 
 
@@ -205,28 +214,26 @@ public class Peer {
                     sendSinglePeer(packet, id);
                 } else {
                     System.out.println("[" + this.id + "] Peer " + id + " currently disconnected, enqueuing packet only for him...");
-                    disconnectMsgs.computeIfAbsent(id, k -> new CopyOnWriteArrayList<>());
+                    disconnectMsgs.computeIfAbsent(id, k -> new ArrayList<>());
                     disconnectMsgs.get(id).add(packet);
                 }
             }
         });
     }
 
-    public void sendSinglePeer(P2PPacket packet, String id) {
+    public boolean sendSinglePeer(P2PPacket packet, String id) {
         try {
             ObjectOutputStream oos = sockets.get(id).oos;
             oos.writeObject(packet);
             oos.flush();
+            return true;
         } catch (IOException e) {
-            e.printStackTrace();
-            try {
-                sockets.get(id).s.close();
-                ips.remove(id);
-                sockets.remove(id);
-            } catch (IOException ex) {
-                throw new RuntimeException(ex);
-            }
+            System.err.println("[" + this.id + "] Error sending message to +" + id + ". Enqueuing it...");
+            disconnectPeer(id);
+            disconnectMsgs.computeIfAbsent(id, k -> new ArrayList<>());
+            disconnectMsgs.get(id).add(packet);
         }
+        return false;
     }
 
     private void sendToDiscovery(Peer2DiscoveryPacket packet) {
@@ -250,6 +257,16 @@ public class Peer {
         } catch (IOException | ClassNotFoundException e) {
             throw new Error(e);
         }
+    }
+
+    private void disconnectPeer(String id) {
+        System.out.println("[" + this.id + "] Disconnecting " + id);
+        try {
+            sockets.remove(id).s.close();
+        } catch (IOException e) {
+            //We can ignore this(?)
+        }
+        ips.remove(id);
     }
 
     public void disconnect() {
@@ -310,12 +327,7 @@ public class Peer {
 
                 usersPropertyChangeSupport.firePropertyChange("USER_CONNECTED", null, helloPacket.id());
 
-                if (disconnectMsgs.containsKey(helloPacket.id())) {
-                    for (P2PPacket packet : disconnectMsgs.get(helloPacket.id())) {
-                        sendSinglePeer(packet, helloPacket.id());
-                    }
-                }
-                disconnectMsgs.remove(helloPacket.id());
+                resendQueued(helloPacket.id());
 
                 CompletableFuture.runAsync(new ChatUpdater(justConnectedClient, ois, chats, roomsPropertyChangeSupport, msgChangeListener), executorService)
                         .thenRun(() -> {
