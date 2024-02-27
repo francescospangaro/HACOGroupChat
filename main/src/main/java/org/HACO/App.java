@@ -18,22 +18,22 @@ public class App {
     private JLabel connectedLabel;
     private JTextField delayTime;
     private JList<String> connectedList;
-    private Client client;
+    private Peer peer;
 
 
     public App() {
         //Want to create a new Group for chatting
         newChatButton.addActionListener(e -> {
-            System.out.println(client);
-            CreateRoom dialog = new CreateRoom(client.getIps().keySet());
+            System.out.println(peer);
+            CreateRoom dialog = new CreateRoom(peer.getIps().keySet());
 
             if (dialog.isConfirmed()) {
                 Set<String> users = dialog.getSelectedUsers();
-                users.add(client.getId());
+                users.add(peer.getId());
                 String name = dialog.getRoomName();
 
                 //Request the creation of the room with this name and with all the users
-                client.createRoom(name, users);
+                peer.createRoom(name, users);
             }
         });
 
@@ -53,7 +53,7 @@ public class App {
                 delay = 0;
             }
 
-            client.sendMessage(msg, chat, delay);
+            peer.sendMessage(msg, chat, delay);
             msgArea.setText("");
         });
 
@@ -61,10 +61,10 @@ public class App {
         deleteButton.addActionListener(e -> {
             ChatRoom toDelete = (ChatRoom) chatRooms.getSelectedItem();
             System.out.println("Deleting room " + toDelete.getId());
-            client.deleteRoom(toDelete);
+            peer.deleteRoom(toDelete);
         });
         disconnectReconnectButton.addActionListener(e -> {
-            setConnected(!client.isConnected());
+            setConnected(!peer.isConnected());
         });
 
         Thread.setDefaultUncaughtExceptionHandler((t, e) -> {
@@ -75,8 +75,8 @@ public class App {
                     JOptionPane.ERROR_MESSAGE);
 
             //Try to disconnect before killing
-            if (client != null && client.isConnected()) {
-                client.disconnect();
+            if (peer != null && peer.isConnected()) {
+                peer.disconnect();
             }
 
             System.exit(-1);
@@ -93,7 +93,7 @@ public class App {
         frame.addWindowListener(new java.awt.event.WindowAdapter() {
             @Override
             public void windowClosed(java.awt.event.WindowEvent windowEvent) {
-                client.disconnect();
+                peer.disconnect();
             }
         });
 
@@ -130,7 +130,7 @@ public class App {
         connectedList.setModel(connectedModelList);
 
 
-        client = new Client(id, port, evt -> {
+        peer = new Peer(id, port, evt -> {
             if (evt.getPropertyName().equals("ADD_ROOM")) {
                 ChatRoom chat = (ChatRoom) evt.getNewValue();
                 System.out.println("Room " + chat + " added in gui");
@@ -152,18 +152,18 @@ public class App {
                 msgListModel.addElement(evt.getNewValue().toString());
             }
         }, false);
-        System.out.println("started " + client);
+        System.out.println("started " + peer);
     }
 
     private void setConnected(boolean connected) {
         if (connected) {
-            client.start();
+            peer.start();
             connectedLabel.setText("connected");
             connectedLabel.setForeground(new Color(0, 153, 51));
 
             disconnectReconnectButton.setText("Disconnect");
         } else {
-            client.disconnect();
+            peer.disconnect();
             connectedLabel.setText("disconnected");
             connectedLabel.setForeground(Color.red);
 

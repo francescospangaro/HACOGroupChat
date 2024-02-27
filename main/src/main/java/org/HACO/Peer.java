@@ -15,7 +15,7 @@ import java.net.*;
 import java.util.*;
 import java.util.concurrent.*;
 
-public class Client {
+public class Peer {
     private static final InetSocketAddress DISCOVERY_SERVER = new InetSocketAddress("localhost", 8080);
     private final String id;
     private final boolean testing;
@@ -40,11 +40,11 @@ public class Client {
     private record SocketInfo(Socket s, ObjectOutputStream oos, ObjectInputStream ois) {
     }
 
-    public Client(String id, int port,
-                  PropertyChangeListener chatRoomsChangeListener,
-                  PropertyChangeListener usersChangeListener,
-                  PropertyChangeListener msgChangeListener,
-                  boolean testing) {
+    public Peer(String id, int port,
+                PropertyChangeListener chatRoomsChangeListener,
+                PropertyChangeListener usersChangeListener,
+                PropertyChangeListener msgChangeListener,
+                boolean testing) {
         this.id = id;
         this.port = port;
         this.testing = testing;
