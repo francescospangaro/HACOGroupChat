@@ -118,6 +118,7 @@ public class Peer {
         reconnectToPeers();
     }
 
+    @SuppressWarnings("BusyWait")
     private void reconnectToPeers() {
         //Every 5 seconds retry, until I'm connected with everyone
         new Thread(() -> {
@@ -252,7 +253,7 @@ public class Peer {
         return false;
     }
 
-    private void sendToDiscovery(Peer2DiscoveryPacket packet) {
+    private void sendToDiscovery(Peer2DiscoveryPacket packet/*, int tries*/) {
         //I send to the DISCOVERY_SERVER my ID and Port
         try (Socket s = new Socket()) {
             s.connect(DISCOVERY_SERVER);
@@ -271,7 +272,15 @@ public class Peer {
             System.out.println("[" + id + "] Received ACK");
 
         } catch (IOException | ClassNotFoundException e) {
-            throw new Error(e);
+            //Couldn't connect to DS
+            try {
+                Thread.sleep(2000);
+            } catch (InterruptedException ex) {
+                throw new RuntimeException(ex);
+            }
+            //if(tries>9)
+            //    throw new Error(e);
+            sendToDiscovery(packet/*, tries+1*/);
         }
     }
 
@@ -280,7 +289,7 @@ public class Peer {
         System.out.println("[" + id + "] Disconnecting...");
         connected = false;
 
-        sendToDiscovery(new ByePacket(id));
+        sendToDiscovery(new ByePacket(id)/*, 0*/);
 
         try {
             serverSocket.close();
