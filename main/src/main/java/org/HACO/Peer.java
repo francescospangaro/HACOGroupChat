@@ -114,10 +114,12 @@ public class Peer {
             }
         });
         connected = true;
+        //Try reconnecting to the peers I couldn't connect to previously
         reconnectToPeers();
     }
 
     private void reconnectToPeers() {
+        //Every 5 seconds retry, until I'm connected with everyone
         new Thread(() -> {
             while (!disconnectedIps.isEmpty()) {
                 disconnectedIps.forEach((id, addr) -> {
