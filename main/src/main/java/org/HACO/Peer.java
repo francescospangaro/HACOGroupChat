@@ -17,6 +17,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+
 public class Peer {
     private static final InetSocketAddress DISCOVERY_SERVER = new InetSocketAddress("localhost", 8080);
     private final String id;
@@ -30,6 +31,7 @@ public class Peer {
     private ServerSocket serverSocket;
 
     private final Map<String, SocketAddress> ips;
+    private final Map<String, SocketAddress> disconnectedIps;
     private final Map<String, SocketManager> sockets;
 
     private final PropertyChangeListener msgChangeListener;
@@ -52,6 +54,7 @@ public class Peer {
         sockets = new ConcurrentHashMap<>();
         degradedConnections = ConcurrentHashMap.newKeySet();
         ips = new ConcurrentHashMap<>();
+        disconnectedIps = new ConcurrentHashMap<>();
 
         roomsPropertyChangeSupport = new PropertyChangeSupport(chats);
         roomsPropertyChangeSupport.addPropertyChangeListener(chatRoomsChangeListener);
@@ -104,27 +107,51 @@ public class Peer {
         //For each peer in the network I try to connect to him by sending a helloPacket
         ips.forEach((id, addr) -> {
             try {
-                Socket s = new Socket();
-                System.out.println("[" + this.id + "] connecting to " + id);
-                s.connect(addr);
-
-                System.out.println("[" + this.id + "] connected");
-
-                SocketManager socketManager = new SocketManager(this.id, id, executorService, s,
-                        new ChatUpdater(chats, roomsPropertyChangeSupport, msgChangeListener),
-                        this::onPeerDisconnected);
-                sockets.put(id, socketManager);
-
-                usersPropertyChangeSupport.firePropertyChange("USER_CONNECTED", null, id);
-
-                resendQueued(id);
-
+                connectToSinglePeer(id, addr);
             } catch (IOException e) {
-                //TODO: retry???
+                disconnectedIps.put(id, addr);
                 onPeerDisconnected(id, e);
             }
         });
         connected = true;
+        reconnectToPeers();
+    }
+
+    private void reconnectToPeers() {
+        new Thread(() -> {
+            while (!disconnectedIps.isEmpty()) {
+                disconnectedIps.forEach((id, addr) -> {
+                    try {
+                        connectToSinglePeer(id, addr);
+                    } catch (IOException e) {
+                        onPeerDisconnected(id, e);
+                    }
+                });
+                try {
+                    //Wait for 5 seconds before trying to reconnect to all the remaining peers
+                    Thread.sleep(5000);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }).start();
+    }
+
+    private void connectToSinglePeer(String id, SocketAddress addr) throws IOException {
+        Socket s = new Socket();
+        System.out.println("[" + this.id + "] connecting to " + id);
+        s.connect(addr);
+
+        System.out.println("[" + this.id + "] connected");
+
+        SocketManager socketManager = new SocketManager(this.id, id, executorService, s,
+                new ChatUpdater(chats, roomsPropertyChangeSupport, msgChangeListener),
+                this::onPeerDisconnected);
+        sockets.put(id, socketManager);
+
+        usersPropertyChangeSupport.firePropertyChange("USER_CONNECTED", null, id);
+        disconnectedIps.remove(id);
+        resendQueued(id);
     }
 
     private void resendQueued(String id) {
@@ -258,9 +285,7 @@ public class Peer {
         } catch (IOException e) {
             e.printStackTrace();
         }
-        sockets.forEach((id, socketManager) -> {
-            socketManager.close();
-        });
+        sockets.forEach((id, socketManager) -> socketManager.close());
         sockets.clear();
         ips.clear();
     }
