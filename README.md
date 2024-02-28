@@ -13,6 +13,6 @@ The project can be implemented as a real distributed application (for example, i
 can be simulated using OmNet++.  
   
 **Assumptions**  
-• Clients and links are reliable, but clients can join and leave the network at any time  
+• Clients are reliable but they can join and leave the network at any time. Network failures and partitions may happen. 
   
 We chose to implement the application with a real distributed application using Java.  
