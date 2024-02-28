@@ -13,7 +13,6 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.*;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -31,7 +30,7 @@ public class Peer {
     private ServerSocket serverSocket;
 
     private final Map<String, SocketAddress> ips;
-    private final Map<String, SocketInfo> sockets;
+    private final Map<String, SocketManager> sockets;
 
     private final PropertyChangeListener msgChangeListener;
 
@@ -39,9 +38,6 @@ public class Peer {
 
     private final Set<String> degradedConnections;
     private final Map<String, Set<P2PPacket>> disconnectMsgs = new ConcurrentHashMap<>();
-
-    private record SocketInfo(Socket s, ObjectOutputStream oos, ObjectInputStream ois) {
-    }
 
     public Peer(String id, int port,
                 PropertyChangeListener chatRoomsChangeListener,
@@ -111,33 +107,21 @@ public class Peer {
                 Socket s = new Socket();
                 System.out.println("[" + this.id + "] connecting to " + id);
                 s.connect(addr);
-                s.setTcpNoDelay(true);
 
                 System.out.println("[" + this.id + "] connected");
 
-                var oos = new ObjectOutputStream(s.getOutputStream());
-                var ois = new ObjectInputStream(s.getInputStream());
-                sockets.put(id, new SocketInfo(s, oos, ois));
-
-                //Send a helloPacket
-                HelloPacket helloPacket = new HelloPacket(this.id);
-                oos.writeObject(helloPacket);
-                oos.flush();
+                SocketManager socketManager = new SocketManager(this.id, id, executorService, s,
+                        new ChatUpdater(chats, roomsPropertyChangeSupport, msgChangeListener),
+                        this::onPeerDisconnected);
+                sockets.put(id, socketManager);
 
                 usersPropertyChangeSupport.firePropertyChange("USER_CONNECTED", null, id);
 
                 resendQueued(id);
 
-                CompletableFuture.runAsync(new ChatUpdater(s, ois, chats, roomsPropertyChangeSupport, msgChangeListener), executorService)
-                        .thenRun(() -> {
-                            ips.remove(id);
-                            sockets.remove(id);
-                            usersPropertyChangeSupport.firePropertyChange("USER_DISCONNECTED", id, null);
-                            System.err.println("[" + this.id + "] " + id + " disconnected");
-                        });
             } catch (IOException e) {
                 //TODO: retry???
-                disconnectPeer(id);
+                onPeerDisconnected(id, e);
             }
         });
         connected = true;
@@ -228,13 +212,11 @@ public class Peer {
 
     public boolean sendSinglePeer(P2PPacket packet, String id) {
         try {
-            ObjectOutputStream oos = sockets.get(id).oos;
-            oos.writeObject(packet);
-            oos.flush();
+            sockets.get(id).send(packet);
             return true;
         } catch (IOException e) {
             System.err.println("[" + this.id + "] Error sending message to +" + id + ". Enqueuing it...");
-            disconnectPeer(id);
+            onPeerDisconnected(id, e);
             disconnectMsgs.computeIfAbsent(id, k -> ConcurrentHashMap.newKeySet());
             disconnectMsgs.get(id).add(packet);
         }
@@ -264,15 +246,6 @@ public class Peer {
         }
     }
 
-    private void disconnectPeer(String id) {
-        System.out.println("[" + this.id + "] Disconnecting " + id);
-        try {
-            sockets.remove(id).s.close();
-        } catch (IOException e) {
-            //We can ignore this(?)
-        }
-        ips.remove(id);
-    }
 
     public void disconnect() {
         System.out.println("[" + id + "] Disconnecting...");
@@ -285,12 +258,8 @@ public class Peer {
         } catch (IOException e) {
             e.printStackTrace();
         }
-        sockets.forEach((id, socketInfo) -> {
-            try {
-                socketInfo.s.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+        sockets.forEach((id, socketManager) -> {
+            socketManager.close();
         });
         sockets.clear();
         ips.clear();
@@ -315,39 +284,37 @@ public class Peer {
             System.out.println("[" + id + "] server started");
             while (true) {
                 Socket justConnectedClient = serverSocket.accept();
-                justConnectedClient.setTcpNoDelay(true);
 
                 //Someone has just connected to me
                 System.out.println("[" + id + "]" + justConnectedClient.getRemoteSocketAddress() + " is connected");
 
-                var oos = new ObjectOutputStream(justConnectedClient.getOutputStream());
-                var ois = new ObjectInputStream(justConnectedClient.getInputStream());
+                SocketManager socketManager = new SocketManager(this.id, null, executorService, justConnectedClient,
+                        new ChatUpdater(chats, roomsPropertyChangeSupport, msgChangeListener), this::onPeerDisconnected);
 
-                //I will receive a helloPacket from him containing his ID
-                HelloPacket helloPacket = (HelloPacket) ois.readObject();
+                String otherId = socketManager.getOtherId();
 
                 //Update the list of sockets of the other peers
-                sockets.put(helloPacket.id(), new SocketInfo(justConnectedClient, oos, ois));
+                sockets.put(otherId, socketManager);
 
                 //Update the list of Addresses of the other peers
-                ips.put(helloPacket.id(), justConnectedClient.getRemoteSocketAddress());
+                ips.put(otherId, justConnectedClient.getRemoteSocketAddress());
 
-                usersPropertyChangeSupport.firePropertyChange("USER_CONNECTED", null, helloPacket.id());
+                usersPropertyChangeSupport.firePropertyChange("USER_CONNECTED", null, otherId);
 
-                resendQueued(helloPacket.id());
-
-                CompletableFuture.runAsync(new ChatUpdater(justConnectedClient, ois, chats, roomsPropertyChangeSupport, msgChangeListener), executorService)
-                        .thenRun(() -> {
-                            ips.remove(helloPacket.id());
-                            sockets.remove(helloPacket.id());
-                            usersPropertyChangeSupport.firePropertyChange("USER_DISCONNECTED", helloPacket.id(), null);
-                            System.err.println("[" + id + "] " + helloPacket.id() + " disconnected");
-                        });
+                resendQueued(otherId);
             }
         } catch (SocketException e) {
             System.err.println("[" + id + "] Server shut down " + e);
-        } catch (IOException | ClassNotFoundException e) {
+        } catch (IOException e) {
             throw new Error(e);
         }
+    }
+
+    private void onPeerDisconnected(String id, Throwable e) {
+        e.printStackTrace();
+        ips.remove(id);
+        sockets.remove(id).close();
+        usersPropertyChangeSupport.firePropertyChange("USER_DISCONNECTED", id, null);
+        System.err.println("[" + id + "] " + id + " disconnected " + e);
     }
 }
