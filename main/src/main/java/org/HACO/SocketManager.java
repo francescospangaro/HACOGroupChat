@@ -1,6 +1,7 @@
 package org.HACO;
 
 import org.HACO.packets.*;
+import org.jetbrains.annotations.VisibleForTesting;
 
 import java.io.*;
 import java.net.Socket;
@@ -10,7 +11,8 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 public class SocketManager {
-
+    private static final int DEFAULT_TIMEOUT = 5000;
+    private final int timeout;
     private final Socket socket;
     private final ObjectOutputStream oos;
     private final ObjectInputStream ois;
@@ -30,7 +32,19 @@ public class SocketManager {
                          Consumer<P2PPacket> inPacketConsumer,
                          BiConsumer<String, Throwable> onClose)
             throws IOException {
-        this(myId, otherId, executor, socket, socket.getInputStream(), socket.getOutputStream(), inPacketConsumer, onClose);
+        this(myId, otherId, executor, socket, socket.getInputStream(), socket.getOutputStream(), inPacketConsumer, onClose, DEFAULT_TIMEOUT);
+    }
+
+    @VisibleForTesting
+    SocketManager(String myId,
+                  String otherId,
+                  ExecutorService executor,
+                  Socket socket,
+                  Consumer<P2PPacket> inPacketConsumer,
+                  BiConsumer<String, Throwable> onClose,
+                  int timeout)
+            throws IOException {
+        this(myId, otherId, executor, socket, socket.getInputStream(), socket.getOutputStream(), inPacketConsumer, onClose, timeout);
     }
 
     private SocketManager(String myId,
@@ -40,8 +54,10 @@ public class SocketManager {
                           InputStream is,
                           OutputStream os,
                           Consumer<P2PPacket> inPacketConsumer,
-                          BiConsumer<String, Throwable> onClose)
+                          BiConsumer<String, Throwable> onClose,
+                          int timeout)
             throws IOException {
+        this.timeout = timeout;
         this.socket = socket;
         this.myId = myId;
         this.oos = os instanceof ObjectOutputStream oos ? oos : new ObjectOutputStream(os);
@@ -58,7 +74,7 @@ public class SocketManager {
         }
 
         try {
-            this.otherId.get(5, TimeUnit.SECONDS);
+            this.otherId.get(timeout, TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         } catch (ExecutionException e) {
@@ -117,7 +133,7 @@ public class SocketManager {
         System.out.println("Sent " + packet);
 
         try {
-            ackPromise.get(5, TimeUnit.SECONDS);
+            ackPromise.get(timeout, TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         } catch (ExecutionException e) {
