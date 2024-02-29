@@ -3,6 +3,8 @@ package org.HACO;
 import javax.swing.*;
 import java.awt.*;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class App {
     private JPanel panel1;
@@ -18,12 +20,13 @@ public class App {
     private JLabel connectedLabel;
     private JTextField delayTime;
     private JList<String> connectedList;
-    private Peer peer;
+    private volatile Peer peer;
+    private final ExecutorService executorService = Executors.newCachedThreadPool();
 
 
     public App() {
         //Want to create a new Group for chatting
-        newChatButton.addActionListener(e -> {
+        newChatButton.addActionListener(e -> executorService.execute(() -> {
             System.out.println(peer);
             CreateRoom dialog = new CreateRoom(peer.getIps().keySet());
 
@@ -35,10 +38,10 @@ public class App {
                 //Request the creation of the room with this name and with all the users
                 peer.createRoom(name, users);
             }
-        });
+        }));
 
         //Want to send a message to a ChatRoom
-        sendButton.addActionListener(e -> {
+        sendButton.addActionListener(e -> executorService.execute(() -> {
             String msg = msgArea.getText();
             //Get the ChatRoom selected by the user in which he wants to send the msg
             ChatRoom chat = (ChatRoom) chatRooms.getSelectedItem();
@@ -55,17 +58,18 @@ public class App {
 
             peer.sendMessage(msg, chat, delay);
             msgArea.setText("");
-        });
+        }));
 
 
-        deleteButton.addActionListener(e -> {
+        deleteButton.addActionListener(e -> executorService.execute(() -> {
             ChatRoom toDelete = (ChatRoom) chatRooms.getSelectedItem();
             System.out.println("Deleting room " + toDelete.getId());
             peer.deleteRoom(toDelete);
-        });
-        disconnectReconnectButton.addActionListener(e -> {
+        }));
+
+        disconnectReconnectButton.addActionListener(e -> executorService.execute(() -> {
             setConnected(!peer.isConnected());
-        });
+        }));
 
         Thread.setDefaultUncaughtExceptionHandler((t, e) -> {
             e.printStackTrace();
