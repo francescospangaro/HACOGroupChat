@@ -13,9 +13,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.*;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.*;
 
 
 public class Peer {
@@ -28,6 +26,7 @@ public class Peer {
     private final PropertyChangeSupport usersPropertyChangeSupport;
 
     private final ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor();
+    private final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
     private ServerSocket serverSocket;
 
     private final Map<String, SocketAddress> ips;
@@ -109,7 +108,6 @@ public class Peer {
             try {
                 connectToSinglePeer(id, addr);
             } catch (IOException e) {
-                disconnectedIps.put(id, addr);
                 onPeerDisconnected(id, e);
             }
         });
@@ -118,32 +116,27 @@ public class Peer {
         reconnectToPeers();
     }
 
-    @SuppressWarnings("BusyWait")
     private void reconnectToPeers() {
         //Every 5 seconds retry, until I'm connected with everyone
-        new Thread(() -> {
-            while (!disconnectedIps.isEmpty()) {
+        scheduledExecutorService.scheduleAtFixedRate(() -> {
+            executorService.execute(() -> {
                 disconnectedIps.forEach((id, addr) -> {
+                    System.out.println("Trying to reconnect to " + id);
                     try {
                         connectToSinglePeer(id, addr);
+                        ips.put(id, disconnectedIps.remove(id));
                     } catch (IOException e) {
-                        onPeerDisconnected(id, e);
+                        System.err.println("Failed to reconnect to " + id);
                     }
                 });
-                try {
-                    //Wait for 5 seconds before trying to reconnect to all the remaining peers
-                    Thread.sleep(5000);
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-        }).start();
+            });
+        }, 5, 5, TimeUnit.SECONDS);
     }
 
     private void connectToSinglePeer(String id, SocketAddress addr) throws IOException {
         Socket s = new Socket();
         System.out.println("[" + this.id + "] connecting to " + id);
-        s.connect(addr);
+        s.connect(addr, 500);
 
         System.out.println("[" + this.id + "] connected");
 
@@ -153,7 +146,7 @@ public class Peer {
         sockets.put(id, socketManager);
 
         usersPropertyChangeSupport.firePropertyChange("USER_CONNECTED", null, id);
-        disconnectedIps.remove(id);
+
         resendQueued(id);
     }
 
@@ -348,7 +341,7 @@ public class Peer {
 
     private void onPeerDisconnected(String id, Throwable e) {
         e.printStackTrace();
-        ips.remove(id);
+        disconnectedIps.put(id, ips.remove(id));
         sockets.remove(id).close();
         usersPropertyChangeSupport.firePropertyChange("USER_DISCONNECTED", id, null);
         System.err.println("[" + id + "] " + id + " disconnected " + e);
