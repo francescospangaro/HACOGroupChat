@@ -222,8 +222,10 @@ public class Peer {
         ids.forEach(id -> {
             if (!id.equals(this.id)) {
                 if (sockets.containsKey(id)) {
-                    System.out.println("[" + this.id + "] sending " + packet + " to " + id);
-                    sendSinglePeer(packet, id);
+                    executorService.execute(() -> {
+                        System.out.println("[" + this.id + "] sending " + packet + " to " + id);
+                        sendSinglePeer(packet, id);
+                    });
                 } else {
                     System.out.println("[" + this.id + "] Peer " + id + " currently disconnected, enqueuing packet only for him...");
                     disconnectMsgs.computeIfAbsent(id, k -> ConcurrentHashMap.newKeySet());
