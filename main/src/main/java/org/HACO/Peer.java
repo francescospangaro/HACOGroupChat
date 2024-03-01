@@ -200,18 +200,19 @@ public class Peer {
         ChatRoom newRoom = new ChatRoom(name, users, msgChangeListener);
         chats.add(newRoom);
 
-        //Fires ADD_ROOM Event in order to update the GUI
-        roomsPropertyChangeSupport.firePropertyChange("ADD_ROOM", null, newRoom);
-
         //Inform all the users about the creation of the new chat room by sending to them a CreateRoomPacket
         sendPacket(new CreateRoomPacket(newRoom.getId(), name, users), users);
+
+        //Fires ADD_ROOM Event in order to update the GUI
+        roomsPropertyChangeSupport.firePropertyChange("ADD_ROOM", null, newRoom);
     }
 
     public void deleteRoom(ChatRoom toDelete) {
-        roomsPropertyChangeSupport.firePropertyChange("DEL_ROOM", toDelete, null);
         chats.remove(toDelete);
 
         sendPacket(new DeleteRoomPacket(toDelete.getId()), toDelete.getUsers());
+
+        roomsPropertyChangeSupport.firePropertyChange("DEL_ROOM", toDelete, null);
     }
 
     public String getId() {

@@ -134,10 +134,7 @@ class ChatTest {
         CountDownLatch users2 = new CountDownLatch(2);
         CountDownLatch users3 = new CountDownLatch(2);
         Peer c1 = new Peer("id1", 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
-                e -> {
-                    System.out.println("PD " + e);
-                    users1.countDown();
-                },
+                e -> users1.countDown(),
                 e -> msg1Promise.complete((Message) e.getNewValue()), true);
 
         Peer c2 = new Peer("id2", 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
