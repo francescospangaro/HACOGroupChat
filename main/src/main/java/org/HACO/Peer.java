@@ -119,16 +119,14 @@ public class Peer {
     private void reconnectToPeers() {
         //Every 5 seconds retry, until I'm connected with everyone
         scheduledExecutorService.scheduleAtFixedRate(() -> {
-            executorService.execute(() -> {
-                disconnectedIps.forEach((id, addr) -> {
-                    System.out.println("Trying to reconnect to " + id);
-                    try {
-                        connectToSinglePeer(id, addr);
-                        ips.put(id, disconnectedIps.remove(id));
-                    } catch (IOException e) {
-                        System.err.println("Failed to reconnect to " + id);
-                    }
-                });
+            disconnectedIps.forEach((id, addr) -> {
+                System.out.println("Trying to reconnect to " + id);
+                try {
+                    connectToSinglePeer(id, addr);
+                    ips.put(id, disconnectedIps.remove(id));
+                } catch (IOException e) {
+                    System.err.println("Failed to reconnect to " + id);
+                }
             });
         }, 5, 5, TimeUnit.SECONDS);
     }
@@ -236,7 +234,7 @@ public class Peer {
         });
     }
 
-    public boolean sendSinglePeer(P2PPacket packet, String id) {
+    private boolean sendSinglePeer(P2PPacket packet, String id) {
         try {
             sockets.get(id).send(packet);
             return true;
@@ -284,6 +282,7 @@ public class Peer {
     public void disconnect() {
         System.out.println("[" + id + "] Disconnecting...");
         connected = false;
+        scheduledExecutorService.shutdownNow();
 
         sendToDiscovery(new ByePacket(id)/*, 0*/);
 
@@ -339,13 +338,21 @@ public class Peer {
             System.err.println("[" + id + "] Server shut down " + e);
         } catch (IOException e) {
             throw new Error(e);
+        } finally {
+            System.err.println("[" + id + "] server closed");
         }
     }
 
     private void onPeerDisconnected(String id, Throwable e) {
         e.printStackTrace();
-        disconnectedIps.put(id, ips.remove(id));
-        sockets.remove(id).close();
+        var addr = ips.remove(id);
+        if (addr != null)
+            disconnectedIps.put(id, addr);
+
+        var socket = sockets.remove(id);
+        if (socket != null)
+            socket.close();
+
         usersPropertyChangeSupport.firePropertyChange("USER_DISCONNECTED", id, null);
         System.err.println("[" + id + "] " + id + " disconnected " + e);
     }
