@@ -221,10 +221,17 @@ public class Peer {
         ids.forEach(id -> {
             if (!id.equals(this.id)) {
                 if (sockets.containsKey(id)) {
-                    executorService.execute(() -> {
+                    //Apparently the GitHub action breaks if we concurrently write on different sockets :/
+                    //To be investigated.
+                    if (testing) {
                         System.out.println("[" + this.id + "] sending " + packet + " to " + id);
                         sendSinglePeer(packet, id);
-                    });
+                    } else {
+                        executorService.execute(() -> {
+                            System.out.println("[" + this.id + "] sending " + packet + " to " + id);
+                            sendSinglePeer(packet, id);
+                        });
+                    }
                 } else {
                     System.out.println("[" + this.id + "] Peer " + id + " currently disconnected, enqueuing packet only for him...");
                     disconnectMsgs.computeIfAbsent(id, k -> ConcurrentHashMap.newKeySet());

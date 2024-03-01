@@ -22,7 +22,7 @@ public class SocketManager {
     private final String myId;
     private final Consumer<P2PPacket> inPacketConsumer;
     private final BiConsumer<String, Throwable> onClose;
-    private CompletableFuture<String> otherId;
+    private final CompletableFuture<String> otherId;
     private volatile CompletableFuture<Void> ackPromise;
 
     public SocketManager(String myId,
@@ -82,12 +82,10 @@ public class SocketManager {
         } catch (TimeoutException e) {
             throw new IOException(e);
         }
-        ackPromise = new CompletableFuture<>();
     }
 
     private void readLoop() {
         try {
-            boolean wasClosed = false;
             do {
                 Packet p;
                 try {
@@ -100,7 +98,7 @@ public class SocketManager {
 
                 switch (p) {
                     case AckPacket ack -> {
-                        System.out.println("Receiver ack" + ack);
+                        System.out.println("Received ack" + ack);
                         if (ack.seqNum() != seq.get() - 1)
                             throw new IllegalStateException("This show never happen(?)");
                         ackPromise.complete(null);
@@ -116,7 +114,7 @@ public class SocketManager {
                     }
                     default -> throw new IllegalStateException("Unexpected value: " + p);
                 }
-            } while (!wasClosed && !Thread.currentThread().isInterrupted());
+            } while (!socket.isClosed() && !Thread.currentThread().isInterrupted());
 
         } catch (IOException e) {
             close();
@@ -130,6 +128,8 @@ public class SocketManager {
         ackPromise = new CompletableFuture<>();
 
         oos.writeObject(new SeqPacketImpl(packet, seqN));
+        oos.flush();
+
         System.out.println("Sent " + packet);
 
         try {
@@ -143,8 +143,9 @@ public class SocketManager {
         }
     }
 
-    private void sendAck(long seq) throws IOException {
+    private synchronized void sendAck(long seq) throws IOException {
         oos.writeObject(new AckPacket(seq));
+        oos.flush();
         System.out.println("Sent ack for" + seq);
     }
 

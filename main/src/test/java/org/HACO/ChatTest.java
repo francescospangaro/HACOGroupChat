@@ -165,7 +165,7 @@ class ChatTest {
         Message m1 = msg1Promise.get(500, TimeUnit.MILLISECONDS);
         Message m2 = msg2Promise.get(500, TimeUnit.MILLISECONDS);
 
-        Thread.sleep(100);
+        Thread.sleep(500);
         assertTrue(msg3List.isEmpty());
 
         assertEquals("TEST", m1.msg());
@@ -176,7 +176,11 @@ class ChatTest {
 
         c2.sendMessage("TEST2", chat2, 0);
 
-        Thread.sleep(100);
+        for (int i = 0; i < 50; i++) {
+            Thread.sleep(10);
+            if (1 == chat3.getWaiting().size())
+                break;
+        }
         assertTrue(msg3List.isEmpty());
         assertEquals(1, chat3.getWaiting().size());
         assertEquals("TEST2", chat3.getWaiting().stream().findFirst().orElseThrow().msg());
