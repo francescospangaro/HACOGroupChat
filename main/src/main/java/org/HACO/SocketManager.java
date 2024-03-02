@@ -127,8 +127,10 @@ public class SocketManager {
         long seqN = seq.getAndIncrement();
         ackPromise = new CompletableFuture<>();
 
-        oos.writeObject(new SeqPacketImpl(packet, seqN));
-        oos.flush();
+        synchronized (oos) {
+            oos.writeObject(new SeqPacketImpl(packet, seqN));
+            oos.flush();
+        }
 
         System.out.println("Sent " + packet);
 
@@ -143,9 +145,11 @@ public class SocketManager {
         }
     }
 
-    private synchronized void sendAck(long seq) throws IOException {
-        oos.writeObject(new AckPacket(seq));
-        oos.flush();
+    private void sendAck(long seq) throws IOException {
+        synchronized (oos) {
+            oos.writeObject(new AckPacket(seq));
+            oos.flush();
+        }
         System.out.println("Sent ack for" + seq);
     }
 
