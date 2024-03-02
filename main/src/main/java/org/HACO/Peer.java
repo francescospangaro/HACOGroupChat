@@ -1,5 +1,6 @@
 package org.HACO;
 
+import org.HACO.Exceptions.PeerAlreadyConnectedException;
 import org.HACO.packets.*;
 import org.HACO.packets.discovery.ByePacket;
 import org.HACO.packets.discovery.IPsPacket;
@@ -14,6 +15,8 @@ import java.io.ObjectOutputStream;
 import java.net.*;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 
 public class Peer {
@@ -40,6 +43,10 @@ public class Peer {
 
     private final Set<String> degradedConnections;
     private final Map<String, Set<P2PPacket>> disconnectMsgs = new ConcurrentHashMap<>();
+
+    //Lock to acquire before connect to / accept connection from a new peer
+    // to avoid that two peer try to connect to each other at the same time.
+    private final Lock connectLock = new ReentrantLock();
 
     public Peer(String id, int port,
                 PropertyChangeListener chatRoomsChangeListener,
@@ -112,7 +119,11 @@ public class Peer {
             try {
                 connectToSinglePeer(id, addr);
             } catch (IOException e) {
+                connectLock.unlock();
                 onPeerDisconnected(id, e);
+            } catch (PeerAlreadyConnectedException e) {
+                connectLock.unlock();
+                System.out.println("Peer " + id + " already connected");
             }
         });
         connected = true;
@@ -129,13 +140,25 @@ public class Peer {
                     connectToSinglePeer(id, addr);
                     ips.put(id, disconnectedIps.remove(id));
                 } catch (IOException e) {
+                    connectLock.unlock();
                     System.err.println("Failed to reconnect to " + id);
+                    e.printStackTrace();
+                } catch (PeerAlreadyConnectedException e) {
+                    connectLock.unlock();
+                    System.out.println("Peer " + id + " already connected");
                 }
             });
         }, 5, 5, TimeUnit.SECONDS);
     }
 
-    private void connectToSinglePeer(String id, SocketAddress addr) throws IOException {
+    private void connectToSinglePeer(String id, SocketAddress addr) throws PeerAlreadyConnectedException, IOException {
+        connectLock.lock();
+
+        //After getting lock, re-check if this peer is not connected yet
+        if (sockets.containsKey(id)) {
+            throw new PeerAlreadyConnectedException();
+        }
+
         Socket s = new Socket();
         System.out.println("[" + this.id + "] connecting to " + id);
         s.connect(addr, 500);
@@ -146,6 +169,8 @@ public class Peer {
                 new ChatUpdater(chats, roomsPropertyChangeSupport, msgChangeListener),
                 this::onPeerDisconnected);
         sockets.put(id, socketManager);
+
+        connectLock.unlock();
 
         usersPropertyChangeSupport.firePropertyChange("USER_CONNECTED", null, id);
 
@@ -329,20 +354,36 @@ public class Peer {
 
                 //Someone has just connected to me
                 System.out.println("[" + id + "]" + justConnectedClient.getRemoteSocketAddress() + " is connected");
+                String otherId;
+                try {
+                    //Try to acquire lock, timeout of 2 secs to avoid deadlocks.
+                    // if I can't acquire lock in 2 sec, I assume a deadlock and close the connection.
+                    if (!connectLock.tryLock(2, TimeUnit.SECONDS)) {
+                        System.err.println("[" + id + "] Can't get lock. Connection refused");
+                        justConnectedClient.close();
+                        continue;
+                    }
 
-                SocketManager socketManager = new SocketManager(this.id, null, executorService, justConnectedClient,
-                        new ChatUpdater(chats, roomsPropertyChangeSupport, msgChangeListener), this::onPeerDisconnected);
+                    SocketManager socketManager = new SocketManager(this.id, null, executorService, justConnectedClient,
+                            new ChatUpdater(chats, roomsPropertyChangeSupport, msgChangeListener), this::onPeerDisconnected);
 
-                String otherId = socketManager.getOtherId();
+                    otherId = socketManager.getOtherId();
 
-                //Remove from the disconnected peers (if present)
-                disconnectedIps.remove(otherId);
+                    //Remove from the disconnected peers (if present)
+                    disconnectedIps.remove(otherId);
 
-                //Update the list of sockets of the other peers
-                sockets.put(otherId, socketManager);
+                    //Close pending socket for this peer (if any)
+                    if (sockets.containsKey(otherId))
+                        sockets.get(otherId).close();
 
-                //Update the list of Addresses of the other peers
-                ips.put(otherId, justConnectedClient.getRemoteSocketAddress());
+                    //Update the list of sockets of the other peers
+                    sockets.put(otherId, socketManager);
+
+                    //Update the list of Addresses of the other peers
+                    ips.put(otherId, justConnectedClient.getRemoteSocketAddress());
+                } finally {
+                    connectLock.unlock();
+                }
 
                 usersPropertyChangeSupport.firePropertyChange("USER_CONNECTED", null, otherId);
 
@@ -350,8 +391,11 @@ public class Peer {
             }
         } catch (SocketException e) {
             System.err.println("[" + id + "] Server shut down " + e);
+            e.printStackTrace();
         } catch (IOException e) {
             throw new Error(e);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
         } finally {
             System.err.println("[" + id + "] server closed");
         }
