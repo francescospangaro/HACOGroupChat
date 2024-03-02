@@ -27,6 +27,7 @@ public class Peer {
 
     private final ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor();
     private final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
+    private volatile ScheduledFuture<?> reconnectTask;
     private ServerSocket serverSocket;
 
     private final Map<String, SocketAddress> ips;
@@ -74,6 +75,9 @@ public class Peer {
             throw new Error(e);
         }
         executorService.execute(this::runServer);
+
+        //We are (re-)connecting from scratch, so delete all crashed peer and get a new list from the discovery
+        disconnectedIps.clear();
         ips.putAll(register());
         connect();
     }
@@ -118,7 +122,7 @@ public class Peer {
 
     private void reconnectToPeers() {
         //Every 5 seconds retry, until I'm connected with everyone
-        scheduledExecutorService.scheduleAtFixedRate(() -> {
+        reconnectTask = scheduledExecutorService.scheduleAtFixedRate(() -> {
             disconnectedIps.forEach((id, addr) -> {
                 System.out.println("Trying to reconnect to " + id);
                 try {
@@ -289,7 +293,7 @@ public class Peer {
     public void disconnect() {
         System.out.println("[" + id + "] Disconnecting...");
         connected = false;
-        scheduledExecutorService.shutdownNow();
+        reconnectTask.cancel(true);
 
         sendToDiscovery(new ByePacket(id)/*, 0*/);
 
@@ -330,6 +334,9 @@ public class Peer {
                         new ChatUpdater(chats, roomsPropertyChangeSupport, msgChangeListener), this::onPeerDisconnected);
 
                 String otherId = socketManager.getOtherId();
+
+                //Remove from the disconnected peers (if present)
+                disconnectedIps.remove(otherId);
 
                 //Update the list of sockets of the other peers
                 sockets.put(otherId, socketManager);
