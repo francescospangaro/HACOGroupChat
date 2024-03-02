@@ -20,6 +20,7 @@ public class App {
     private JLabel connectedLabel;
     private JTextField delayTime;
     private JList<String> connectedList;
+    private JLabel chatLable;
     private volatile Peer peer;
     private final ExecutorService executorService = Executors.newCachedThreadPool();
 
@@ -153,6 +154,10 @@ public class App {
         }, evt -> {
             if (evt.getPropertyName().equals("ADD_MSG")) {
                 System.out.println("Msg added in gui");
+
+                //todo need to include inside the message some reference to which ChatRoom belongs otherwise it's not possible to show the msg accordingly
+                //chatLable.setText("Chat: --");
+
                 msgListModel.addElement(evt.getNewValue().toString());
             }
         }, false);
