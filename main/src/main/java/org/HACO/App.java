@@ -6,9 +6,6 @@ import org.HACO.packets.MessageGUI;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ItemEvent;
-import java.awt.event.ItemListener;
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -67,7 +64,8 @@ public class App {
             }
 
             peer.sendMessage(msg, chat, delay);
-            msgArea.setText("");
+
+            SwingUtilities.invokeLater(() -> msgArea.setText(""));
         }));
 
 
@@ -77,18 +75,18 @@ public class App {
             peer.deleteRoom(toDelete);
         }));
 
-        disconnectReconnectButton.addActionListener(e -> executorService.execute(() -> {
-            setConnected(!peer.isConnected());
-        }));
+        disconnectReconnectButton.addActionListener(e ->
+                setConnected(!peer.isConnected())
+        );
 
-        chatRooms.addItemListener(e -> executorService.execute(() -> {
-                if(e.getID() == ItemEvent.ITEM_STATE_CHANGED) {
-                    chatLable.setText("Chat: " + ((ChatRoom) chatRooms.getSelectedItem()).getName());
-                    msgListModel.clear();
+        chatRooms.addItemListener(e -> {
+            if (e.getID() == ItemEvent.ITEM_STATE_CHANGED) {
+                chatLable.setText("Chat: " + ((ChatRoom) chatRooms.getSelectedItem()).getName());
+                msgListModel.clear();
 
-                    //todo ask ChatRoom the list of msgs to visualize
-                }
-        }));
+                //todo ask ChatRoom the list of msgs to visualize
+            }
+        });
 
 
         Thread.setDefaultUncaughtExceptionHandler((t, e) -> {
@@ -155,37 +153,42 @@ public class App {
 
 
         peer = new Peer(id, port, evt -> {
-            if (evt.getPropertyName().equals("ADD_ROOM")) {
-                ChatRoom chat = (ChatRoom) evt.getNewValue();
-                System.out.println("Room " + chat + " added in gui");
-                chatRooms.addItem(chat);
-            } else if (evt.getPropertyName().equals("DEL_ROOM")) {
-                ChatRoom chat = (ChatRoom) evt.getOldValue();
-                System.out.println("Room " + chat + " removed from gui");
-                chatRooms.removeItem(chat);
-            }
+            SwingUtilities.invokeLater(() -> {
+                if (evt.getPropertyName().equals("ADD_ROOM")) {
+                    ChatRoom chat = (ChatRoom) evt.getNewValue();
+                    System.out.println("Room " + chat + " added in gui");
+                    chatRooms.addItem(chat);
+                } else if (evt.getPropertyName().equals("DEL_ROOM")) {
+                    ChatRoom chat = (ChatRoom) evt.getOldValue();
+                    System.out.println("Room " + chat + " removed from gui");
+                    chatRooms.removeItem(chat);
+                }
+            });
         }, evt -> {
-            if (evt.getPropertyName().equals("USER_CONNECTED")) {
-                connectedModelList.addElement((String) evt.getNewValue());
-            } else {
-                System.out.println("Removing " + evt.getOldValue() + " " + connectedModelList.removeElement(evt.getOldValue()));
-            }
+            SwingUtilities.invokeLater(() -> {
+                if (evt.getPropertyName().equals("USER_CONNECTED")) {
+                    connectedModelList.addElement((String) evt.getNewValue());
+                } else {
+                    System.out.println("Removing " + evt.getOldValue() + " " + connectedModelList.removeElement(evt.getOldValue()));
+                }
+            });
         }, evt -> {
             if (evt.getPropertyName().equals("ADD_MSG")) {
                 System.out.println("Msg added in gui");
 
                 MessageGUI mgui = (MessageGUI) evt.getNewValue();
 
-                if(((ChatRoom) chatRooms.getSelectedItem()).getId().equals(mgui.chatRoom().getId())){
-                    msgListModel.addElement(mgui.message().toString());
-                    msgListModel.clear();
-                    msgListModel.addAll(0, mgui.chatRoom().getReceivedMsgs().stream()
-                            .map(Message::toString)
-                            .collect(Collectors.toList()) );
+                if (((ChatRoom) chatRooms.getSelectedItem()).getId().equals(mgui.chatRoom().getId())) {
+                    SwingUtilities.invokeLater(() -> {
+                        msgListModel.addElement(mgui.message().toString());
+                        msgListModel.clear();
+                        msgListModel.addAll(0, mgui.chatRoom().getReceivedMsgs().stream()
+                                .map(Message::toString)
+                                .collect(Collectors.toList()));
 
-                    chatLable.setText("Chat: "+ mgui.chatRoom());
+                        chatLable.setText("Chat: " + mgui.chatRoom());
+                    });
                 }
-
             }
         }, false);
         System.out.println("started " + peer);
@@ -193,17 +196,29 @@ public class App {
 
     private void setConnected(boolean connected) {
         if (connected) {
-            peer.start();
-            connectedLabel.setText("connected");
-            connectedLabel.setForeground(new Color(0, 153, 51));
+            disconnectReconnectButton.setEnabled(false);
+            executorService.execute(() -> {
+                peer.start();
+                SwingUtilities.invokeLater(() -> {
+                    connectedLabel.setText("connected");
+                    connectedLabel.setForeground(new Color(0, 153, 51));
 
-            disconnectReconnectButton.setText("Disconnect");
+                    disconnectReconnectButton.setText("Disconnect");
+                    disconnectReconnectButton.setEnabled(true);
+                });
+            });
         } else {
-            peer.disconnect();
-            connectedLabel.setText("disconnected");
-            connectedLabel.setForeground(Color.red);
+            disconnectReconnectButton.setEnabled(false);
+            executorService.execute(() -> {
+                peer.disconnect();
+                SwingUtilities.invokeLater(() -> {
+                    connectedLabel.setText("disconnected");
+                    connectedLabel.setForeground(Color.red);
 
-            disconnectReconnectButton.setText("Reconnect");
+                    disconnectReconnectButton.setText("Reconnect");
+                    disconnectReconnectButton.setEnabled(true);
+                });
+            });
         }
     }
 
