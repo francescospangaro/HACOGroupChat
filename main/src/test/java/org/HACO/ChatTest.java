@@ -91,11 +91,11 @@ class ChatTest {
         CompletableFuture<Message> msg2Promise = new CompletableFuture<>();
         Peer c1 = new Peer("id1", 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
                 e -> c1Promise.complete((String) e.getNewValue()),
-                e -> msg1Promise.complete((Message) e.getNewValue()), true);
+                e -> msg1Promise.complete(((MessageGUI) e.getNewValue()).message()), true);
 
         Peer c2 = new Peer("id2", 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
                 e -> c2Promise.complete((String) e.getNewValue()),
-                e -> msg2Promise.complete((Message) e.getNewValue()), true);
+                e -> msg2Promise.complete(((MessageGUI) e.getNewValue()).message()), true);
 
         System.out.println(c1Promise.get(500, TimeUnit.MILLISECONDS));
         System.out.println(c2Promise.get(500, TimeUnit.MILLISECONDS));
@@ -135,16 +135,16 @@ class ChatTest {
         CountDownLatch users3 = new CountDownLatch(2);
         Peer c1 = new Peer("id1", 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
                 e -> users1.countDown(),
-                e -> msg1Promise.complete((Message) e.getNewValue()), true);
+                e -> msg1Promise.complete(((MessageGUI) e.getNewValue()).message()), true);
 
         Peer c2 = new Peer("id2", 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
                 e -> users2.countDown(),
-                e -> msg2Promise.complete((Message) e.getNewValue()), true);
+                e -> msg2Promise.complete(((MessageGUI) e.getNewValue()).message()), true);
 
         Peer c3 = new Peer("id3", 12347, e -> chat3Promise.complete((ChatRoom) e.getNewValue()),
                 e -> users3.countDown(),
                 e -> {
-                    msg3List.add((Message) e.getNewValue());
+                    msg3List.add(((MessageGUI) e.getNewValue()).message());
                     msg3.countDown();
                 }, true);
         assertTrue(users1.await(500, TimeUnit.MILLISECONDS));
