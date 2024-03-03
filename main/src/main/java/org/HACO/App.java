@@ -1,10 +1,18 @@
 package org.HACO;
 
+import org.HACO.packets.Message;
+import org.HACO.packets.MessageGUI;
+
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.ItemEvent;
+import java.awt.event.ItemListener;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.stream.Collectors;
 
 public class App {
     private JPanel panel1;
@@ -24,6 +32,7 @@ public class App {
     private volatile Peer peer;
     private final ExecutorService executorService = Executors.newCachedThreadPool();
 
+    private DefaultListModel<String> msgListModel = new DefaultListModel<>();
 
     public App() {
         //Want to create a new Group for chatting
@@ -71,6 +80,16 @@ public class App {
         disconnectReconnectButton.addActionListener(e -> executorService.execute(() -> {
             setConnected(!peer.isConnected());
         }));
+
+        chatRooms.addItemListener(e -> executorService.execute(() -> {
+                if(e.getID() == ItemEvent.ITEM_STATE_CHANGED) {
+                    chatLable.setText("Chat: " + ((ChatRoom) chatRooms.getSelectedItem()).getName());
+                    msgListModel.clear();
+
+                    //todo ask ChatRoom the list of msgs to visualize
+                }
+        }));
+
 
         Thread.setDefaultUncaughtExceptionHandler((t, e) -> {
             e.printStackTrace();
@@ -128,7 +147,7 @@ public class App {
         } while (id.isEmpty());
         usernameLabel.setText(id);
 
-        DefaultListModel<String> msgListModel = new DefaultListModel<>();
+
         msgList.setModel(msgListModel);
 
         DefaultListModel<String> connectedModelList = new DefaultListModel<>();
@@ -155,10 +174,18 @@ public class App {
             if (evt.getPropertyName().equals("ADD_MSG")) {
                 System.out.println("Msg added in gui");
 
-                //todo need to include inside the message some reference to which ChatRoom belongs otherwise it's not possible to show the msg accordingly
-                //chatLable.setText("Chat: --");
+                MessageGUI mgui = (MessageGUI) evt.getNewValue();
 
-                msgListModel.addElement(evt.getNewValue().toString());
+                if(((ChatRoom) chatRooms.getSelectedItem()).getId().equals(mgui.chatRoom().getId())){
+                    msgListModel.addElement(mgui.message().toString());
+                    msgListModel.clear();
+                    msgListModel.addAll(0, mgui.chatRoom().getReceivedMsgs().stream()
+                            .map(Message::toString)
+                            .collect(Collectors.toList()) );
+
+                    chatLable.setText("Chat: "+ mgui.chatRoom());
+                }
+
             }
         }, false);
         System.out.println("started " + peer);

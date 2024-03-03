@@ -1,6 +1,7 @@
 package org.HACO;
 
 import org.HACO.packets.Message;
+import org.HACO.packets.MessageGUI;
 import org.jetbrains.annotations.VisibleForTesting;
 
 import java.beans.PropertyChangeListener;
@@ -66,7 +67,7 @@ public class ChatRoom {
     public void pushWithoutCheck(Message m) {
         vectorClocks.put(m.sender(), vectorClocks.get(m.sender()) + 1);
         receivedMsgs.add(m);
-        propertyChangeSupport.firePropertyChange("ADD_MSG", null, m);
+        propertyChangeSupport.firePropertyChange("ADD_MSG", null,  new MessageGUI(m,this));
     }
 
     // TODO: test vc implementation
@@ -81,7 +82,7 @@ public class ChatRoom {
             receivedMsgs.add(m);
             //Remove the message from the queue(if it was there)
             waiting.remove(m);
-            propertyChangeSupport.firePropertyChange("ADD_MSG", null, m);
+            propertyChangeSupport.firePropertyChange("ADD_MSG", null, new MessageGUI(m,this));
             //Check the message queue to see if we can accept any other message
             //RECURSION BABY LET'S GO
             for (Message w : waiting) {
@@ -145,4 +146,7 @@ public class ChatRoom {
         return name;
     }
 
+    public List<Message> getReceivedMsgs() {
+        return receivedMsgs;
+    }
 }
