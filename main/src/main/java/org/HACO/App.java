@@ -2,6 +2,7 @@ package org.HACO;
 
 import org.HACO.packets.Message;
 import org.HACO.packets.MessageGUI;
+import org.HACO.utility.Randomize;
 
 import javax.swing.*;
 import java.awt.*;
@@ -126,7 +127,7 @@ public class App {
         int port = -1;
         do {
             try {
-                String input = JOptionPane.showInputDialog(frame, "Insert a port", 12345);
+                String input = JOptionPane.showInputDialog(frame, "Insert a port", Randomize.generateRandomUDPPort());
                 if (input == null) {
                     System.exit(0);
                 }
@@ -140,7 +141,7 @@ public class App {
 
         String id;
         do {
-            id = JOptionPane.showInputDialog(frame, "Insert an id");
+            id = JOptionPane.showInputDialog(frame, "Insert an id", Randomize.generateRandomString(5));
             if (id == null) {
                 System.exit(0);
             }
