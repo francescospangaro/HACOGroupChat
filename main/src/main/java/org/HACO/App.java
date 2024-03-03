@@ -100,7 +100,7 @@ public class App {
 
             //Try to disconnect before killing
             if (peer != null && peer.isConnected()) {
-                peer.disconnect();
+                peer.close();
             }
 
             System.exit(-1);
@@ -117,7 +117,7 @@ public class App {
         frame.addWindowListener(new java.awt.event.WindowAdapter() {
             @Override
             public void windowClosed(java.awt.event.WindowEvent windowEvent) {
-                peer.disconnect();
+                peer.close();
             }
         });
 

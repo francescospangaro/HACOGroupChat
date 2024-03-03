@@ -9,6 +9,7 @@ import org.HACO.packets.discovery.UpdateIpPacket;
 
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -19,7 +20,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 
-public class Peer {
+public class Peer implements Closeable {
     private static final InetSocketAddress DISCOVERY_SERVER = new InetSocketAddress("localhost", 8080);
     private final String id;
     private final boolean testing;
@@ -31,6 +32,7 @@ public class Peer {
     private final ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor();
     private final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
     private volatile ScheduledFuture<?> reconnectTask;
+    private volatile Future<?> acceptTask;
     private ServerSocket serverSocket;
 
     private final Map<String, SocketAddress> ips;
@@ -81,7 +83,7 @@ public class Peer {
         } catch (IOException e) {
             throw new Error(e);
         }
-        executorService.execute(this::runServer);
+        acceptTask = executorService.submit(this::runServer);
 
         //We are (re-)connecting from scratch, so delete all crashed peer and get a new list from the discovery
         disconnectedIps.clear();
@@ -320,13 +322,14 @@ public class Peer {
         connected = false;
         reconnectTask.cancel(true);
 
-        sendToDiscovery(new ByePacket(id)/*, 0*/);
-
+        acceptTask.cancel(true);
         try {
             serverSocket.close();
-        } catch (IOException e) {
-            e.printStackTrace();
+        } catch (IOException ignored) {
         }
+
+        sendToDiscovery(new ByePacket(id)/*, 0*/);
+
         sockets.forEach((id, socketManager) -> socketManager.close());
         sockets.clear();
         ips.clear();
@@ -413,5 +416,12 @@ public class Peer {
 
         usersPropertyChangeSupport.firePropertyChange("USER_DISCONNECTED", id, null);
         System.err.println("[" + id + "] " + id + " disconnected " + e);
+    }
+
+    @Override
+    public void close() {
+        disconnect();
+        scheduledExecutorService.shutdownNow();
+        executorService.shutdownNow();
     }
 }

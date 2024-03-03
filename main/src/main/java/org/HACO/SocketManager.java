@@ -10,7 +10,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
-public class SocketManager {
+public class SocketManager implements Closeable {
     private static final int DEFAULT_TIMEOUT = 5000;
     private final int timeout;
     private final Socket socket;
@@ -117,7 +117,6 @@ public class SocketManager {
             } while (!socket.isClosed() && !Thread.currentThread().isInterrupted());
 
         } catch (IOException e) {
-            close();
             onClose.accept(otherId.resultNow(), e);
         }
     }
@@ -153,12 +152,12 @@ public class SocketManager {
         System.out.println("Sent ack for" + seq);
     }
 
+    @Override
     public void close() {
         recvTask.cancel(true);
         try {
             socket.close();
-        } catch (IOException e) {
-            //ignored (?)
+        } catch (IOException ignored) {
         }
     }
 
