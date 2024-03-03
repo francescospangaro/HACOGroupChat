@@ -13,7 +13,10 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.net.*;
+import java.net.InetSocketAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.net.SocketAddress;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.locks.Lock;
@@ -155,6 +158,7 @@ public class Peer implements Closeable {
 
     private void connectToSinglePeer(String id, SocketAddress addr) throws PeerAlreadyConnectedException, IOException {
         connectLock.lock();
+        System.out.println("Got client lock");
 
         //After getting lock, re-check if this peer is not connected yet
         if (sockets.containsKey(id)) {
@@ -347,60 +351,71 @@ public class Peer implements Closeable {
         return this.connected;
     }
 
-    @SuppressWarnings("InfiniteLoopStatement")
     private void runServer() {
-        try {
-            //Waiting for incoming packets by creating a serverSocket
-            System.out.println("[" + id + "] server started");
-            while (true) {
-                Socket justConnectedClient = serverSocket.accept();
+        //Waiting for incoming packets by creating a serverSocket
+        System.out.println("[" + id + "] server started");
+        while (true) {
+            Socket justConnectedClient;
+            try {
+                justConnectedClient = serverSocket.accept();
+            } catch (IOException e) {
+                //Error on the server socket, stop the server
+                System.err.println("[" + id + "] Server shut down " + e + serverSocket.isClosed());
+                return;
+            }
 
-                //Someone has just connected to me
-                System.out.println("[" + id + "]" + justConnectedClient.getRemoteSocketAddress() + " is connected");
-                String otherId;
-                try {
-                    //Try to acquire lock, timeout of 2 secs to avoid deadlocks.
-                    // if I can't acquire lock in 2 sec, I assume a deadlock and close the connection.
-                    if (!connectLock.tryLock(2, TimeUnit.SECONDS)) {
-                        System.err.println("[" + id + "] Can't get lock. Connection refused");
-                        justConnectedClient.close();
-                        continue;
-                    }
+            //Someone has just connected to me
+            System.out.println("[" + id + "] " + justConnectedClient.getRemoteSocketAddress() + " is connected. Waiting for his id...");
+            String otherId;
 
-                    SocketManager socketManager = new SocketManager(this.id, null, executorService, justConnectedClient,
-                            new ChatUpdater(chats, roomsPropertyChangeSupport, msgChangeListener), this::onPeerDisconnected);
-
-                    otherId = socketManager.getOtherId();
-
-                    //Remove from the disconnected peers (if present)
-                    disconnectedIps.remove(otherId);
-
-                    //Close pending socket for this peer (if any)
-                    if (sockets.containsKey(otherId))
-                        sockets.get(otherId).close();
-
-                    //Update the list of sockets of the other peers
-                    sockets.put(otherId, socketManager);
-
-                    //Update the list of Addresses of the other peers
-                    ips.put(otherId, justConnectedClient.getRemoteSocketAddress());
-                } finally {
-                    connectLock.unlock();
+            try {
+                //Try to acquire lock, timeout of 2 secs to avoid deadlocks.
+                // if I can't acquire lock in 2 sec, I assume a deadlock and close the connection.
+                if (!connectLock.tryLock(2, TimeUnit.SECONDS)) {
+                    System.err.println("[" + id + "] Can't get lock. Connection refused");
+                    justConnectedClient.close();
+                    continue;
                 }
 
-                usersPropertyChangeSupport.firePropertyChange("USER_CONNECTED", null, otherId);
+                System.out.println("Got server lock");
 
-                resendQueued(otherId);
+                SocketManager socketManager = new SocketManager(this.id, null, executorService, justConnectedClient,
+                        new ChatUpdater(chats, roomsPropertyChangeSupport, msgChangeListener), this::onPeerDisconnected);
+
+                otherId = socketManager.getOtherId();
+                System.out.println("[" + id + "]" + otherId + " is connected");
+
+                //Remove from the disconnected peers (if present)
+                disconnectedIps.remove(otherId);
+
+                //Close pending socket for this peer (if any)
+                if (sockets.containsKey(otherId))
+                    sockets.get(otherId).close();
+
+                //Update the list of sockets of the other peers
+                sockets.put(otherId, socketManager);
+
+                //Update the list of Addresses of the other peers
+                ips.put(otherId, justConnectedClient.getRemoteSocketAddress());
+            } catch (InterruptedException e) {
+                //We got interrupted, quit
+                e.printStackTrace();
+                return;
+            } catch (IOException e) {
+                //Error creating the socket manager, close the socket and continue listening for new connection
+                System.err.println("[" + this.id + "] Error accepting connection");
+                try {
+                    justConnectedClient.close();
+                } catch (IOException ignored) {
+                }
+                continue;
+            } finally {
+                connectLock.unlock();
             }
-        } catch (SocketException e) {
-            System.err.println("[" + id + "] Server shut down " + e);
-            e.printStackTrace();
-        } catch (IOException e) {
-            throw new Error(e);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        } finally {
-            System.err.println("[" + id + "] server closed");
+
+            usersPropertyChangeSupport.firePropertyChange("USER_CONNECTED", null, otherId);
+
+            resendQueued(otherId);
         }
     }
 
