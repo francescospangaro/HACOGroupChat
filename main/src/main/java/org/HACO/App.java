@@ -84,7 +84,9 @@ public class App {
                 chatLable.setText("Chat: " + ((ChatRoom) chatRooms.getSelectedItem()).getName());
                 msgListModel.clear();
 
-                //todo ask ChatRoom the list of msgs to visualize
+                msgListModel.addAll(0, ((ChatRoom) chatRooms.getSelectedItem()).getReceivedMsgs().stream()
+                        .map(Message::toString)
+                        .collect(Collectors.toList()));
             }
         });
 
