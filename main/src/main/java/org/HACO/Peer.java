@@ -6,6 +6,7 @@ import org.HACO.packets.discovery.ByePacket;
 import org.HACO.packets.discovery.IPsPacket;
 import org.HACO.packets.discovery.Peer2DiscoveryPacket;
 import org.HACO.packets.discovery.UpdateIpPacket;
+import org.jetbrains.annotations.VisibleForTesting;
 
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
@@ -431,6 +432,13 @@ public class Peer implements Closeable {
 
         usersPropertyChangeSupport.firePropertyChange("USER_DISCONNECTED", id, null);
         System.err.println("[" + id + "] " + id + " disconnected " + e);
+    }
+
+    @VisibleForTesting
+    Set<P2PPacket> getDiscMsg(String id) {
+        if (disconnectMsgs.containsKey(id))
+            return Collections.unmodifiableSet(disconnectMsgs.get(id));
+        return null;
     }
 
     @Override
