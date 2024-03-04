@@ -6,6 +6,8 @@ import org.HACO.utility.Randomize;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
 import java.awt.event.ItemEvent;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -27,6 +29,7 @@ public class App {
     private JTextField delayTime;
     private JList<String> connectedList;
     private JLabel chatLable;
+    private JPanel test;
     private volatile Peer peer;
     private final ExecutorService executorService = Executors.newCachedThreadPool();
 
@@ -118,11 +121,30 @@ public class App {
         frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         Dimension d = Toolkit.getDefaultToolkit().getScreenSize();
         frame.setSize(d.width / 2, d.height / 2);
+        frame.setMinimumSize(new Dimension(700, 500));
+
+        Dimension colDim = new Dimension(Math.max(300, frame.getWidth() / 3), -1);
+        test.setMinimumSize(colDim);
+        test.setPreferredSize(colDim);
+        test.setMaximumSize(colDim);
+
         frame.setVisible(true);
         frame.addWindowListener(new java.awt.event.WindowAdapter() {
             @Override
             public void windowClosed(java.awt.event.WindowEvent windowEvent) {
                 peer.close();
+            }
+        });
+        panel1.addComponentListener(new ComponentAdapter() {
+            @Override
+            public void componentResized(ComponentEvent e) {
+                super.componentResized(e);
+                var d = new Dimension(Math.max(300, e.getComponent().getWidth() / 3), -1);
+                test.setMinimumSize(d);
+                test.setPreferredSize(d);
+                test.setMaximumSize(d);
+                panel1.revalidate();
+                panel1.repaint();
             }
         });
 
