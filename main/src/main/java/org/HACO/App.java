@@ -82,12 +82,16 @@ public class App {
 
         chatRooms.addItemListener(e -> {
             if (e.getID() == ItemEvent.ITEM_STATE_CHANGED) {
-                chatLable.setText("Chat: " + ((ChatRoom) chatRooms.getSelectedItem()).getName());
-                msgListModel.clear();
+                if (chatRooms.getItemCount() > 0 && chatRooms.getSelectedItem() != null) {
+                    chatLable.setText("Chat: " + ((ChatRoom) chatRooms.getSelectedItem()).getName());
+                    msgListModel.clear();
 
-                msgListModel.addAll(0, ((ChatRoom) chatRooms.getSelectedItem()).getReceivedMsgs().stream()
-                        .map(Message::toString)
-                        .collect(Collectors.toList()));
+                    msgListModel.addAll(0, ((ChatRoom) chatRooms.getSelectedItem()).getReceivedMsgs().stream()
+                            .map(Message::toString)
+                            .collect(Collectors.toList()));
+                } else {
+                    msgListModel.clear();
+                }
             }
         });
 
@@ -122,6 +126,8 @@ public class App {
             }
         });
 
+        sendButton.setEnabled(false);
+        deleteButton.setEnabled(false);
         delayTime.setColumns(10);
 
         int port = -1;
@@ -161,10 +167,16 @@ public class App {
                     ChatRoom chat = (ChatRoom) evt.getNewValue();
                     System.out.println("Room " + chat + " added in gui");
                     chatRooms.addItem(chat);
+                    sendButton.setEnabled(true);
+                    deleteButton.setEnabled(true);
                 } else if (evt.getPropertyName().equals("DEL_ROOM")) {
                     ChatRoom chat = (ChatRoom) evt.getOldValue();
                     System.out.println("Room " + chat + " removed from gui");
                     chatRooms.removeItem(chat);
+                    if (chatRooms.getItemCount() == 0) {
+                        sendButton.setEnabled(false);
+                        deleteButton.setEnabled(false);
+                    }
                 }
             });
         }, evt -> {
