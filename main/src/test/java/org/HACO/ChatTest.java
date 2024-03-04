@@ -71,7 +71,7 @@ class ChatTest {
             c1.createRoom("room", users);
 
             ChatRoom chat1 = chat1Promise.get(500, TimeUnit.MILLISECONDS);
-            ChatRoom chat2 = chat1Promise.get(500, TimeUnit.MILLISECONDS);
+            ChatRoom chat2 = chat2Promise.get(500, TimeUnit.MILLISECONDS);
 
             assertEquals(users, chat1.getUsers());
             assertEquals("room", chat1.getName());
