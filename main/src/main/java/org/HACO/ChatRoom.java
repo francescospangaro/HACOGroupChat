@@ -9,6 +9,8 @@ import java.beans.PropertyChangeSupport;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class ChatRoom {
     private final Set<String> users;
@@ -17,26 +19,19 @@ public class ChatRoom {
     private final Map<String, Integer> vectorClocks;
     private final PropertyChangeSupport propertyChangeSupport = new PropertyChangeSupport(receivedMsgs);
     private final String id, name;
+    private final Lock pushLock;
 
     public ChatRoom(String name, Set<String> users, PropertyChangeListener msgChangeListener) {
-        this.name = name;
-        this.users = users;
-        this.id = initId();
-
-        waiting = ConcurrentHashMap.newKeySet();
-        vectorClocks = new ConcurrentHashMap<>();
-
-        for (String user : users) {
-            vectorClocks.put(user, 0);
-        }
-        propertyChangeSupport.addPropertyChangeListener(msgChangeListener);
+        this(name, users, initId(), msgChangeListener);
     }
 
     public ChatRoom(String name, Set<String> users, String id, PropertyChangeListener msgChangeListener) {
         this.name = name;
         this.users = users;
         this.id = id;
-        waiting = ConcurrentHashMap.newKeySet();
+        this.pushLock = new ReentrantLock();
+        this.waiting = ConcurrentHashMap.newKeySet();
+
         vectorClocks = new ConcurrentHashMap<>();
         for (String user : users) {
             vectorClocks.put(user, 0);
@@ -44,7 +39,7 @@ public class ChatRoom {
         propertyChangeSupport.addPropertyChangeListener(msgChangeListener);
     }
 
-    private String initId() {
+    private static String initId() {
         Random random = new Random();
         String temp = "";
         for (int i = 0; i < 10; i++) {
@@ -65,34 +60,44 @@ public class ChatRoom {
     }
 
     public void pushWithoutCheck(Message m) {
-        vectorClocks.put(m.sender(), vectorClocks.get(m.sender()) + 1);
-        receivedMsgs.add(m);
-        propertyChangeSupport.firePropertyChange("ADD_MSG", null,  new MessageGUI(m,this));
+        try {
+            pushLock.lock();
+            vectorClocks.put(m.sender(), vectorClocks.get(m.sender()) + 1);
+            receivedMsgs.add(m);
+            propertyChangeSupport.firePropertyChange("ADD_MSG", null, new MessageGUI(m, this));
+        } finally {
+            pushLock.unlock();
+        }
     }
 
     // TODO: test vc implementation
-    public synchronized void push(Message m) {
-        //Checks if the user can accept the message arrived, or if he has to put it in a queue
-        int res = checkVC(m);
-        if (res == 1) {
-            //Increase the PID of the message sender
-            for (String key : m.vectorClocks().keySet()) {
-                vectorClocks.put(key, vectorClocks.get(key) > m.vectorClocks().get(key) ? vectorClocks.get(key) : m.vectorClocks().get(key));
+    public void push(Message m) {
+        try {
+            pushLock.lock();
+            //Checks if the user can accept the message arrived, or if he has to put it in a queue
+            int res = checkVC(m);
+            if (res == 1) {
+                //Increase the PID of the message sender
+                for (String key : m.vectorClocks().keySet()) {
+                    vectorClocks.put(key, vectorClocks.get(key) > m.vectorClocks().get(key) ? vectorClocks.get(key) : m.vectorClocks().get(key));
+                }
+                receivedMsgs.add(m);
+                //Remove the message from the queue(if it was there)
+                waiting.remove(m);
+                propertyChangeSupport.firePropertyChange("ADD_MSG", null, new MessageGUI(m, this));
+                //Check the message queue to see if we can accept any other message
+                //RECURSION BABY LET'S GO
+                for (Message w : waiting) {
+                    push(w);
+                }
+            } else if (res == -1) {
+                //puts the message in a queue
+                waiting.add(m);
             }
-            receivedMsgs.add(m);
-            //Remove the message from the queue(if it was there)
-            waiting.remove(m);
-            propertyChangeSupport.firePropertyChange("ADD_MSG", null, new MessageGUI(m,this));
-            //Check the message queue to see if we can accept any other message
-            //RECURSION BABY LET'S GO
-            for (Message w : waiting) {
-                push(w);
-            }
-        } else if (res == -1){
-            //puts the message in a queue
-            waiting.add(m);
+            //If it doesn't enter any of the above ifs ignore the received message
+        } finally {
+            pushLock.unlock();
         }
-        //If it doesn't enter any of the above ifs ignore the received message
     }
 
     public Set<String> getUsers() {
@@ -122,12 +127,12 @@ public class ChatRoom {
                 //If user's PID is greater than expected, or if I find another PID greater than one of the ones I have, then put the message in a queue
             } else if ((newClocks.get(temp) > vectorClocks.get(temp))) {
                 return -1;
-            } else if(newClocks.get(temp) <= vectorClocks.get(temp)){
+            } else if (newClocks.get(temp) <= vectorClocks.get(temp)) {
                 checker++;
             }
         }
         //If all VCs are <= then mine do nothing
-        if(checker == vectorClocks.size())
+        if (checker == vectorClocks.size())
             return 0;
         return 1;
     }

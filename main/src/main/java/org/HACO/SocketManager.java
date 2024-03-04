@@ -7,6 +7,8 @@ import java.io.*;
 import java.net.Socket;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
@@ -24,6 +26,7 @@ public class SocketManager implements Closeable {
     private final BiConsumer<String, Throwable> onClose;
     private final CompletableFuture<String> otherId;
     private volatile CompletableFuture<Void> ackPromise;
+    private final Lock writeLock, sendLock;
 
     public SocketManager(String myId,
                          String otherId,
@@ -63,6 +66,8 @@ public class SocketManager implements Closeable {
         this.oos = os instanceof ObjectOutputStream oos ? oos : new ObjectOutputStream(os);
         this.ois = is instanceof ObjectInputStream ois ? ois : new ObjectInputStream(is);
         this.otherId = new CompletableFuture<>();
+        this.writeLock = new ReentrantLock();
+        this.sendLock = new ReentrantLock();
 
         recvTask = executor.submit(this::readLoop);
         this.inPacketConsumer = inPacketConsumer;
@@ -122,32 +127,43 @@ public class SocketManager implements Closeable {
     }
 
 
-    public synchronized void send(P2PPacket packet) throws IOException {
-        long seqN = seq.getAndIncrement();
-        ackPromise = new CompletableFuture<>();
-
-        synchronized (oos) {
-            oos.writeObject(new SeqPacketImpl(packet, seqN));
-            oos.flush();
-        }
-
-        System.out.println("Sent " + packet);
-
+    public void send(P2PPacket packet) throws IOException {
         try {
-            ackPromise.get(timeout, TimeUnit.MILLISECONDS);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        } catch (ExecutionException e) {
-            throw new IOException(e.getCause());
-        } catch (TimeoutException e) {
-            throw new IOException(e);
+            sendLock.lock();
+            long seqN = seq.getAndIncrement();
+            ackPromise = new CompletableFuture<>();
+
+            try {
+                writeLock.lock();
+                oos.writeObject(new SeqPacketImpl(packet, seqN));
+                oos.flush();
+            } finally {
+                writeLock.unlock();
+            }
+
+            System.out.println("Sent " + packet);
+
+            try {
+                ackPromise.get(timeout, TimeUnit.MILLISECONDS);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            } catch (ExecutionException e) {
+                throw new IOException(e.getCause());
+            } catch (TimeoutException e) {
+                throw new IOException(e);
+            }
+        } finally {
+            sendLock.unlock();
         }
     }
 
     private void sendAck(long seq) throws IOException {
-        synchronized (oos) {
+        try {
+            writeLock.lock();
             oos.writeObject(new AckPacket(seq));
             oos.flush();
+        } finally {
+            writeLock.unlock();
         }
         System.out.println("Sent ack for" + seq);
     }
