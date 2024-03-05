@@ -1,5 +1,7 @@
 package org.HACO.packets;
 
-public interface SeqPacket extends Packet {
+import java.io.Serializable;
+
+public sealed interface SeqPacket extends Serializable permits AckPacket, SeqPacketImpl {
     long seqNum();
 }

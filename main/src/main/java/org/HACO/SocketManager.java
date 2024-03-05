@@ -90,9 +90,9 @@ public class SocketManager implements Closeable {
     private void readLoop() {
         try {
             do {
-                Packet p;
+                SeqPacket p;
                 try {
-                    p = (Packet) ois.readObject();
+                    p = (SeqPacket) ois.readObject();
                 } catch (ClassNotFoundException | ClassCastException ex) {
                     System.err.println("[" + myId + "] Received unexpected input packet" + ex);
                     continue;
@@ -115,7 +115,6 @@ public class SocketManager implements Closeable {
                             inPacketConsumer.accept(seqPacket.p());
                         }
                     }
-                    default -> throw new IllegalStateException("Unexpected value: " + p);
                 }
             } while (!socket.isClosed() && !Thread.currentThread().isInterrupted());
 
