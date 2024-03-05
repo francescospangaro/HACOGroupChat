@@ -24,28 +24,30 @@ class SocketManagerTest {
     }
 
     @Test
-    void connectTest() throws IOException {
+    void connectTest() throws IOException, InterruptedException {
         ServerSocket serverSocket = new ServerSocket(8888);
         CompletableFuture<P2PPacket> p1Promise = new CompletableFuture<>();
         CompletableFuture<P2PPacket> p2Promise = new CompletableFuture<>();
         CompletableFuture<Throwable> close1Promise = new CompletableFuture<>();
         CompletableFuture<Throwable> close2Promise = new CompletableFuture<>();
+        AtomicReference<Throwable> ex = new AtomicReference<>();
 
         AtomicReference<SocketManager> socketManager2 = new AtomicReference<>();
 
         executorService.execute(() -> {
             try {
                 Socket s = serverSocket.accept();
-                socketManager2.set(new SocketManager("id", null, executorService, s, p1Promise::complete, (id, ex) -> close1Promise.complete(ex)));
-            } catch (IOException e) {
-                throw new AssertionError(e);
+                socketManager2.set(new SocketManager("id", null, executorService, s, p1Promise::complete, (id, e) -> close1Promise.complete(e)));
+            } catch (IOException | InterruptedException e) {
+                ex.set(new AssertionError("Failed creating the socket manager", e));
             }
         });
 
         Socket s = new Socket();
         s.connect(new InetSocketAddress("localhost", 8888));
-        SocketManager socketManager = new SocketManager("id2", "id", executorService, s, p2Promise::complete, (id, ex) -> close2Promise.complete(ex));
+        SocketManager socketManager = new SocketManager("id2", "id", executorService, s, p2Promise::complete, (id, e) -> close2Promise.complete(e));
 
+        assertNull(ex.get());
         assertFalse(p1Promise.isDone());
         assertFalse(p2Promise.isDone());
         assertFalse(close1Promise.isDone());
@@ -64,21 +66,23 @@ class SocketManagerTest {
         CompletableFuture<P2PPacket> p2Promise = new CompletableFuture<>();
         CompletableFuture<Throwable> close1Promise = new CompletableFuture<>();
         CompletableFuture<Throwable> close2Promise = new CompletableFuture<>();
+        AtomicReference<Throwable> ex = new AtomicReference<>();
 
         AtomicReference<SocketManager> socketManager2 = new AtomicReference<>();
         executorService.execute(() -> {
             try {
                 Socket s = serverSocket.accept();
-                socketManager2.set(new SocketManager("id", null, executorService, s, p1Promise::complete, (id, ex) -> close1Promise.complete(ex)));
-            } catch (IOException e) {
-                throw new AssertionError(e);
+                socketManager2.set(new SocketManager("id", null, executorService, s, p1Promise::complete, (id, e) -> close1Promise.complete(e)));
+            } catch (IOException | InterruptedException e) {
+                ex.set(new AssertionError("Failed creating the socket manager", e));
             }
         });
 
         Socket s = new Socket();
         s.connect(new InetSocketAddress("localhost", 8888));
-        SocketManager socketManager = new SocketManager("id2", "id", executorService, s, p2Promise::complete, (id, ex) -> close2Promise.complete(ex));
+        SocketManager socketManager = new SocketManager("id2", "id", executorService, s, p2Promise::complete, (id, e) -> close2Promise.complete(e));
 
+        assertNull(ex.get());
         assertFalse(p1Promise.isDone());
         assertFalse(p2Promise.isDone());
         assertFalse(close1Promise.isDone());
@@ -125,8 +129,8 @@ class SocketManagerTest {
                         ex.set(new AssertionError("Not FIFO"));
                     }
                 }, (id, e) -> close1Promise.complete(e)));
-            } catch (IOException e) {
-                throw new AssertionError(e);
+            } catch (IOException | InterruptedException e) {
+                ex.set(new AssertionError("Failed creating the socket manager", e));
             }
         });
 
@@ -155,27 +159,29 @@ class SocketManagerTest {
 
 
     @Test
-    void sendWithNetFailTest() throws IOException {
+    void sendWithNetFailTest() throws IOException, InterruptedException {
         ServerSocket serverSocket = new ServerSocket(8888);
         CompletableFuture<P2PPacket> p1Promise = new CompletableFuture<>();
         CompletableFuture<P2PPacket> p2Promise = new CompletableFuture<>();
         CompletableFuture<Throwable> close1Promise = new CompletableFuture<>();
         CompletableFuture<Throwable> close2Promise = new CompletableFuture<>();
+        AtomicReference<Throwable> ex = new AtomicReference<>();
 
         AtomicReference<SocketManager> socketManager2 = new AtomicReference<>();
         executorService.execute(() -> {
             try {
                 Socket s = serverSocket.accept();
-                socketManager2.set(new SocketManager("id", null, executorService, s, p1Promise::complete, (id, ex) -> close1Promise.complete(ex), 500));
-            } catch (IOException e) {
-                throw new AssertionError(e);
+                socketManager2.set(new SocketManager("id", null, executorService, s, p1Promise::complete, (id, e) -> close1Promise.complete(e), 500));
+            } catch (IOException | InterruptedException e) {
+                ex.set(new AssertionError("Failed creating the socket manager", e));
             }
         });
 
         ImproperShutdownSocket s = new ImproperShutdownSocket();
         s.connect(new InetSocketAddress("localhost", 8888));
-        SocketManager socketManager = new SocketManager("id2", "id", executorService, s, p2Promise::complete, (id, ex) -> close2Promise.complete(ex), 500);
+        SocketManager socketManager = new SocketManager("id2", "id", executorService, s, p2Promise::complete, (id, e) -> close2Promise.complete(e), 500);
 
+        assertNull(ex.get());
         assertFalse(p1Promise.isDone());
         assertFalse(p2Promise.isDone());
         assertFalse(close1Promise.isDone());

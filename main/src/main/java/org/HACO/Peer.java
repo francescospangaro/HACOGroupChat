@@ -124,7 +124,7 @@ public class Peer implements Closeable {
         ips.forEach((id, addr) -> {
             try {
                 connectToSinglePeer(id, addr);
-            } catch (IOException e) {
+            } catch (IOException | InterruptedException e) {
                 connectLock.unlock();
                 onPeerDisconnected(id, e);
             } catch (PeerAlreadyConnectedException e) {
@@ -145,7 +145,7 @@ public class Peer implements Closeable {
                 try {
                     connectToSinglePeer(id, addr);
                     ips.put(id, disconnectedIps.remove(id));
-                } catch (IOException e) {
+                } catch (IOException | InterruptedException e) {
                     connectLock.unlock();
                     System.err.println("Failed to reconnect to " + id);
                     e.printStackTrace();
@@ -157,7 +157,7 @@ public class Peer implements Closeable {
         }, 5, 5, TimeUnit.SECONDS);
     }
 
-    private void connectToSinglePeer(String id, SocketAddress addr) throws PeerAlreadyConnectedException, IOException {
+    private void connectToSinglePeer(String id, SocketAddress addr) throws PeerAlreadyConnectedException, IOException, InterruptedException {
         connectLock.lock();
         System.out.println("Got client lock");
 
@@ -274,7 +274,7 @@ public class Peer implements Closeable {
         try {
             sockets.get(id).send(packet);
             return true;
-        } catch (IOException e) {
+        } catch (IOException | InterruptedException e) {
             System.err.println("[" + this.id + "] Error sending message to +" + id + ". Enqueuing it...");
             onPeerDisconnected(id, e);
             disconnectMsgs.computeIfAbsent(id, k -> ConcurrentHashMap.newKeySet());

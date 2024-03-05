@@ -34,7 +34,7 @@ public class SocketManager implements Closeable {
                          Socket socket,
                          Consumer<P2PPacket> inPacketConsumer,
                          BiConsumer<String, Throwable> onClose)
-            throws IOException {
+            throws IOException, InterruptedException {
         this(myId, otherId, executor, socket, socket.getInputStream(), socket.getOutputStream(), inPacketConsumer, onClose, DEFAULT_TIMEOUT);
     }
 
@@ -46,7 +46,7 @@ public class SocketManager implements Closeable {
                   Consumer<P2PPacket> inPacketConsumer,
                   BiConsumer<String, Throwable> onClose,
                   int timeout)
-            throws IOException {
+            throws IOException, InterruptedException {
         this(myId, otherId, executor, socket, socket.getInputStream(), socket.getOutputStream(), inPacketConsumer, onClose, timeout);
     }
 
@@ -59,7 +59,7 @@ public class SocketManager implements Closeable {
                           Consumer<P2PPacket> inPacketConsumer,
                           BiConsumer<String, Throwable> onClose,
                           int timeout)
-            throws IOException {
+            throws IOException, InterruptedException {
         this.timeout = timeout;
         this.socket = socket;
         this.myId = myId;
@@ -80,8 +80,6 @@ public class SocketManager implements Closeable {
 
         try {
             this.otherId.get(timeout, TimeUnit.MILLISECONDS);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
         } catch (ExecutionException e) {
             throw new IOException(e.getCause());
         } catch (TimeoutException e) {
@@ -127,7 +125,7 @@ public class SocketManager implements Closeable {
     }
 
 
-    public void send(P2PPacket packet) throws IOException {
+    public void send(P2PPacket packet) throws IOException, InterruptedException {
         try {
             sendLock.lock();
             long seqN = seq.getAndIncrement();
@@ -145,8 +143,6 @@ public class SocketManager implements Closeable {
 
             try {
                 ackPromise.get(timeout, TimeUnit.MILLISECONDS);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
             } catch (ExecutionException e) {
                 throw new IOException(e.getCause());
             } catch (TimeoutException e) {
