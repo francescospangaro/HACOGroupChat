@@ -3,17 +3,12 @@ package org.HACO;
 import org.HACO.Exceptions.PeerAlreadyConnectedException;
 import org.HACO.packets.*;
 import org.HACO.packets.discovery.ByePacket;
-import org.HACO.packets.discovery.IPsPacket;
-import org.HACO.packets.discovery.Peer2DiscoveryPacket;
-import org.HACO.packets.discovery.UpdateIpPacket;
 import org.jetbrains.annotations.VisibleForTesting;
 
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
 import java.io.Closeable;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -53,6 +48,7 @@ public class Peer implements Closeable {
     //Lock to acquire before connect to / accept connection from a new peer
     // to avoid that two peer try to connect to each other at the same time.
     private final Lock connectLock = new ReentrantLock();
+    private final DiscoveryConnector discovery;
 
     public Peer(String id, int port,
                 PropertyChangeListener chatRoomsChangeListener,
@@ -62,6 +58,7 @@ public class Peer implements Closeable {
         this.id = id;
         this.port = port;
         this.testing = testing;
+        discovery = new DiscoveryConnector(DISCOVERY_SERVER, id, port);
 
         chats = ConcurrentHashMap.newKeySet();
         sockets = new ConcurrentHashMap<>();
@@ -91,33 +88,14 @@ public class Peer implements Closeable {
 
         //We are (re-)connecting from scratch, so delete all crashed peer and get a new list from the discovery
         disconnectedIps.clear();
-        ips.putAll(register());
+        try {
+            ips.putAll(discovery.register());
+        } catch (IOException e) {
+            throw new Error("Can't connect to the discovery server", e);
+        }
         connect();
     }
 
-    private Map<String, SocketAddress> register() {
-        //I send to the DISCOVERY_SERVER my ID and Port
-        try (Socket s = new Socket()) {
-            s.connect(DISCOVERY_SERVER);
-            System.out.println("[" + id + "] Connected");
-
-            //Send a UpdateIpPacket
-            ObjectOutputStream oos = new ObjectOutputStream(s.getOutputStream());
-            ObjectInputStream ois = new ObjectInputStream(s.getInputStream());
-            oos.writeObject(new UpdateIpPacket(id, port));
-            System.out.println("[" + id + "] Sent subscribe message to discovery");
-
-            oos.flush();
-
-            //Waiting list of <ID_otherPeer,HisSocketAddress> from DISCOVERY_SERVER
-            Map<String, SocketAddress> ips = ((IPsPacket) ois.readObject()).ips();
-            System.out.println("[" + id + "] Received peers map " + ips);
-
-            return ips;
-        } catch (IOException | ClassNotFoundException e) {
-            throw new Error(e);
-        }
-    }
 
     public void connect() {
         //For each peer in the network I try to connect to him by sending a helloPacket
@@ -283,38 +261,6 @@ public class Peer implements Closeable {
         return false;
     }
 
-    private void sendToDiscovery(Peer2DiscoveryPacket packet/*, int tries*/) {
-        //I send to the DISCOVERY_SERVER my ID and Port
-        try (Socket s = new Socket()) {
-            s.connect(DISCOVERY_SERVER);
-            System.out.println("[" + id + "] Connected to DISCOVERY_SERVER");
-
-            //Send a UpdateIpPacket
-            ObjectOutputStream oos = new ObjectOutputStream(s.getOutputStream());
-            oos.writeObject(packet);
-            var ois = new ObjectInputStream(s.getInputStream());
-            System.out.println("[" + id + "] Sent to DISCOVERY_SERVER");
-
-            oos.flush();
-
-            //Waiting ACK from DISCOVERY_SERVER
-            ois.readObject();
-            System.out.println("[" + id + "] Received ACK");
-
-        } catch (IOException | ClassNotFoundException e) {
-            //Couldn't connect to DS
-            try {
-                Thread.sleep(2000);
-            } catch (InterruptedException ex) {
-                throw new RuntimeException(ex);
-            }
-            //if(tries>9)
-            //    throw new Error(e);
-            sendToDiscovery(packet/*, tries+1*/);
-        }
-    }
-
-
     public void disconnect() {
         System.out.println("[" + id + "] Disconnecting...");
         connected = false;
@@ -326,7 +272,11 @@ public class Peer implements Closeable {
         } catch (IOException ignored) {
         }
 
-        sendToDiscovery(new ByePacket(id)/*, 0*/);
+        try {
+            discovery.sendToDiscovery(new ByePacket(id));
+        } catch (IOException e) {
+            System.err.println("Can't contact the discovery " + e);
+        }
 
         sockets.forEach((id, socketManager) -> socketManager.close());
         sockets.clear();
