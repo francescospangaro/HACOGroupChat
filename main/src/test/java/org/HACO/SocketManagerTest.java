@@ -24,7 +24,7 @@ class SocketManagerTest {
     }
 
     @Test
-    void connectTest() throws IOException, InterruptedException {
+    void connectTest() throws IOException {
         ServerSocket serverSocket = new ServerSocket(8888);
         CompletableFuture<P2PPacket> p1Promise = new CompletableFuture<>();
         CompletableFuture<P2PPacket> p2Promise = new CompletableFuture<>();
@@ -38,7 +38,7 @@ class SocketManagerTest {
             try {
                 Socket s = serverSocket.accept();
                 socketManager2.set(new SocketManager("id", executorService, s, p1Promise::complete, (id, e) -> close1Promise.complete(e), 500));
-            } catch (IOException | InterruptedException e) {
+            } catch (IOException e) {
                 ex.set(new AssertionError("Failed creating the socket manager", e));
             }
         });
@@ -73,7 +73,7 @@ class SocketManagerTest {
             try {
                 Socket s = serverSocket.accept();
                 socketManager2.set(new SocketManager("id", executorService, s, p1Promise::complete, (id, e) -> close1Promise.complete(e), 500));
-            } catch (IOException | InterruptedException e) {
+            } catch (IOException e) {
                 ex.set(new AssertionError("Failed creating the socket manager", e));
             }
         });
@@ -129,7 +129,7 @@ class SocketManagerTest {
                         ex.set(new AssertionError("Not FIFO"));
                     }
                 }, (id, e) -> close1Promise.complete(e), 500));
-            } catch (IOException | InterruptedException e) {
+            } catch (IOException e) {
                 ex.set(new AssertionError("Failed creating the socket manager", e));
             }
         });
@@ -159,7 +159,7 @@ class SocketManagerTest {
 
 
     @Test
-    void sendWithNetFailTest() throws IOException, InterruptedException {
+    void sendWithNetFailTest() throws IOException {
         ServerSocket serverSocket = new ServerSocket(8888);
         CompletableFuture<P2PPacket> p1Promise = new CompletableFuture<>();
         CompletableFuture<P2PPacket> p2Promise = new CompletableFuture<>();
@@ -172,7 +172,7 @@ class SocketManagerTest {
             try {
                 Socket s = serverSocket.accept();
                 socketManager2.set(new SocketManager("id", executorService, s, p1Promise::complete, (id, e) -> close1Promise.complete(e), 500));
-            } catch (IOException | InterruptedException e) {
+            } catch (IOException e) {
                 ex.set(new AssertionError("Failed creating the socket manager", e));
             }
         });

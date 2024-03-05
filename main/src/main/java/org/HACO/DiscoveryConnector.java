@@ -5,6 +5,7 @@ import org.HACO.packets.discovery.Peer2DiscoveryPacket;
 import org.HACO.packets.discovery.UpdateIpPacket;
 
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
@@ -51,7 +52,7 @@ public class DiscoveryConnector {
                 try {
                     Thread.sleep(DELAY);
                 } catch (InterruptedException ex) {
-                    throw new IOException("Interrupted while contacting the discovery", e);
+                    throw new InterruptedIOException("Interrupted while contacting the discovery");
                 }
             } catch (ClassNotFoundException | ClassCastException ex) {
                 throw new IOException("[" + id + "] Received unexpected packet" + ex);
@@ -87,7 +88,7 @@ public class DiscoveryConnector {
                 try {
                     Thread.sleep(DELAY);
                 } catch (InterruptedException ex) {
-                    throw new IOException("Interrupted while contacting the discovery", e);
+                    throw new InterruptedIOException("Interrupted while contacting the discovery");
                 }
             } catch (ClassNotFoundException | ClassCastException ex) {
                 throw new IOException("[" + id + "] Received unexpected packet" + ex);

@@ -36,15 +36,15 @@ public class SocketManager implements Closeable {
      * @param socket           socket
      * @param inPacketConsumer consumer that accept all incoming packets
      * @param onClose          hook to be called when the socket got closed
-     * @throws IOException          if an error occurs during connection (or receiving {@link HelloPacket}
-     * @throws InterruptedException if interrupted while waiting for the {@link HelloPacket}
+     * @throws IOException            if an error occurs during connection (or receiving {@link HelloPacket}
+     * @throws InterruptedIOException if interrupted while waiting for the {@link HelloPacket}
      */
     public SocketManager(String myId,
                          ExecutorService executor,
                          Socket socket,
                          Consumer<P2PPacket> inPacketConsumer,
                          BiConsumer<String, Throwable> onClose)
-            throws IOException, InterruptedException {
+            throws IOException {
         this(myId, executor, socket, inPacketConsumer, onClose, DEFAULT_TIMEOUT);
     }
 
@@ -57,9 +57,9 @@ public class SocketManager implements Closeable {
      * @param socket           socket
      * @param inPacketConsumer consumer that accept all incoming packets
      * @param onClose          hook to be called when the socket got closed
-     * @throws IOException          if an error occurs during connection (or sending {@link HelloPacket}
-     * @throws InterruptedException if interrupted while sending the {@link HelloPacket}
-     * @throws NullPointerException if otherId is null
+     * @throws IOException            if an error occurs during connection (or sending {@link HelloPacket}
+     * @throws InterruptedIOException if interrupted while sending the {@link HelloPacket}
+     * @throws NullPointerException   if otherId is null
      */
     public SocketManager(String myId,
                          String otherId,
@@ -67,7 +67,7 @@ public class SocketManager implements Closeable {
                          Socket socket,
                          Consumer<P2PPacket> inPacketConsumer,
                          BiConsumer<String, Throwable> onClose)
-            throws IOException, InterruptedException {
+            throws IOException {
         this(myId, otherId, executor, socket, inPacketConsumer, onClose, DEFAULT_TIMEOUT);
     }
 
@@ -79,7 +79,7 @@ public class SocketManager implements Closeable {
                   Consumer<P2PPacket> inPacketConsumer,
                   BiConsumer<String, Throwable> onClose,
                   int timeout)
-            throws IOException, InterruptedException {
+            throws IOException {
         this(myId, executor, socket, socket.getInputStream(), socket.getOutputStream(), inPacketConsumer, onClose, timeout);
 
         if (otherId == null)
@@ -97,7 +97,7 @@ public class SocketManager implements Closeable {
                   Consumer<P2PPacket> inPacketConsumer,
                   BiConsumer<String, Throwable> onClose,
                   int timeout)
-            throws IOException, InterruptedException {
+            throws IOException {
         this(myId, executor, socket, socket.getInputStream(), socket.getOutputStream(), inPacketConsumer, onClose, timeout);
 
         try {
@@ -106,6 +106,8 @@ public class SocketManager implements Closeable {
             throw new IOException(e.getCause());
         } catch (TimeoutException e) {
             throw new IOException(e);
+        } catch (InterruptedException e) {
+            throw new InterruptedIOException("Interrupted while waiting for the recipient id: " + e.getMessage());
         }
     }
 
@@ -178,7 +180,7 @@ public class SocketManager implements Closeable {
      * @throws IOException          if an error occurs during communication (i.e. ack not received)
      * @throws InterruptedException if interrupted while waiting for the ack
      */
-    public void send(P2PPacket packet) throws IOException, InterruptedException {
+    public void send(P2PPacket packet) throws IOException {
         try {
             sendLock.lock();
             long seqN = seq.getAndIncrement();
@@ -200,6 +202,8 @@ public class SocketManager implements Closeable {
                 throw new IOException(e.getCause());
             } catch (TimeoutException e) {
                 throw new IOException(e);
+            } catch (InterruptedException e) {
+                throw new InterruptedIOException("Interrupted while waiting for the ack: " + e.getMessage());
             }
         } finally {
             sendLock.unlock();
