@@ -373,7 +373,7 @@ public class Peer implements Closeable {
 
                 System.out.println("Got server lock");
 
-                SocketManager socketManager = new SocketManager(this.id, null, executorService, justConnectedClient,
+                SocketManager socketManager = new SocketManager(this.id, executorService, justConnectedClient,
                         new ChatUpdater(chats, roomsPropertyChangeSupport, msgChangeListener), this::onPeerDisconnected);
 
                 otherId = socketManager.getOtherId();

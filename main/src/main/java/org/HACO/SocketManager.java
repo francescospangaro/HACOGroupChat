@@ -28,6 +28,39 @@ public class SocketManager implements Closeable {
     private volatile CompletableFuture<Void> ackPromise;
     private final Lock writeLock, sendLock;
 
+    /**
+     * Create a socketManager without the recipient id: will receive an {@link HelloPacket} with it.
+     *
+     * @param myId             id of the local host
+     * @param executor         executor service
+     * @param socket           socket
+     * @param inPacketConsumer consumer that accept all incoming packets
+     * @param onClose          hook to be called when the socket got closed
+     * @throws IOException          if an error occurs during connection (or receiving {@link HelloPacket}
+     * @throws InterruptedException if interrupted while waiting for the {@link HelloPacket}
+     */
+    public SocketManager(String myId,
+                         ExecutorService executor,
+                         Socket socket,
+                         Consumer<P2PPacket> inPacketConsumer,
+                         BiConsumer<String, Throwable> onClose)
+            throws IOException, InterruptedException {
+        this(myId, executor, socket, inPacketConsumer, onClose, DEFAULT_TIMEOUT);
+    }
+
+    /**
+     * Create a socketManager with the recipient id: sends an {@link HelloPacket} with it.
+     *
+     * @param myId             id of the local host
+     * @param otherId          id of the recipient
+     * @param executor         executor service
+     * @param socket           socket
+     * @param inPacketConsumer consumer that accept all incoming packets
+     * @param onClose          hook to be called when the socket got closed
+     * @throws IOException          if an error occurs during connection (or sending {@link HelloPacket}
+     * @throws InterruptedException if interrupted while sending the {@link HelloPacket}
+     * @throws NullPointerException if otherId is null
+     */
     public SocketManager(String myId,
                          String otherId,
                          ExecutorService executor,
@@ -35,7 +68,7 @@ public class SocketManager implements Closeable {
                          Consumer<P2PPacket> inPacketConsumer,
                          BiConsumer<String, Throwable> onClose)
             throws IOException, InterruptedException {
-        this(myId, otherId, executor, socket, socket.getInputStream(), socket.getOutputStream(), inPacketConsumer, onClose, DEFAULT_TIMEOUT);
+        this(myId, otherId, executor, socket, inPacketConsumer, onClose, DEFAULT_TIMEOUT);
     }
 
     @VisibleForTesting
@@ -47,11 +80,36 @@ public class SocketManager implements Closeable {
                   BiConsumer<String, Throwable> onClose,
                   int timeout)
             throws IOException, InterruptedException {
-        this(myId, otherId, executor, socket, socket.getInputStream(), socket.getOutputStream(), inPacketConsumer, onClose, timeout);
+        this(myId, executor, socket, socket.getInputStream(), socket.getOutputStream(), inPacketConsumer, onClose, timeout);
+
+        if (otherId == null)
+            throw new NullPointerException();
+
+        this.otherId.complete(otherId);
+        send(new HelloPacket(myId));
+    }
+
+
+    @VisibleForTesting
+    SocketManager(String myId,
+                  ExecutorService executor,
+                  Socket socket,
+                  Consumer<P2PPacket> inPacketConsumer,
+                  BiConsumer<String, Throwable> onClose,
+                  int timeout)
+            throws IOException, InterruptedException {
+        this(myId, executor, socket, socket.getInputStream(), socket.getOutputStream(), inPacketConsumer, onClose, timeout);
+
+        try {
+            this.otherId.get(timeout, TimeUnit.MILLISECONDS);
+        } catch (ExecutionException e) {
+            throw new IOException(e.getCause());
+        } catch (TimeoutException e) {
+            throw new IOException(e);
+        }
     }
 
     private SocketManager(String myId,
-                          String otherId,
                           ExecutorService executor,
                           Socket socket,
                           InputStream is,
@@ -59,7 +117,7 @@ public class SocketManager implements Closeable {
                           Consumer<P2PPacket> inPacketConsumer,
                           BiConsumer<String, Throwable> onClose,
                           int timeout)
-            throws IOException, InterruptedException {
+            throws IOException {
         this.timeout = timeout;
         this.socket = socket;
         this.myId = myId;
@@ -69,22 +127,9 @@ public class SocketManager implements Closeable {
         this.writeLock = new ReentrantLock();
         this.sendLock = new ReentrantLock();
 
-        recvTask = executor.submit(this::readLoop);
         this.inPacketConsumer = inPacketConsumer;
         this.onClose = onClose;
-
-        if (otherId != null) {
-            this.otherId.complete(otherId);
-            send(new HelloPacket(myId));
-        }
-
-        try {
-            this.otherId.get(timeout, TimeUnit.MILLISECONDS);
-        } catch (ExecutionException e) {
-            throw new IOException(e.getCause());
-        } catch (TimeoutException e) {
-            throw new IOException(e);
-        }
+        recvTask = executor.submit(this::readLoop);
     }
 
     private void readLoop() {
@@ -124,6 +169,15 @@ public class SocketManager implements Closeable {
     }
 
 
+    /**
+     * Send a packet and wait for an ack. This is a blocking method.
+     * This method is thread-safe, only 1 thread at time can send packets.
+     * The packet will be wrapped in a {@link SeqPacketImpl} to be sent
+     *
+     * @param packet packet to be sent
+     * @throws IOException          if an error occurs during communication (i.e. ack not received)
+     * @throws InterruptedException if interrupted while waiting for the ack
+     */
     public void send(P2PPacket packet) throws IOException, InterruptedException {
         try {
             sendLock.lock();
@@ -163,6 +217,9 @@ public class SocketManager implements Closeable {
         System.out.println("Sent ack for" + seq);
     }
 
+    /**
+     * Close the socket and stop reading packets
+     */
     @Override
     public void close() {
         recvTask.cancel(true);

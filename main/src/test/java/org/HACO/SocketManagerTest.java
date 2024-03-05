@@ -37,7 +37,7 @@ class SocketManagerTest {
         executorService.execute(() -> {
             try {
                 Socket s = serverSocket.accept();
-                socketManager2.set(new SocketManager("id", null, executorService, s, p1Promise::complete, (id, e) -> close1Promise.complete(e)));
+                socketManager2.set(new SocketManager("id", executorService, s, p1Promise::complete, (id, e) -> close1Promise.complete(e), 500));
             } catch (IOException | InterruptedException e) {
                 ex.set(new AssertionError("Failed creating the socket manager", e));
             }
@@ -45,7 +45,7 @@ class SocketManagerTest {
 
         Socket s = new Socket();
         s.connect(new InetSocketAddress("localhost", 8888));
-        SocketManager socketManager = new SocketManager("id2", "id", executorService, s, p2Promise::complete, (id, e) -> close2Promise.complete(e));
+        SocketManager socketManager = new SocketManager("id2", "id", executorService, s, p2Promise::complete, (id, e) -> close2Promise.complete(e), 500);
 
         assertNull(ex.get());
         assertFalse(p1Promise.isDone());
@@ -72,7 +72,7 @@ class SocketManagerTest {
         executorService.execute(() -> {
             try {
                 Socket s = serverSocket.accept();
-                socketManager2.set(new SocketManager("id", null, executorService, s, p1Promise::complete, (id, e) -> close1Promise.complete(e)));
+                socketManager2.set(new SocketManager("id", executorService, s, p1Promise::complete, (id, e) -> close1Promise.complete(e), 500));
             } catch (IOException | InterruptedException e) {
                 ex.set(new AssertionError("Failed creating the socket manager", e));
             }
@@ -80,7 +80,7 @@ class SocketManagerTest {
 
         Socket s = new Socket();
         s.connect(new InetSocketAddress("localhost", 8888));
-        SocketManager socketManager = new SocketManager("id2", "id", executorService, s, p2Promise::complete, (id, e) -> close2Promise.complete(e));
+        SocketManager socketManager = new SocketManager("id2", "id", executorService, s, p2Promise::complete, (id, e) -> close2Promise.complete(e), 500);
 
         assertNull(ex.get());
         assertFalse(p1Promise.isDone());
@@ -122,13 +122,13 @@ class SocketManagerTest {
         executorService.execute(() -> {
             try {
                 Socket s = serverSocket.accept();
-                socketManager2.set(new SocketManager("id", null, executorService, s, p -> {
+                socketManager2.set(new SocketManager("id", executorService, s, p -> {
                     if (Integer.parseInt(((DeleteRoomPacket) p).id()) == 100 - countDownLatch.getCount()) {
                         countDownLatch.countDown();
                     } else {
                         ex.set(new AssertionError("Not FIFO"));
                     }
-                }, (id, e) -> close1Promise.complete(e)));
+                }, (id, e) -> close1Promise.complete(e), 500));
             } catch (IOException | InterruptedException e) {
                 ex.set(new AssertionError("Failed creating the socket manager", e));
             }
@@ -136,7 +136,7 @@ class SocketManagerTest {
 
         Socket s = new Socket();
         s.connect(new InetSocketAddress("localhost", 8888));
-        SocketManager socketManager = new SocketManager("id2", "id", executorService, s, p2Promise::complete, (id, e) -> close2Promise.complete(e));
+        SocketManager socketManager = new SocketManager("id2", "id", executorService, s, p2Promise::complete, (id, e) -> close2Promise.complete(e), 500);
 
         assertEquals(100, countDownLatch.getCount());
 
@@ -171,7 +171,7 @@ class SocketManagerTest {
         executorService.execute(() -> {
             try {
                 Socket s = serverSocket.accept();
-                socketManager2.set(new SocketManager("id", null, executorService, s, p1Promise::complete, (id, e) -> close1Promise.complete(e), 500));
+                socketManager2.set(new SocketManager("id", executorService, s, p1Promise::complete, (id, e) -> close1Promise.complete(e), 500));
             } catch (IOException | InterruptedException e) {
                 ex.set(new AssertionError("Failed creating the socket manager", e));
             }
