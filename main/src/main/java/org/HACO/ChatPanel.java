@@ -182,15 +182,7 @@ public class ChatPanel {
                     MessageGUI mgui = (MessageGUI) evt.getNewValue();
 
                     if (((ChatRoom) chatRooms.getSelectedItem()).getId().equals(mgui.chatRoom().getId())) {
-                        SwingUtilities.invokeLater(() -> {
-                            msgListModel.addElement(mgui.message().toString());
-                            msgListModel.clear();
-                            msgListModel.addAll(0, mgui.chatRoom().getReceivedMsgs().stream()
-                                    .map(Message::toString)
-                                    .collect(Collectors.toList()));
-
-                            chatLable.setText("Chat: " + mgui.chatRoom());
-                        });
+                        SwingUtilities.invokeLater(() -> msgListModel.addElement(mgui.message().toString()));
                     }
                 }
             });
