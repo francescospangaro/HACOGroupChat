@@ -2,20 +2,17 @@ package org.HACO;
 
 import org.HACO.packets.Message;
 import org.HACO.packets.MessageGUI;
-import org.HACO.utility.Randomize;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ComponentAdapter;
-import java.awt.event.ComponentEvent;
-import java.awt.event.ItemEvent;
+import java.awt.event.*;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
-public class App {
-    private JPanel panel1;
+public class ChatPanel {
+    private JPanel panel;
     private JTextArea msgArea;
     private JButton sendButton;
     private JButton newChatButton;
@@ -29,17 +26,17 @@ public class App {
     private JTextField delayTime;
     private JList<String> connectedList;
     private JLabel chatLable;
-    private JPanel test;
+    private JPanel left;
     private volatile Peer peer;
     private final ExecutorService executorService = Executors.newCachedThreadPool();
 
     private DefaultListModel<String> msgListModel = new DefaultListModel<>();
 
-    public App() {
+    public ChatPanel(JFrame frame, String discovery, String user, int port) {
         //Want to create a new Group for chatting
         newChatButton.addActionListener(e -> executorService.execute(() -> {
             System.out.println(peer);
-            CreateRoom dialog = new CreateRoom(peer.getIps().keySet());
+            CreateRoomDialog dialog = new CreateRoomDialog(peer.getIps().keySet());
 
             if (dialog.isConfirmed()) {
                 Set<String> users = dialog.getSelectedUsers();
@@ -98,6 +95,47 @@ public class App {
             }
         });
 
+        Dimension colDim = new Dimension(Math.max(300, panel.getWidth() / 3), -1);
+        left.setMinimumSize(colDim);
+        left.setPreferredSize(colDim);
+        left.setMaximumSize(colDim);
+        panel.revalidate();
+        panel.repaint();
+
+        frame.addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosed(WindowEvent windowEvent) {
+                peer.close();
+                executorService.shutdownNow();
+            }
+        });
+        panel.addComponentListener(new ComponentAdapter() {
+            @Override
+            public void componentResized(ComponentEvent e) {
+                super.componentResized(e);
+                var d = new Dimension(Math.max(300, e.getComponent().getWidth() / 3), -1);
+                left.setMinimumSize(d);
+                left.setPreferredSize(d);
+                left.setMaximumSize(d);
+                panel.revalidate();
+                panel.repaint();
+            }
+        });
+
+        sendButton.setEnabled(false);
+        deleteButton.setEnabled(false);
+        disconnectReconnectButton.setEnabled(false);
+        newChatButton.setEnabled(false);
+
+        delayTime.setColumns(10);
+
+        portLabel.setText(String.valueOf(port));
+        usernameLabel.setText(user);
+
+        msgList.setModel(msgListModel);
+
+        DefaultListModel<String> connectedModelList = new DefaultListModel<>();
+        connectedList.setModel(connectedModelList);
 
         Thread.setDefaultUncaughtExceptionHandler((t, e) -> {
             e.printStackTrace();
@@ -113,78 +151,9 @@ public class App {
 
             System.exit(-1);
         });
-    }
 
-    public void start() {
-        JFrame frame = new JFrame();
-        frame.setContentPane(panel1);
-        frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        Dimension d = Toolkit.getDefaultToolkit().getScreenSize();
-        frame.setSize(d.width / 2, d.height / 2);
-        frame.setMinimumSize(new Dimension(700, 500));
-
-        Dimension colDim = new Dimension(Math.max(300, frame.getWidth() / 3), -1);
-        test.setMinimumSize(colDim);
-        test.setPreferredSize(colDim);
-        test.setMaximumSize(colDim);
-
-        frame.setVisible(true);
-        frame.addWindowListener(new java.awt.event.WindowAdapter() {
-            @Override
-            public void windowClosed(java.awt.event.WindowEvent windowEvent) {
-                peer.close();
-            }
-        });
-        panel1.addComponentListener(new ComponentAdapter() {
-            @Override
-            public void componentResized(ComponentEvent e) {
-                super.componentResized(e);
-                var d = new Dimension(Math.max(300, e.getComponent().getWidth() / 3), -1);
-                test.setMinimumSize(d);
-                test.setPreferredSize(d);
-                test.setMaximumSize(d);
-                panel1.revalidate();
-                panel1.repaint();
-            }
-        });
-
-        sendButton.setEnabled(false);
-        deleteButton.setEnabled(false);
-        delayTime.setColumns(10);
-
-        int port = -1;
-        do {
-            try {
-                String input = JOptionPane.showInputDialog(frame, "Insert a port", Randomize.generateRandomUDPPort());
-                if (input == null) {
-                    System.exit(0);
-                }
-                port = Integer.parseInt(input);
-            } catch (NumberFormatException e) {
-                System.err.println("Port not valid " + e);
-            }
-        } while (port <= 1024 || port > 65535);
-
-        portLabel.setText(String.valueOf(port));
-
-        String id;
-        do {
-            id = JOptionPane.showInputDialog(frame, "Insert an id", Randomize.generateRandomString(5));
-            if (id == null) {
-                System.exit(0);
-            }
-        } while (id.isEmpty());
-        usernameLabel.setText(id);
-
-
-        msgList.setModel(msgListModel);
-
-        DefaultListModel<String> connectedModelList = new DefaultListModel<>();
-        connectedList.setModel(connectedModelList);
-
-
-        peer = new Peer(id, port, evt -> {
-            SwingUtilities.invokeLater(() -> {
+        executorService.execute(() -> {
+            peer = new Peer(discovery, user, port, evt -> SwingUtilities.invokeLater(() -> {
                 if (evt.getPropertyName().equals("ADD_ROOM")) {
                     ChatRoom chat = (ChatRoom) evt.getNewValue();
                     System.out.println("Room " + chat + " added in gui");
@@ -200,44 +169,50 @@ public class App {
                         deleteButton.setEnabled(false);
                     }
                 }
-            });
-        }, evt -> {
-            SwingUtilities.invokeLater(() -> {
+            }), evt -> SwingUtilities.invokeLater(() -> {
                 if (evt.getPropertyName().equals("USER_CONNECTED")) {
                     connectedModelList.addElement((String) evt.getNewValue());
                 } else {
                     System.out.println("Removing " + evt.getOldValue() + " " + connectedModelList.removeElement(evt.getOldValue()));
                 }
-            });
-        }, evt -> {
-            if (evt.getPropertyName().equals("ADD_MSG")) {
-                System.out.println("Msg added in gui");
+            }), evt -> {
+                if (evt.getPropertyName().equals("ADD_MSG")) {
+                    System.out.println("Msg added in gui");
 
-                MessageGUI mgui = (MessageGUI) evt.getNewValue();
+                    MessageGUI mgui = (MessageGUI) evt.getNewValue();
 
-                if (((ChatRoom) chatRooms.getSelectedItem()).getId().equals(mgui.chatRoom().getId())) {
-                    SwingUtilities.invokeLater(() -> {
-                        msgListModel.addElement(mgui.message().toString());
-                        msgListModel.clear();
-                        msgListModel.addAll(0, mgui.chatRoom().getReceivedMsgs().stream()
-                                .map(Message::toString)
-                                .collect(Collectors.toList()));
+                    if (((ChatRoom) chatRooms.getSelectedItem()).getId().equals(mgui.chatRoom().getId())) {
+                        SwingUtilities.invokeLater(() -> {
+                            msgListModel.addElement(mgui.message().toString());
+                            msgListModel.clear();
+                            msgListModel.addAll(0, mgui.chatRoom().getReceivedMsgs().stream()
+                                    .map(Message::toString)
+                                    .collect(Collectors.toList()));
 
-                        chatLable.setText("Chat: " + mgui.chatRoom());
-                    });
+                            chatLable.setText("Chat: " + mgui.chatRoom());
+                        });
+                    }
                 }
-            }
-        }, false);
-        System.out.println("started " + peer);
+            });
+            System.out.println("started " + peer);
+            SwingUtilities.invokeLater(() -> {
+                connectedLabel.setText("Connected");
+                connectedLabel.setForeground(new Color(0, 153, 51));
+                disconnectReconnectButton.setEnabled(true);
+                newChatButton.setEnabled(true);
+            });
+        });
     }
 
     private void setConnected(boolean connected) {
         if (connected) {
             disconnectReconnectButton.setEnabled(false);
             executorService.execute(() -> {
+                connectedLabel.setText("Connecting...");
+                connectedLabel.setForeground(Color.yellow);
                 peer.start();
                 SwingUtilities.invokeLater(() -> {
-                    connectedLabel.setText("connected");
+                    connectedLabel.setText("Connected");
                     connectedLabel.setForeground(new Color(0, 153, 51));
 
                     disconnectReconnectButton.setText("Disconnect");
@@ -249,7 +224,7 @@ public class App {
             executorService.execute(() -> {
                 peer.disconnect();
                 SwingUtilities.invokeLater(() -> {
-                    connectedLabel.setText("disconnected");
+                    connectedLabel.setText("Disconnected");
                     connectedLabel.setForeground(Color.red);
 
                     disconnectReconnectButton.setText("Reconnect");
@@ -259,7 +234,7 @@ public class App {
         }
     }
 
-    public static void main(String[] args) {
-        new App().start();
+    public JPanel getRootPanel() {
+        return panel;
     }
 }

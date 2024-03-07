@@ -14,7 +14,7 @@ public class Randomize {
         return generateRandomString(length, NUMBERS);
     }
 
-    public static int generateRandomUDPPort() {
+    public static int generateRandomPort() {
         // Port range is 1-65535
         return generateRandomNumberInRange(12345, 65535);
     }

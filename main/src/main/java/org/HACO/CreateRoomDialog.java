@@ -7,7 +7,7 @@ import java.awt.event.WindowEvent;
 import java.util.HashSet;
 import java.util.Set;
 
-public class CreateRoom extends JDialog {
+public class CreateRoomDialog extends JDialog {
     private JPanel contentPane;
     private JButton buttonOK;
     private JButton buttonCancel;
@@ -17,7 +17,7 @@ public class CreateRoom extends JDialog {
 
     private boolean confirmed = false;
 
-    public CreateRoom(Set<String> users) {
+    public CreateRoomDialog(Set<String> users) {
         setContentPane(contentPane);
         setModal(true);
         getRootPane().setDefaultButton(buttonOK);

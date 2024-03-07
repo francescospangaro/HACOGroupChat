@@ -37,10 +37,10 @@ class ChatTest {
         try (
                 Peer c1 = new Peer("id1", 12345, e -> {
                 }, e -> c1Promise.complete((String) e.getNewValue()), e -> {
-                }, true);
+                });
                 Peer c2 = new Peer("id2", 12346, e -> {
                 }, e -> c2Promise.complete((String) e.getNewValue()), e -> {
-                }, true)
+                })
         ) {
             String u1 = c1Promise.get(500, TimeUnit.MILLISECONDS);
             String u2 = c2Promise.get(500, TimeUnit.MILLISECONDS);
@@ -59,10 +59,10 @@ class ChatTest {
         try (
                 Peer c1 = new Peer("id1", 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
                         e -> c1Promise.complete((String) e.getNewValue()), e -> {
-                }, true);
+                });
                 Peer c2 = new Peer("id2", 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
                         e -> c2Promise.complete((String) e.getNewValue()), e -> {
-                }, true)
+                })
         ) {
             c1Promise.get(500, TimeUnit.MILLISECONDS);
             c2Promise.get(500, TimeUnit.MILLISECONDS);
@@ -92,11 +92,11 @@ class ChatTest {
         try (
                 Peer c1 = new Peer("id1", 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
                         e -> c1Promise.complete((String) e.getNewValue()),
-                        e -> msg1Promise.complete(((MessageGUI) e.getNewValue()).message()), true);
+                        e -> msg1Promise.complete(((MessageGUI) e.getNewValue()).message()));
 
                 Peer c2 = new Peer("id2", 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
                         e -> c2Promise.complete((String) e.getNewValue()),
-                        e -> msg2Promise.complete(((MessageGUI) e.getNewValue()).message()), true)
+                        e -> msg2Promise.complete(((MessageGUI) e.getNewValue()).message()))
         ) {
             System.out.println(c1Promise.get(500, TimeUnit.MILLISECONDS));
             System.out.println(c2Promise.get(500, TimeUnit.MILLISECONDS));
@@ -136,18 +136,18 @@ class ChatTest {
         try (
                 Peer c1 = new Peer("id1", 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
                         e -> users1.countDown(),
-                        e -> msg1Promise.complete(((MessageGUI) e.getNewValue()).message()), true);
+                        e -> msg1Promise.complete(((MessageGUI) e.getNewValue()).message()));
 
                 Peer c2 = new Peer("id2", 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
                         e -> users2.countDown(),
-                        e -> msg2Promise.complete(((MessageGUI) e.getNewValue()).message()), true);
+                        e -> msg2Promise.complete(((MessageGUI) e.getNewValue()).message()));
 
                 Peer c3 = new Peer("id3", 12347, e -> chat3Promise.complete((ChatRoom) e.getNewValue()),
                         e -> users3.countDown(),
                         e -> {
                             msg3List.add(((MessageGUI) e.getNewValue()).message());
                             msg3.countDown();
-                        }, true)
+                        })
         ) {
             assertTrue(users1.await(500, TimeUnit.MILLISECONDS));
             assertTrue(users2.await(500, TimeUnit.MILLISECONDS));
@@ -216,7 +216,7 @@ class ChatTest {
                             else
                                 disc1Promise.complete((String) e.getOldValue());
                         },
-                        e -> msg1Promise.complete(((MessageGUI) e.getNewValue()).message()), true);
+                        e -> msg1Promise.complete(((MessageGUI) e.getNewValue()).message()));
 
                 Peer c2 = new Peer("id2", 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
                         e -> {
@@ -225,7 +225,7 @@ class ChatTest {
                             else
                                 disc2.countDown();
                         },
-                        e -> msg2Promise.complete(((MessageGUI) e.getNewValue()).message()), true);
+                        e -> msg2Promise.complete(((MessageGUI) e.getNewValue()).message()));
 
                 Peer c3 = new Peer("id3", 12347, e -> chat3Promise.complete((ChatRoom) e.getNewValue()),
                         e -> {
@@ -234,7 +234,7 @@ class ChatTest {
                             else
                                 disc3Promise.complete((String) e.getOldValue());
                         },
-                        e -> msg3Promise.complete(((MessageGUI) e.getNewValue()).message()), true)
+                        e -> msg3Promise.complete(((MessageGUI) e.getNewValue()).message()))
         ) {
             assertTrue(users1.await(500, TimeUnit.MILLISECONDS));
             assertTrue(users2.await(500, TimeUnit.MILLISECONDS));

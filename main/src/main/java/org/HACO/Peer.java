@@ -20,7 +20,6 @@ import java.util.concurrent.locks.ReentrantLock;
 
 
 public class Peer implements Closeable {
-    private static final InetSocketAddress DISCOVERY_SERVER = new InetSocketAddress("localhost", 8080);
     private final String id;
     private final boolean testing;
     private final int port;
@@ -50,15 +49,30 @@ public class Peer implements Closeable {
     private final Lock connectLock = new ReentrantLock();
     private final DiscoveryConnector discovery;
 
-    public Peer(String id, int port,
+    @VisibleForTesting
+    Peer(String id, int port,
+         PropertyChangeListener chatRoomsChangeListener,
+         PropertyChangeListener usersChangeListener,
+         PropertyChangeListener msgChangeListener) {
+        this("localhost", id, port, chatRoomsChangeListener, usersChangeListener, msgChangeListener, true);
+    }
+
+    public Peer(String discoveryAddr, String id, int port,
                 PropertyChangeListener chatRoomsChangeListener,
                 PropertyChangeListener usersChangeListener,
-                PropertyChangeListener msgChangeListener,
-                boolean testing) {
+                PropertyChangeListener msgChangeListener) {
+        this(discoveryAddr, id, port, chatRoomsChangeListener, usersChangeListener, msgChangeListener, false);
+    }
+
+    private Peer(String discoveryAddr, String id, int port,
+                 PropertyChangeListener chatRoomsChangeListener,
+                 PropertyChangeListener usersChangeListener,
+                 PropertyChangeListener msgChangeListener,
+                 boolean testing) {
         this.id = id;
         this.port = port;
         this.testing = testing;
-        discovery = new DiscoveryConnector(DISCOVERY_SERVER, id, port);
+        discovery = new DiscoveryConnector(new InetSocketAddress(discoveryAddr, 8080), id, port);
 
         chats = ConcurrentHashMap.newKeySet();
         sockets = new ConcurrentHashMap<>();
@@ -76,6 +90,7 @@ public class Peer implements Closeable {
 
         start();
     }
+
 
     public void start() {
         System.out.println("STARTING " + id);
