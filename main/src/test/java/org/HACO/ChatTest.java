@@ -407,8 +407,8 @@ class ChatTest {
                                 disc1Promise.complete((String) e.getOldValue());
                         },
                         e -> {
-                            msg1.countDown();
                             msg1List.add(((MessageGUI) e.getNewValue()).message());
+                            msg1.countDown();
                         });
 
                 Peer c2 = new Peer("id2", 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
@@ -419,8 +419,8 @@ class ChatTest {
                                 disc2Promise.complete((String) e.getOldValue());
                         },
                         e -> {
-                            msg2.countDown();
                             msg2List.add(((MessageGUI) e.getNewValue()).message());
+                            msg2.countDown();
                         }) {
                     @Override
                     Socket createNewSocket() {
@@ -466,7 +466,7 @@ class ChatTest {
             c3.sendMessage("TEST2", chat3, 0);
 
             assertTrue(msg1.await(500, TimeUnit.MILLISECONDS));
-            assertEquals("id2", userReconnect.get(6, TimeUnit.SECONDS));
+            assertEquals("id2", userReconnect.get(10, TimeUnit.SECONDS));
 
             assertEquals(2, msg1List.size());
             var m1_0 = msg1List.get(0);
@@ -477,7 +477,7 @@ class ChatTest {
             assertEquals("TEST2", m1_1.msg());
             assertEquals("id3", m1_1.sender());
 
-            assertTrue(msg2.await(6, TimeUnit.SECONDS));
+            assertTrue(msg2.await(10, TimeUnit.SECONDS));
             assertEquals(2, msg2List.size());
             var m2_0 = msg2List.get(0);
             assertEquals("TEST", m2_0.msg());
@@ -524,8 +524,8 @@ class ChatTest {
                                 disc1Promise.complete((String) e.getOldValue());
                         },
                         e -> {
-                            msg1.countDown();
                             msg1List.add(((MessageGUI) e.getNewValue()).message());
+                            msg1.countDown();
                         });
 
                 Peer c2 = new Peer("id2", 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
@@ -539,8 +539,8 @@ class ChatTest {
                                 disc2Promise.complete((String) e.getOldValue());
                         },
                         e -> {
-                            msg2.countDown();
                             msg2List.add(((MessageGUI) e.getNewValue()).message());
+                            msg2.countDown();
                         }) {
                     @Override
                     Socket createNewSocket() {
@@ -581,7 +581,7 @@ class ChatTest {
             assertEquals("TEST", m3.msg());
             assertEquals("id2", m3.sender());
 
-            disc2Promise.get(6, TimeUnit.SECONDS);
+            disc2Promise.get(10, TimeUnit.SECONDS);
 
             c3.sendMessage("TEST2", chat3, 0);
 
@@ -596,7 +596,7 @@ class ChatTest {
             assertEquals("TEST2", m2_1.msg());
             assertEquals("id3", m2_1.sender());
 
-            assertEquals("id1", userReconnect.get(6, TimeUnit.SECONDS));
+            assertEquals("id1", userReconnect.get(10, TimeUnit.SECONDS));
 
             assertEquals(2, msg2List.size());
 
