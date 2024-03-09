@@ -150,6 +150,11 @@ public class Peer implements Closeable {
         }, 5, 5, TimeUnit.SECONDS);
     }
 
+    @VisibleForTesting
+    Socket createNewSocket() {
+        return new Socket();
+    }
+
     private void connectToSinglePeer(String id, SocketAddress addr) throws PeerAlreadyConnectedException, IOException {
         connectLock.lock();
         System.out.println("Got client lock");
@@ -159,7 +164,7 @@ public class Peer implements Closeable {
             throw new PeerAlreadyConnectedException();
         }
 
-        Socket s = new Socket();
+        Socket s = createNewSocket();
         System.out.println("[" + this.id + "] connecting to " + id);
         s.connect(addr, 500);
 

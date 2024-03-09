@@ -94,9 +94,12 @@ public class ChatRoom {
                 }
             } else if (res == -1) {
                 //puts the message in a queue
+                System.out.println("[" + id + "] Message " + m.vectorClocks() + " added in waiting list");
                 waiting.add(m);
+            } else {
+                //If it doesn't enter any of the above ifs ignore the received message
+                System.out.println("[" + id + "] Ignoring duplicated message " + m.vectorClocks());
             }
-            //If it doesn't enter any of the above ifs ignore the received message
         } finally {
             pushLock.unlock();
         }
