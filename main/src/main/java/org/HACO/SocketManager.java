@@ -27,6 +27,7 @@ public class SocketManager implements Closeable {
     private final CompletableFuture<String> otherId;
     private volatile CompletableFuture<Void> ackPromise;
     private final Lock writeLock, sendLock;
+    private volatile boolean closed;
 
     /**
      * Create a socketManager without the recipient id: will receive an {@link HelloPacket} with it.
@@ -128,6 +129,7 @@ public class SocketManager implements Closeable {
         this.otherId = new CompletableFuture<>();
         this.writeLock = new ReentrantLock();
         this.sendLock = new ReentrantLock();
+        this.closed = false;
 
         this.inPacketConsumer = inPacketConsumer;
         this.onClose = onClose;
@@ -166,7 +168,8 @@ public class SocketManager implements Closeable {
             } while (!socket.isClosed() && !Thread.currentThread().isInterrupted());
 
         } catch (IOException e) {
-            onClose.accept(otherId.resultNow(), e);
+            if (!closed)
+                onClose.accept(otherId.resultNow(), e);
         }
     }
 
@@ -178,7 +181,7 @@ public class SocketManager implements Closeable {
      *
      * @param packet packet to be sent
      * @throws IOException          if an error occurs during communication (i.e. ack not received)
-     * @throws InterruptedException if interrupted while waiting for the ack
+     * @throws InterruptedIOException if interrupted while waiting for the ack
      */
     public void send(P2PPacket packet) throws IOException {
         try {
@@ -226,6 +229,7 @@ public class SocketManager implements Closeable {
      */
     @Override
     public void close() {
+        closed = true;
         recvTask.cancel(true);
         try {
             socket.close();

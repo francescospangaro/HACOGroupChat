@@ -270,9 +270,9 @@ public class Peer implements Closeable {
             return true;
         } catch (IOException e) {
             System.err.println("[" + this.id + "] Error sending message to +" + id + ". Enqueuing it...");
-            onPeerDisconnected(id, e);
             disconnectMsgs.computeIfAbsent(id, k -> ConcurrentHashMap.newKeySet());
             disconnectMsgs.get(id).add(packet);
+            onPeerDisconnected(id, e);
         }
         return false;
     }
@@ -294,7 +294,7 @@ public class Peer implements Closeable {
             System.err.println("Can't contact the discovery " + e);
         }
 
-        sockets.forEach((id, socketManager) -> socketManager.close());
+        sockets.keySet().forEach(id -> onPeerDisconnected(id, new IOException("Disconnected")));
         sockets.clear();
         ips.clear();
     }
