@@ -191,19 +191,20 @@ public class Peer implements Closeable {
     }
 
 
+    /**
+     * Send a message to the given chat
+     * <p>
+     * This method is NOT thread-safe.
+     * If it is called simultaneously by two threads, there is no guarantee on the order of the two messages.
+     *
+     * @param msg         the message to be sent
+     * @param chat        chat where the message is sent
+     * @param delayedTime seconds to wait before sending the message (for testing purposes)
+     */
     public void sendMessage(String msg, ChatRoom chat, int delayedTime) {
         boolean isDelayed = delayedTime != 0;
 
-        Map<String, Integer> vc = new HashMap<>();
-        for (String s : chat.getUsers()) {
-            if (s.equals(this.id))
-                vc.put(this.id, chat.getVectorClocks().get(s) + 1);
-            else
-                vc.put(s, chat.getVectorClocks().get(s));
-        }
-
-        Message m = new Message(msg, vc, this.id);
-        chat.pushWithoutCheck(m);
+        Message m = chat.send(msg, id);
 
         //Send a MessagePacket containing the Message just created to each User of the ChatRoom
         if (!isDelayed) {

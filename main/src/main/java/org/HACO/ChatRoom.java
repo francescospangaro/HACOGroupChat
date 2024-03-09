@@ -59,12 +59,14 @@ public class ChatRoom {
         return name;
     }
 
-    public void pushWithoutCheck(Message m) {
+    public Message send(String msg, String sender) {
         try {
             pushLock.lock();
-            vectorClocks.put(m.sender(), vectorClocks.get(m.sender()) + 1);
+            vectorClocks.put(sender, vectorClocks.get(sender) + 1);
+            Message m = new Message(msg, Map.copyOf(vectorClocks), sender);
             receivedMsgs.add(m);
             propertyChangeSupport.firePropertyChange("ADD_MSG", null, new MessageGUI(m, this));
+            return m;
         } finally {
             pushLock.unlock();
         }
@@ -140,10 +142,6 @@ public class ChatRoom {
     @VisibleForTesting
     public Set<Message> getWaiting() {
         return Collections.unmodifiableSet(waiting);
-    }
-
-    public Map<String, Integer> getVectorClocks() {
-        return vectorClocks;
     }
 
     @Override
