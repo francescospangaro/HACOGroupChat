@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.UUID;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -88,12 +89,14 @@ class SocketManagerTest {
         assertFalse(close1Promise.isDone());
         assertFalse(close2Promise.isDone());
 
-        var p = new DeleteRoomPacket("Test");
+        var id1 = UUID.randomUUID();
+        var id2 = UUID.randomUUID();
+        var p = new DeleteRoomPacket(id1);
         assertDoesNotThrow(() -> socketManager.send(p));
 
         assertEquals(p, p1Promise.get(500, TimeUnit.MILLISECONDS));
 
-        var p2 = new DeleteRoomPacket("Test2");
+        var p2 = new DeleteRoomPacket(id2);
         assertDoesNotThrow(() -> socketManager2.get().send(p2));
 
         assertEquals(p2, p2Promise.get(500, TimeUnit.MILLISECONDS));
@@ -123,7 +126,7 @@ class SocketManagerTest {
             try {
                 Socket s = serverSocket.accept();
                 socketManager2.set(new SocketManager("id", executorService, s, p -> {
-                    if (Integer.parseInt(((DeleteRoomPacket) p).id()) == 100 - countDownLatch.getCount()) {
+                    if (Integer.parseInt(((DeleteRoomPacket) p).id().toString()) == 100 - countDownLatch.getCount()) {
                         countDownLatch.countDown();
                     } else {
                         ex.set(new AssertionError("Not FIFO"));
@@ -141,7 +144,7 @@ class SocketManagerTest {
         assertEquals(100, countDownLatch.getCount());
 
         for (int i = 0; i < 100; i++) {
-            var p = new DeleteRoomPacket(Integer.toString(i));
+            var p = new DeleteRoomPacket(UUID.fromString(Integer.toString(i)));
             assertDoesNotThrow(() -> socketManager.send(p));
         }
 
@@ -189,10 +192,11 @@ class SocketManagerTest {
 
         s.close();
 
-        var p = new DeleteRoomPacket("Test");
+
+        var p = new DeleteRoomPacket(UUID.randomUUID());
         assertThrows(IOException.class, () -> socketManager.send(p));
 
-        var p2 = new DeleteRoomPacket("Test2");
+        var p2 = new DeleteRoomPacket(UUID.randomUUID());
         assertThrows(IOException.class, () -> socketManager2.get().send(p2));
 
         assertFalse(p1Promise.isDone());
