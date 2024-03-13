@@ -4,12 +4,14 @@ import org.HACO.discovery.DiscoveryServer;
 import org.HACO.utility.Message;
 import org.HACO.utility.MessageGUI;
 import org.HACO.packets.MessagePacket;
+import org.HACO.utility.Randomize;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.net.Socket;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.*;
@@ -35,20 +37,22 @@ class ChatTest {
     void connect() throws ExecutionException, InterruptedException, TimeoutException {
         CompletableFuture<String> c1Promise = new CompletableFuture<>();
         CompletableFuture<String> c2Promise = new CompletableFuture<>();
-
+        List<String> ids = new ArrayList<>();
+        ids.add(Randomize.generateRandomString(10));
+        ids.add(Randomize.generateRandomString(10));
         try (
-                Peer c1 = new Peer("id1", 12345, e -> {
+                Peer c1 = new Peer(ids.get(0), 12345, e -> {
                 }, e -> c1Promise.complete((String) e.getNewValue()), e -> {
                 });
-                Peer c2 = new Peer("id2", 12346, e -> {
+                Peer c2 = new Peer(ids.get(1), 12346, e -> {
                 }, e -> c2Promise.complete((String) e.getNewValue()), e -> {
                 })
         ) {
             String u1 = c1Promise.get(500, TimeUnit.MILLISECONDS);
             String u2 = c2Promise.get(500, TimeUnit.MILLISECONDS);
 
-            assertEquals("id2", u1);
-            assertEquals("id1", u2);
+            assertEquals(ids.get(1), u1);
+            assertEquals(ids.get(0), u2);
         }
     }
 
@@ -58,18 +62,21 @@ class ChatTest {
         CompletableFuture<String> c2Promise = new CompletableFuture<>();
         CompletableFuture<ChatRoom> chat1Promise = new CompletableFuture<>();
         CompletableFuture<ChatRoom> chat2Promise = new CompletableFuture<>();
+        List<String> ids = new ArrayList<>();
+        ids.add(Randomize.generateRandomString(10));
+        ids.add(Randomize.generateRandomString(10));
         try (
-                Peer c1 = new Peer("id1", 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
+                Peer c1 = new Peer(ids.get(0), 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
                         e -> c1Promise.complete((String) e.getNewValue()), e -> {
                 });
-                Peer c2 = new Peer("id2", 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
+                Peer c2 = new Peer(ids.get(1), 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
                         e -> c2Promise.complete((String) e.getNewValue()), e -> {
                 })
         ) {
             c1Promise.get(500, TimeUnit.MILLISECONDS);
             c2Promise.get(500, TimeUnit.MILLISECONDS);
 
-            Set<String> users = Set.of("id1", "id2");
+            Set<String> users = Set.of(ids.get(0), ids.get(1));
             c1.createRoom("room", users);
 
             ChatRoom chat1 = chat1Promise.get(500, TimeUnit.MILLISECONDS);
@@ -91,19 +98,22 @@ class ChatTest {
         CompletableFuture<ChatRoom> chat2Promise = new CompletableFuture<>();
         CompletableFuture<Message> msg1Promise = new CompletableFuture<>();
         CompletableFuture<Message> msg2Promise = new CompletableFuture<>();
+        List<String> ids = new ArrayList<>();
+        ids.add(Randomize.generateRandomString(10));
+        ids.add(Randomize.generateRandomString(10));
         try (
-                Peer c1 = new Peer("id1", 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
+                Peer c1 = new Peer(ids.get(0), 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
                         e -> c1Promise.complete((String) e.getNewValue()),
                         e -> msg1Promise.complete(((MessageGUI) e.getNewValue()).message()));
 
-                Peer c2 = new Peer("id2", 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
+                Peer c2 = new Peer(ids.get(1), 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
                         e -> c2Promise.complete((String) e.getNewValue()),
                         e -> msg2Promise.complete(((MessageGUI) e.getNewValue()).message()))
         ) {
             System.out.println(c1Promise.get(500, TimeUnit.MILLISECONDS));
             System.out.println(c2Promise.get(500, TimeUnit.MILLISECONDS));
 
-            Set<String> users = Set.of("id1", "id2");
+            Set<String> users = Set.of(ids.get(0), ids.get(1));
             c1.createRoom("room", users);
 
             ChatRoom chat = chat1Promise.get(500, TimeUnit.MILLISECONDS);
@@ -115,10 +125,10 @@ class ChatTest {
             Message m2 = msg2Promise.get(1000, TimeUnit.MILLISECONDS);
 
             assertEquals("TEST", m1.msg());
-            assertEquals("id1", m1.sender());
+            assertEquals(ids.get(0), m1.sender());
 
             assertEquals("TEST", m2.msg());
-            assertEquals("id1", m2.sender());
+            assertEquals(ids.get(0), m2.sender());
 
         }
     }
@@ -135,16 +145,20 @@ class ChatTest {
         CountDownLatch users1 = new CountDownLatch(2);
         CountDownLatch users2 = new CountDownLatch(2);
         CountDownLatch users3 = new CountDownLatch(2);
+        List<String> ids = new ArrayList<>();
+        ids.add(Randomize.generateRandomString(10));
+        ids.add(Randomize.generateRandomString(10));
+        ids.add(Randomize.generateRandomString(10));
         try (
-                Peer c1 = new Peer("id1", 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
+                Peer c1 = new Peer(ids.get(0), 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
                         e -> users1.countDown(),
                         e -> msg1Promise.complete(((MessageGUI) e.getNewValue()).message()));
 
-                Peer c2 = new Peer("id2", 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
+                Peer c2 = new Peer(ids.get(1), 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
                         e -> users2.countDown(),
                         e -> msg2Promise.complete(((MessageGUI) e.getNewValue()).message()));
 
-                Peer c3 = new Peer("id3", 12347, e -> chat3Promise.complete((ChatRoom) e.getNewValue()),
+                Peer c3 = new Peer(ids.get(2), 12347, e -> chat3Promise.complete((ChatRoom) e.getNewValue()),
                         e -> users3.countDown(),
                         e -> {
                             msg3List.add(((MessageGUI) e.getNewValue()).message());
@@ -155,14 +169,14 @@ class ChatTest {
             assertTrue(users2.await(500, TimeUnit.MILLISECONDS));
             assertTrue(users3.await(500, TimeUnit.MILLISECONDS));
 
-            Set<String> users = Set.of("id1", "id2", "id3");
+            Set<String> users = Set.of(ids.get(0), ids.get(1), ids.get(2));
             c1.createRoom("room", users);
 
             ChatRoom chat1 = chat1Promise.get(500, TimeUnit.MILLISECONDS);
             ChatRoom chat2 = chat2Promise.get(500, TimeUnit.MILLISECONDS);
             ChatRoom chat3 = chat3Promise.get(500, TimeUnit.MILLISECONDS);
 
-            c1.degradePerformance("id3");
+            c1.degradePerformance(ids.get(2));
 
             c1.sendMessage("TEST", chat1, 0);
 
@@ -173,10 +187,10 @@ class ChatTest {
             assertTrue(msg3List.isEmpty());
 
             assertEquals("TEST", m1.msg());
-            assertEquals("id1", m1.sender());
+            assertEquals(ids.get(0), m1.sender());
 
             assertEquals("TEST", m2.msg());
-            assertEquals("id1", m2.sender());
+            assertEquals(ids.get(0), m2.sender());
 
             c2.sendMessage("TEST2", chat2, 0);
 
@@ -210,8 +224,12 @@ class ChatTest {
         CompletableFuture<String> disc1Promise = new CompletableFuture<>();
         CompletableFuture<String> disc3Promise = new CompletableFuture<>();
         CountDownLatch disc2 = new CountDownLatch(2);
+        List<String> ids = new ArrayList<>();
+        ids.add(Randomize.generateRandomString(10));
+        ids.add(Randomize.generateRandomString(10));
+        ids.add(Randomize.generateRandomString(10));
         try (
-                Peer c1 = new Peer("id1", 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
+                Peer c1 = new Peer(ids.get(0), 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
                         e -> {
                             if (e.getPropertyName().equals("USER_CONNECTED"))
                                 users1.countDown();
@@ -220,7 +238,7 @@ class ChatTest {
                         },
                         e -> msg1Promise.complete(((MessageGUI) e.getNewValue()).message()));
 
-                Peer c2 = new Peer("id2", 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
+                Peer c2 = new Peer(ids.get(1), 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
                         e -> {
                             if (e.getPropertyName().equals("USER_CONNECTED"))
                                 users2.countDown();
@@ -229,7 +247,7 @@ class ChatTest {
                         },
                         e -> msg2Promise.complete(((MessageGUI) e.getNewValue()).message()));
 
-                Peer c3 = new Peer("id3", 12347, e -> chat3Promise.complete((ChatRoom) e.getNewValue()),
+                Peer c3 = new Peer(ids.get(2), 12347, e -> chat3Promise.complete((ChatRoom) e.getNewValue()),
                         e -> {
                             if (e.getPropertyName().equals("USER_CONNECTED"))
                                 users3.countDown();
@@ -242,7 +260,7 @@ class ChatTest {
             assertTrue(users2.await(500, TimeUnit.MILLISECONDS));
             assertTrue(users3.await(500, TimeUnit.MILLISECONDS));
 
-            Set<String> users = Set.of("id1", "id2", "id3");
+            Set<String> users = Set.of(ids.get(0), ids.get(1), ids.get(2));
             c1.createRoom("room", users);
 
             ChatRoom chat1 = chat1Promise.get(500, TimeUnit.MILLISECONDS);
@@ -252,8 +270,8 @@ class ChatTest {
             c2.disconnect();
 
             assertTrue(disc2.await(500, TimeUnit.MILLISECONDS));
-            assertEquals("id2", disc1Promise.get(500, TimeUnit.MILLISECONDS));
-            assertEquals("id2", disc3Promise.get(500, TimeUnit.MILLISECONDS));
+            assertEquals(ids.get(1), disc1Promise.get(500, TimeUnit.MILLISECONDS));
+            assertEquals(ids.get(1), disc3Promise.get(500, TimeUnit.MILLISECONDS));
 
             c1.sendMessage("TEST", chat1, 0);
 
@@ -262,29 +280,29 @@ class ChatTest {
             assertThrows(TimeoutException.class, () -> msg2Promise.get(500, TimeUnit.MILLISECONDS));
 
             assertEquals("TEST", m1.msg());
-            assertEquals("id1", m1.sender());
+            assertEquals(ids.get(0), m1.sender());
 
             assertEquals("TEST", m3.msg());
-            assertEquals("id1", m3.sender());
+            assertEquals(ids.get(0), m3.sender());
 
-            assertNotNull(c1.getDiscMsg("id2"));
-            assertEquals(1, c1.getDiscMsg("id2").size());
-            var msg = ((MessagePacket) c1.getDiscMsg("id2").stream().findFirst().orElseThrow()).msg();
+            assertNotNull(c1.getDiscMsg(ids.get(1)));
+            assertEquals(1, c1.getDiscMsg(ids.get(1)).size());
+            var msg = ((MessagePacket) c1.getDiscMsg(ids.get(1)).stream().findFirst().orElseThrow()).msg();
             assertEquals("TEST", msg.msg());
-            assertEquals("id1", msg.sender());
+            assertEquals(ids.get(0), msg.sender());
 
             c2.start();
 
             Message m2 = msg2Promise.get(500, TimeUnit.MILLISECONDS);
             assertEquals("TEST", m2.msg());
-            assertEquals("id1", m2.sender());
+            assertEquals(ids.get(0), m2.sender());
 
             for (int i = 0; i < 50; i++) {
-                if (c1.getDiscMsg("id2") == null || c1.getDiscMsg("id2").isEmpty())
+                if (c1.getDiscMsg(ids.get(1)) == null || c1.getDiscMsg(ids.get(1)).isEmpty())
                     break;
                 Thread.sleep(10);
             }
-            assertTrue(c1.getDiscMsg("id2") == null || c1.getDiscMsg("id2").isEmpty());
+            assertTrue(c1.getDiscMsg(ids.get(1)) == null || c1.getDiscMsg(ids.get(1)).isEmpty());
         }
     }
 
@@ -300,9 +318,11 @@ class ChatTest {
         CompletableFuture<String> disc2Promise = new CompletableFuture<>();
 
         AtomicReference<Socket> socketRef = new AtomicReference<>();
-
+        List<String> ids = new ArrayList<>();
+        ids.add(Randomize.generateRandomString(10));
+        ids.add(Randomize.generateRandomString(10));
         try (
-                Peer c1 = new Peer("id1", 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
+                Peer c1 = new Peer(ids.get(0), 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
                         e -> {
                             if (e.getPropertyName().equals("USER_CONNECTED"))
                                 users1Promise.complete((String) e.getNewValue());
@@ -311,7 +331,7 @@ class ChatTest {
                         },
                         e -> msg1Promise.complete(((MessageGUI) e.getNewValue()).message()));
 
-                Peer c2 = new Peer("id2", 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
+                Peer c2 = new Peer(ids.get(1), 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
                         e -> {
                             if (e.getPropertyName().equals("USER_CONNECTED"))
                                 users2Promise.complete((String) e.getNewValue());
@@ -333,7 +353,7 @@ class ChatTest {
             users1Promise.get(500, TimeUnit.MILLISECONDS);
             users2Promise.get(500, TimeUnit.MILLISECONDS);
 
-            Set<String> users = Set.of("id1", "id2");
+            Set<String> users = Set.of(ids.get(0), ids.get(1));
             c1.createRoom("room", users);
 
             ChatRoom chat1 = chat1Promise.get(500, TimeUnit.MILLISECONDS);
@@ -345,28 +365,28 @@ class ChatTest {
 
             Message m2 = msg2Promise.get(500, TimeUnit.MILLISECONDS);
             assertEquals("TEST", m2.msg());
-            assertEquals("id2", m2.sender());
+            assertEquals(ids.get(1), m2.sender());
 
-            assertEquals("id1", disc2Promise.get(6, TimeUnit.SECONDS));
-            var disc = c2.getDiscMsg("id1");
+            assertEquals(ids.get(0), disc2Promise.get(6, TimeUnit.SECONDS));
+            var disc = c2.getDiscMsg(ids.get(0));
             assertEquals(1, disc.size());
             var msg = ((MessagePacket) disc.stream().findFirst().orElseThrow()).msg();
             assertEquals("TEST", msg.msg());
-            assertEquals("id2", msg.sender());
+            assertEquals(ids.get(1), msg.sender());
 
             //assertThrows(TimeoutException.class, () -> msg1Promise.get(500, TimeUnit.MILLISECONDS));
 
             //In 5 seconds should reconnect
             Message m1 = msg1Promise.get(6, TimeUnit.SECONDS);
             assertEquals("TEST", m1.msg());
-            assertEquals("id2", m1.sender());
+            assertEquals(ids.get(1), m1.sender());
 
             for (int i = 0; i < 50; i++) {
-                if (c1.getDiscMsg("id2") == null || c1.getDiscMsg("id2").isEmpty())
+                if (c1.getDiscMsg(ids.get(1)) == null || c1.getDiscMsg(ids.get(1)).isEmpty())
                     break;
                 Thread.sleep(10);
             }
-            assertTrue(c1.getDiscMsg("id2") == null || c1.getDiscMsg("id2").isEmpty());
+            assertTrue(c1.getDiscMsg(ids.get(1)) == null || c1.getDiscMsg(ids.get(1)).isEmpty());
 
             ((ImproperShutdownSocket) socketRef.get()).actuallyClose();
         }
@@ -393,10 +413,12 @@ class ChatTest {
 
         CompletableFuture<String> disc1Promise = new CompletableFuture<>();
         CompletableFuture<String> disc2Promise = new CompletableFuture<>();
-
-
+        List<String> ids = new ArrayList<>();
+        ids.add(Randomize.generateRandomString(10));
+        ids.add(Randomize.generateRandomString(10));
+        ids.add(Randomize.generateRandomString(10));
         try (
-                Peer c1 = new Peer("id1", 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
+                Peer c1 = new Peer(ids.get(0), 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
                         e -> {
                             if (e.getPropertyName().equals("USER_CONNECTED"))
                                 if (disc1Promise.isDone())
@@ -411,7 +433,7 @@ class ChatTest {
                             msg1.countDown();
                         });
 
-                Peer c2 = new Peer("id2", 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
+                Peer c2 = new Peer(ids.get(1), 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
                         e -> {
                             if (e.getPropertyName().equals("USER_CONNECTED"))
                                 users2.countDown();
@@ -433,7 +455,7 @@ class ChatTest {
                     }
                 };
 
-                Peer c3 = new Peer("id3", 12347, e -> chat3Promise.complete((ChatRoom) e.getNewValue()),
+                Peer c3 = new Peer(ids.get(2), 12347, e -> chat3Promise.complete((ChatRoom) e.getNewValue()),
                         e -> {
                             if (e.getPropertyName().equals("USER_CONNECTED"))
                                 users3.countDown();
@@ -446,7 +468,7 @@ class ChatTest {
             assertTrue(users2.await(500, TimeUnit.MILLISECONDS));
             assertTrue(users3.await(500, TimeUnit.MILLISECONDS));
 
-            Set<String> users = Set.of("id1", "id2", "id3");
+            Set<String> users = Set.of(ids.get(0), ids.get(1), ids.get(2));
             c1.createRoom("room", users);
 
             ChatRoom chat1 = chat1Promise.get(500, TimeUnit.MILLISECONDS);
@@ -459,33 +481,33 @@ class ChatTest {
 
             var m3 = msg3Promise.get(500, TimeUnit.MILLISECONDS);
             assertEquals("TEST", m3.msg());
-            assertEquals("id1", m3.sender());
+            assertEquals(ids.get(0), m3.sender());
 
             disc1Promise.get(6, TimeUnit.SECONDS);
 
             c3.sendMessage("TEST2", chat3, 0);
 
             assertTrue(msg1.await(500, TimeUnit.MILLISECONDS));
-            assertEquals("id2", userReconnect.get(10, TimeUnit.SECONDS));
+            assertEquals(ids.get(1), userReconnect.get(10, TimeUnit.SECONDS));
 
             assertEquals(2, msg1List.size());
             var m1_0 = msg1List.get(0);
             assertEquals("TEST", m1_0.msg());
-            assertEquals("id1", m1_0.sender());
+            assertEquals(ids.get(0), m1_0.sender());
 
             var m1_1 = msg1List.get(1);
             assertEquals("TEST2", m1_1.msg());
-            assertEquals("id3", m1_1.sender());
+            assertEquals(ids.get(2), m1_1.sender());
 
             assertTrue(msg2.await(10, TimeUnit.SECONDS));
             assertEquals(2, msg2List.size());
             var m2_0 = msg2List.get(0);
             assertEquals("TEST", m2_0.msg());
-            assertEquals("id1", m2_0.sender());
+            assertEquals(ids.get(0), m2_0.sender());
 
             var m2_1 = msg2List.get(1);
             assertEquals("TEST2", m2_1.msg());
-            assertEquals("id3", m2_1.sender());
+            assertEquals(ids.get(2), m2_1.sender());
 
             ((ImproperShutdownSocket) socket_c2_c1_ref.get()).actuallyClose();
         }
@@ -514,9 +536,12 @@ class ChatTest {
         CompletableFuture<String> disc1Promise = new CompletableFuture<>();
         CompletableFuture<String> disc2Promise = new CompletableFuture<>();
 
-
+        List<String> ids = new ArrayList<>();
+        ids.add(Randomize.generateRandomString(10));
+        ids.add(Randomize.generateRandomString(10));
+        ids.add(Randomize.generateRandomString(10));
         try (
-                Peer c1 = new Peer("id1", 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
+                Peer c1 = new Peer(ids.get(0), 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
                         e -> {
                             if (e.getPropertyName().equals("USER_CONNECTED"))
                                 users1.countDown();
@@ -528,7 +553,7 @@ class ChatTest {
                             msg1.countDown();
                         });
 
-                Peer c2 = new Peer("id2", 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
+                Peer c2 = new Peer(ids.get(1), 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
                         e -> {
                             if (e.getPropertyName().equals("USER_CONNECTED"))
                                 if (disc2Promise.isDone())
@@ -553,7 +578,7 @@ class ChatTest {
                     }
                 };
 
-                Peer c3 = new Peer("id3", 12347, e -> chat3Promise.complete((ChatRoom) e.getNewValue()),
+                Peer c3 = new Peer(ids.get(2), 12347, e -> chat3Promise.complete((ChatRoom) e.getNewValue()),
                         e -> {
                             if (e.getPropertyName().equals("USER_CONNECTED"))
                                 users3.countDown();
@@ -566,7 +591,7 @@ class ChatTest {
             assertTrue(users2.await(500, TimeUnit.MILLISECONDS));
             assertTrue(users3.await(500, TimeUnit.MILLISECONDS));
 
-            Set<String> users = Set.of("id1", "id2", "id3");
+            Set<String> users = Set.of(ids.get(0), ids.get(1), ids.get(2));
             c1.createRoom("room", users);
 
             ChatRoom chat1 = chat1Promise.get(500, TimeUnit.MILLISECONDS);
@@ -579,7 +604,7 @@ class ChatTest {
 
             var m3 = msg3Promise.get(500, TimeUnit.MILLISECONDS);
             assertEquals("TEST", m3.msg());
-            assertEquals("id2", m3.sender());
+            assertEquals(ids.get(1), m3.sender());
 
             disc2Promise.get(10, TimeUnit.SECONDS);
 
@@ -590,13 +615,13 @@ class ChatTest {
             assertEquals(2, msg2List.size());
             var m2_0 = msg2List.get(0);
             assertEquals("TEST", m2_0.msg());
-            assertEquals("id2", m2_0.sender());
+            assertEquals(ids.get(1), m2_0.sender());
 
             var m2_1 = msg2List.get(1);
             assertEquals("TEST2", m2_1.msg());
-            assertEquals("id3", m2_1.sender());
+            assertEquals(ids.get(2), m2_1.sender());
 
-            assertEquals("id1", userReconnect.get(10, TimeUnit.SECONDS));
+            assertEquals(ids.get(0), userReconnect.get(10, TimeUnit.SECONDS));
 
             assertEquals(2, msg2List.size());
 
@@ -604,11 +629,11 @@ class ChatTest {
             assertEquals(2, msg1List.size());
             var m1_0 = msg1List.get(0);
             assertEquals("TEST", m1_0.msg());
-            assertEquals("id2", m1_0.sender());
+            assertEquals(ids.get(1), m1_0.sender());
 
             var m1_1 = msg1List.get(1);
             assertEquals("TEST2", m1_1.msg());
-            assertEquals("id3", m1_1.sender());
+            assertEquals(ids.get(2), m1_1.sender());
 
             ((ImproperShutdownSocket) socket_c2_c1_ref.get()).actuallyClose();
         }
