@@ -1,5 +1,7 @@
 package org.HACO.packets;
 
 
-public record DeleteRoomPacket(String id) implements P2PPacket {
+import java.util.UUID;
+
+public record DeleteRoomPacket(UUID id) implements P2PPacket {
 }

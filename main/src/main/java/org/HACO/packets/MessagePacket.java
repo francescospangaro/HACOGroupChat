@@ -1,4 +1,8 @@
 package org.HACO.packets;
 
-public record MessagePacket(String chatId, Message msg) implements P2PPacket {
+import org.HACO.utility.Message;
+
+import java.util.UUID;
+
+public record MessagePacket(UUID chatId, Message msg) implements P2PPacket {
 }

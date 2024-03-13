@@ -3,16 +3,19 @@ package org.HACO;
 import org.HACO.Exceptions.PeerAlreadyConnectedException;
 import org.HACO.packets.*;
 import org.HACO.packets.discovery.ByePacket;
+import org.HACO.utility.ChatToBackup;
+import org.HACO.utility.Message;
 import org.jetbrains.annotations.VisibleForTesting;
 
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
-import java.io.Closeable;
-import java.io.IOException;
+import java.io.*;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketAddress;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.locks.Lock;
@@ -32,7 +35,7 @@ public class Peer implements Closeable {
     private volatile ScheduledFuture<?> reconnectTask;
     private volatile Future<?> acceptTask;
     private ServerSocket serverSocket;
-
+    private String saveDirectory = STR."\{System.getProperty("user.home")}\{File.separator}HACOBackup\{File.separator}";
     private final Map<String, SocketAddress> ips;
     private final Map<String, SocketAddress> disconnectedIps;
     private final Map<String, SocketManager> sockets;
@@ -70,11 +73,12 @@ public class Peer implements Closeable {
                  PropertyChangeListener msgChangeListener,
                  boolean testing) {
         this.id = id;
+        this.saveDirectory += id + File.separator;
         this.port = port;
         this.testing = testing;
         discovery = new DiscoveryConnector(new InetSocketAddress(discoveryAddr, 8080), id, port);
 
-        chats = ConcurrentHashMap.newKeySet();
+        chats = getFromBackup();
         sockets = new ConcurrentHashMap<>();
         degradedConnections = ConcurrentHashMap.newKeySet();
         ips = new ConcurrentHashMap<>();
@@ -87,6 +91,10 @@ public class Peer implements Closeable {
         usersPropertyChangeSupport.addPropertyChangeListener(usersChangeListener);
 
         this.msgChangeListener = msgChangeListener;
+
+        for (ChatRoom c : chats) {
+            roomsPropertyChangeSupport.firePropertyChange("ADD_ROOM", null, c);
+        }
 
         start();
     }
@@ -132,28 +140,66 @@ public class Peer implements Closeable {
 
     private void reconnectToPeers() {
         //Every 5 seconds retry, until I'm connected with everyone
-        reconnectTask = scheduledExecutorService.scheduleAtFixedRate(() -> {
-            disconnectedIps.forEach((id, addr) -> {
-                System.out.println("Trying to reconnect to " + id);
-                try {
-                    connectToSinglePeer(id, addr);
-                    ips.put(id, disconnectedIps.remove(id));
-                } catch (IOException e) {
-                    connectLock.unlock();
-                    System.err.println("Failed to reconnect to " + id);
-                    e.printStackTrace();
-                } catch (PeerAlreadyConnectedException e) {
-                    connectLock.unlock();
-                    System.out.println("Peer " + id + " already connected");
-                }
-            });
-        }, 5, 5, TimeUnit.SECONDS);
+        reconnectTask = scheduledExecutorService.scheduleAtFixedRate(() -> disconnectedIps.forEach((id, addr) -> {
+            System.out.println("Trying to reconnect to " + id);
+            try {
+                connectToSinglePeer(id, addr);
+                ips.put(id, disconnectedIps.remove(id));
+            } catch (IOException e) {
+                connectLock.unlock();
+                System.err.println("Failed to reconnect to " + id);
+                e.printStackTrace();
+            } catch (PeerAlreadyConnectedException e) {
+                connectLock.unlock();
+                System.out.println("Peer " + id + " already connected");
+            }
+        }), 5, 5, TimeUnit.SECONDS);
     }
 
     @VisibleForTesting
     Socket createNewSocket() {
         return new Socket();
     }
+
+    private Set<ChatRoom> getFromBackup() {
+        if (new File(saveDirectory).listFiles() == null)
+            return ConcurrentHashMap.newKeySet();
+
+        Set<ChatRoom> tempChats = ConcurrentHashMap.newKeySet();
+        for (File f : Objects.requireNonNull(new File(saveDirectory).listFiles())) {
+            try {
+                FileInputStream fileInputStream = new FileInputStream(f);
+                ObjectInputStream objectInputStream = new ObjectInputStream(fileInputStream);
+                ChatToBackup tempChat = (ChatToBackup) objectInputStream.readObject();
+                tempChats.add(new ChatRoom(tempChat.name(), tempChat.users(), tempChat.id(), msgChangeListener,
+                        tempChat.vectorClocks(), tempChat.waiting(), tempChat.received()));
+                objectInputStream.close();
+                fileInputStream.close();
+            } catch (IOException | ClassNotFoundException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        return tempChats;
+    }
+
+    private void backupChats() {
+        try {
+            //Create all save directories
+            Files.createDirectories(Paths.get(saveDirectory));
+            for (ChatRoom c : chats) {
+                File backupFile = new File(STR."\{saveDirectory}\{c.getId()}.dat");
+                backupFile.createNewFile();
+                FileOutputStream fileOutputStream = new FileOutputStream(backupFile);
+                ObjectOutputStream objectOutputStream = new ObjectOutputStream(fileOutputStream);
+                objectOutputStream.writeObject(new ChatToBackup(c));
+                objectOutputStream.close();
+                fileOutputStream.close();
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
 
     private void connectToSinglePeer(String id, SocketAddress addr) throws PeerAlreadyConnectedException, IOException {
         connectLock.lock();
@@ -262,7 +308,7 @@ public class Peer implements Closeable {
                     });
                 } else {
                     System.out.println("[" + this.id + "] Peer " + id + " currently disconnected, enqueuing packet only for him...");
-                    disconnectMsgs.computeIfAbsent(id, k -> ConcurrentHashMap.newKeySet());
+                    disconnectMsgs.computeIfAbsent(id, _ -> ConcurrentHashMap.newKeySet());
                     disconnectMsgs.get(id).add(packet);
                 }
             }
@@ -275,7 +321,7 @@ public class Peer implements Closeable {
             return true;
         } catch (IOException e) {
             System.err.println("[" + this.id + "] Error sending message to +" + id + ". Enqueuing it...");
-            disconnectMsgs.computeIfAbsent(id, k -> ConcurrentHashMap.newKeySet());
+            disconnectMsgs.computeIfAbsent(id, _ -> ConcurrentHashMap.newKeySet());
             disconnectMsgs.get(id).add(packet);
             onPeerDisconnected(id, e);
         }
@@ -306,10 +352,6 @@ public class Peer implements Closeable {
 
     public void degradePerformance(String id) {
         degradedConnections.add(id);
-    }
-
-    public void resetDegradedPerformance() {
-        degradedConnections.clear();
     }
 
     public boolean isConnected() {
@@ -407,6 +449,7 @@ public class Peer implements Closeable {
 
     @Override
     public void close() {
+        backupChats();
         disconnect();
         scheduledExecutorService.shutdownNow();
         executorService.shutdownNow();

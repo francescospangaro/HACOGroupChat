@@ -1,7 +1,7 @@
 package org.HACO;
 
-import org.HACO.packets.Message;
-import org.HACO.packets.MessageGUI;
+import org.HACO.utility.Message;
+import org.HACO.utility.MessageGUI;
 
 import javax.swing.*;
 import java.awt.*;

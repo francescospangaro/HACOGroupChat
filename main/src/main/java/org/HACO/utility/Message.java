@@ -1,4 +1,4 @@
-package org.HACO.packets;
+package org.HACO.utility;
 
 import java.io.Serializable;
 import java.util.Map;

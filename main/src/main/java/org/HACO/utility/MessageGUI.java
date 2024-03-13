@@ -1,8 +1,6 @@
-package org.HACO.packets;
+package org.HACO.utility;
 
 import org.HACO.ChatRoom;
-
-import java.util.Map;
 
 public record MessageGUI(Message message, ChatRoom chatRoom) {
 }

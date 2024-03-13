@@ -1,8 +1,8 @@
 package org.HACO;
 
 import org.HACO.discovery.DiscoveryServer;
-import org.HACO.packets.Message;
-import org.HACO.packets.MessageGUI;
+import org.HACO.utility.Message;
+import org.HACO.utility.MessageGUI;
 import org.HACO.packets.MessagePacket;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
