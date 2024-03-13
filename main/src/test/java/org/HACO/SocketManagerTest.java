@@ -1,6 +1,8 @@
 package org.HACO;
 
+import org.HACO.packets.AckPacket;
 import org.HACO.packets.DeleteRoomPacket;
+import org.HACO.packets.HelloPacket;
 import org.HACO.packets.P2PPacket;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
@@ -9,6 +11,8 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
@@ -122,11 +126,17 @@ class SocketManagerTest {
         CompletableFuture<Throwable> close2Promise = new CompletableFuture<>();
 
         AtomicReference<SocketManager> socketManager2 = new AtomicReference<>();
+        List<UUID> uuids = new ArrayList<>();
+        for (int i = 0; i < 100; i++) {
+            uuids.add(UUID.randomUUID());
+        }
+
+
         executorService.execute(() -> {
             try {
                 Socket s = serverSocket.accept();
                 socketManager2.set(new SocketManager("id", executorService, s, p -> {
-                    if (Integer.parseInt(((DeleteRoomPacket) p).id().toString()) == 100 - countDownLatch.getCount()) {
+                    if (((DeleteRoomPacket) p).id().equals(uuids.get((int) (100 - countDownLatch.getCount())))) {
                         countDownLatch.countDown();
                     } else {
                         ex.set(new AssertionError("Not FIFO"));
@@ -144,12 +154,13 @@ class SocketManagerTest {
         assertEquals(100, countDownLatch.getCount());
 
         for (int i = 0; i < 100; i++) {
-            var p = new DeleteRoomPacket(UUID.fromString(Integer.toString(i)));
+            var p = new DeleteRoomPacket(uuids.get(i));
             assertDoesNotThrow(() -> socketManager.send(p));
         }
 
         assertTrue(countDownLatch.await(500, TimeUnit.MILLISECONDS));
         assertNull(ex.get());
+
 
         assertFalse(p2Promise.isDone());
         assertFalse(close1Promise.isDone());
