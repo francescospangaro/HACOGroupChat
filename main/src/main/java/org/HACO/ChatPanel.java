@@ -25,7 +25,7 @@ public class ChatPanel {
     private JLabel connectedLabel;
     private JTextField delayTime;
     private JList<String> connectedList;
-    private JLabel chatLable;
+    private JLabel chatLabel;
     private JPanel left;
     private volatile Peer peer;
     private final ExecutorService executorService = Executors.newCachedThreadPool();
@@ -83,13 +83,14 @@ public class ChatPanel {
         chatRooms.addItemListener(e -> {
             if (e.getID() == ItemEvent.ITEM_STATE_CHANGED) {
                 if (chatRooms.getItemCount() > 0 && chatRooms.getSelectedItem() != null) {
-                    chatLable.setText("Chat: " + ((ChatRoom) chatRooms.getSelectedItem()).getName());
+                    chatLabel.setText("Chat: " + ((ChatRoom) chatRooms.getSelectedItem()).getName());
                     msgListModel.clear();
 
                     msgListModel.addAll(0, ((ChatRoom) chatRooms.getSelectedItem()).getReceivedMsgs().stream()
                             .map(Message::toString)
                             .collect(Collectors.toList()));
                 } else {
+                    chatLabel.setText("Chat: -");
                     msgListModel.clear();
                 }
             }
