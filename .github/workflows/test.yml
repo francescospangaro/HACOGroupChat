@@ -30,12 +30,12 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: Discovery
-          path: /**/HACOGroupChat-*-discovery.jar
+          path: ./**/HACOGroupChat-*-discovery.jar
       - name: Archive peer jar
         uses: actions/upload-artifact@v3
         with:
           name: Peer
-          path: /**/HACOGroupChat-*-peer.jar
+          path: ./**/HACOGroupChat-*-peer.jar
       - name: Create prerelease
         uses: "marvinpinto/action-automatic-releases@latest"
         with:
@@ -44,5 +44,5 @@ jobs:
           prerelease: true
           title: "Nightly Release"
           files: |
-            /**/HACOGroupChat-*-peer.jar
-            /**/HACOGroupChat-*-discovery.jar
+            ./**/HACOGroupChat-*-peer.jar
+            ./**/HACOGroupChat-*-discovery.jar
