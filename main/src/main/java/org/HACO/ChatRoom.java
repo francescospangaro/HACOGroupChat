@@ -56,16 +56,6 @@ public class ChatRoom {
     }
 
 
-    private static String initId() {
-        Random random = new Random();
-        String temp = "";
-        for (int i = 0; i < 10; i++) {
-            if (i % 4 == 0) temp = temp.concat(String.valueOf(random.nextInt(10)));
-            else temp = temp.concat(Character.toString((char) random.nextInt(255)));
-        }
-        return temp;
-    }
-
     public UUID getId() {
         return id;
     }
@@ -87,7 +77,6 @@ public class ChatRoom {
         }
     }
 
-    // TODO: test vc implementation
     public void push(Message m) {
         try {
             pushLock.lock();
