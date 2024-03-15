@@ -1,4 +1,4 @@
 package it.polimi.packets;
 
-public record HelloPacket(String id) implements P2PPacket {
+public record HelloPacket(String id, int serverPort) implements P2PPacket {
 }

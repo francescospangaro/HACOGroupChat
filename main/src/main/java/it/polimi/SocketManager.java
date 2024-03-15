@@ -25,12 +25,13 @@ public class SocketManager implements Closeable {
     private final Consumer<P2PPacket> inPacketConsumer;
     private final BiConsumer<String, Throwable> onClose;
     private final CompletableFuture<String> otherId;
+    private final CompletableFuture<Integer> serverPort;
     private volatile CompletableFuture<Void> ackPromise;
     private final Lock writeLock, sendLock;
     private volatile boolean closed;
 
     /**
-     * Create a socketManager without the recipient id: will receive an {@link HelloPacket} with it.
+     * Create a socketManager without the recipient id: will receive an {@link HelloPacket} with it and the serverPort.
      *
      * @param myId             id of the local host
      * @param executor         executor service
@@ -50,9 +51,10 @@ public class SocketManager implements Closeable {
     }
 
     /**
-     * Create a socketManager with the recipient id: sends an {@link HelloPacket} with it.
+     * Create a socketManager with the recipient id: sends an {@link HelloPacket} with it and the serverPort.
      *
      * @param myId             id of the local host
+     * @param serverPort       port on which this peer is listening for new connection
      * @param otherId          id of the recipient
      * @param executor         executor service
      * @param socket           socket
@@ -63,17 +65,19 @@ public class SocketManager implements Closeable {
      * @throws NullPointerException   if otherId is null
      */
     public SocketManager(String myId,
+                         int serverPort,
                          String otherId,
                          ExecutorService executor,
                          Socket socket,
                          Consumer<P2PPacket> inPacketConsumer,
                          BiConsumer<String, Throwable> onClose)
             throws IOException {
-        this(myId, otherId, executor, socket, inPacketConsumer, onClose, DEFAULT_TIMEOUT);
+        this(myId, serverPort, otherId, executor, socket, inPacketConsumer, onClose, DEFAULT_TIMEOUT);
     }
 
     @VisibleForTesting
     SocketManager(String myId,
+                  int serverPort,
                   String otherId,
                   ExecutorService executor,
                   Socket socket,
@@ -87,7 +91,8 @@ public class SocketManager implements Closeable {
             throw new NullPointerException();
 
         this.otherId.complete(otherId);
-        send(new HelloPacket(myId));
+        this.serverPort.complete(serverPort);
+        send(new HelloPacket(myId, serverPort));
     }
 
 
@@ -103,6 +108,7 @@ public class SocketManager implements Closeable {
 
         try {
             this.otherId.get(timeout, TimeUnit.MILLISECONDS);
+            this.serverPort.get(timeout, TimeUnit.MILLISECONDS);
         } catch (ExecutionException e) {
             throw new IOException(e.getCause());
         } catch (TimeoutException e) {
@@ -127,6 +133,7 @@ public class SocketManager implements Closeable {
         this.oos = os instanceof ObjectOutputStream oos ? oos : new ObjectOutputStream(os);
         this.ois = is instanceof ObjectInputStream ois ? ois : new ObjectInputStream(is);
         this.otherId = new CompletableFuture<>();
+        this.serverPort = new CompletableFuture<>();
         this.writeLock = new ReentrantLock();
         this.sendLock = new ReentrantLock();
         this.closed = false;
@@ -160,6 +167,7 @@ public class SocketManager implements Closeable {
                         sendAck(seqPacket.seqNum());
                         if (seqPacket.p() instanceof HelloPacket helloPacket) {
                             otherId.complete(helloPacket.id());
+                            serverPort.complete(helloPacket.serverPort());
                         } else {
                             inPacketConsumer.accept(seqPacket.p());
                         }
@@ -180,7 +188,7 @@ public class SocketManager implements Closeable {
      * The packet will be wrapped in a {@link SeqPacketImpl} to be sent
      *
      * @param packet packet to be sent
-     * @throws IOException          if an error occurs during communication (i.e. ack not received)
+     * @throws IOException            if an error occurs during communication (i.e. ack not received)
      * @throws InterruptedIOException if interrupted while waiting for the ack
      */
     public void send(P2PPacket packet) throws IOException {
@@ -239,6 +247,10 @@ public class SocketManager implements Closeable {
 
     public String getOtherId() {
         return otherId.resultNow();
+    }
+
+    public int getServerPort() {
+        return serverPort.resultNow();
     }
 
 }

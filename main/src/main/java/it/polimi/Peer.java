@@ -1,10 +1,10 @@
 package it.polimi;
 
+import it.polimi.Exceptions.PeerAlreadyConnectedException;
 import it.polimi.packets.*;
+import it.polimi.packets.discovery.ByePacket;
 import it.polimi.utility.ChatToBackup;
 import it.polimi.utility.Message;
-import it.polimi.Exceptions.PeerAlreadyConnectedException;
-import it.polimi.packets.discovery.ByePacket;
 import org.jetbrains.annotations.VisibleForTesting;
 
 import java.beans.PropertyChangeListener;
@@ -37,7 +37,7 @@ public class Peer implements Closeable {
     private volatile ServerSocket serverSocket;
     private String saveDirectory = STR."\{System.getProperty("user.home")}\{File.separator}HACOBackup\{File.separator}";
     private final Map<String, SocketAddress> ips;
-    private final Map<String, SocketAddress> disconnectedIps;
+    private final Set<String> disconnectedIds;
     private final Map<String, SocketManager> sockets;
 
     private final PropertyChangeListener msgChangeListener;
@@ -82,7 +82,7 @@ public class Peer implements Closeable {
         sockets = new ConcurrentHashMap<>();
         degradedConnections = ConcurrentHashMap.newKeySet();
         ips = new ConcurrentHashMap<>();
-        disconnectedIps = new ConcurrentHashMap<>();
+        disconnectedIds = ConcurrentHashMap.newKeySet();
 
         roomsPropertyChangeSupport = new PropertyChangeSupport(chats);
         roomsPropertyChangeSupport.addPropertyChangeListener(chatRoomsChangeListener);
@@ -110,7 +110,7 @@ public class Peer implements Closeable {
         acceptTask = executorService.submit(this::runServer);
 
         //We are (re-)connecting from scratch, so delete all crashed peer and get a new list from the discovery
-        disconnectedIps.clear();
+        disconnectedIds.clear();
         try {
             ips.putAll(discovery.register());
         } catch (IOException e) {
@@ -140,11 +140,11 @@ public class Peer implements Closeable {
 
     private void reconnectToPeers() {
         //Every 5 seconds retry, until I'm connected with everyone
-        reconnectTask = scheduledExecutorService.scheduleAtFixedRate(() -> disconnectedIps.forEach((id, addr) -> {
-            System.out.println("Trying to reconnect to " + id);
+        reconnectTask = scheduledExecutorService.scheduleAtFixedRate(() -> disconnectedIds.forEach(id -> {
+            var addr = ips.get(id);
+            System.out.println("Trying to reconnect to " + id + ": " + addr);
             try {
                 connectToSinglePeer(id, addr);
-                ips.put(id, disconnectedIps.remove(id));
             } catch (IOException e) {
                 connectLock.unlock();
                 System.err.println("Failed to reconnect to " + id);
@@ -216,9 +216,11 @@ public class Peer implements Closeable {
 
         System.out.println("[" + this.id + "] connected");
 
-        SocketManager socketManager = new SocketManager(this.id, id, executorService, s,
+        SocketManager socketManager = new SocketManager(this.id, port, id, executorService, s,
                 new ChatUpdater(chats, roomsPropertyChangeSupport, msgChangeListener),
                 this::onPeerDisconnected);
+
+        disconnectedIds.remove(id);
         sockets.put(id, socketManager);
 
         connectLock.unlock();
@@ -370,17 +372,21 @@ public class Peer implements Closeable {
         System.out.println("[" + id + "] server started");
         while (true) {
             Socket justConnectedClient;
+            System.out.println("[" + id + "] Waiting connection...");
             try {
                 justConnectedClient = serverSocket.accept();
             } catch (IOException e) {
                 //Error on the server socket, stop the server
                 System.err.println("[" + id + "] Server shut down " + e + serverSocket.isClosed());
                 return;
+            } finally {
+                System.out.println("[" + id + "] Finished waiting connection");
             }
 
             //Someone has just connected to me
             System.out.println("[" + id + "] " + justConnectedClient.getRemoteSocketAddress() + " is connected. Waiting for his id...");
             String otherId;
+            int otherPort;
 
             try {
                 //Try to acquire lock, timeout of 2 secs to avoid deadlocks.
@@ -397,10 +403,11 @@ public class Peer implements Closeable {
                         new ChatUpdater(chats, roomsPropertyChangeSupport, msgChangeListener), this::onPeerDisconnected);
 
                 otherId = socketManager.getOtherId();
-                System.out.println("[" + id + "]" + otherId + " is connected");
+                otherPort = socketManager.getServerPort();
+                System.out.println("[" + id + "]" + otherId + " is connected. His server is on port " + otherPort);
 
                 //Remove from the disconnected peers (if present)
-                disconnectedIps.remove(otherId);
+                disconnectedIds.remove(otherId);
 
                 //Close pending socket for this peer (if any)
                 if (sockets.containsKey(otherId))
@@ -410,7 +417,7 @@ public class Peer implements Closeable {
                 sockets.put(otherId, socketManager);
 
                 //Update the list of Addresses of the other peers
-                ips.put(otherId, justConnectedClient.getRemoteSocketAddress());
+                ips.put(otherId, new InetSocketAddress(justConnectedClient.getInetAddress(), otherPort));
             } catch (InterruptedException e) {
                 //We got interrupted, quit
                 e.printStackTrace();
@@ -435,16 +442,15 @@ public class Peer implements Closeable {
 
     private void onPeerDisconnected(String id, Throwable e) {
         e.printStackTrace();
-        var addr = ips.remove(id);
-        if (addr != null)
-            disconnectedIps.put(id, addr);
+
+        disconnectedIds.add(id);
 
         var socket = sockets.remove(id);
         if (socket != null)
             socket.close();
 
         usersPropertyChangeSupport.firePropertyChange("USER_DISCONNECTED", id, null);
-        System.err.println("[" + id + "] " + id + " disconnected " + e);
+        System.err.println("[" + this.id + "] " + id + " disconnected " + e);
     }
 
     @VisibleForTesting

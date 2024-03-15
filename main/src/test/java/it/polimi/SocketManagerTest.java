@@ -54,7 +54,7 @@ class SocketManagerTest {
 
         Socket s = new Socket();
         s.connect(new InetSocketAddress("localhost", 8888));
-        SocketManager socketManager = new SocketManager("id2", "id", executorService, s, p2Promise::complete, (id, e) -> close2Promise.complete(e), 500);
+        SocketManager socketManager = new SocketManager("id2", 0, "id", executorService, s, p2Promise::complete, (id, e) -> close2Promise.complete(e), 500);
 
         assertNull(ex.get());
         assertThrows(TimeoutException.class, () -> p1Promise.get(50, TimeUnit.MILLISECONDS));
@@ -89,7 +89,7 @@ class SocketManagerTest {
 
         Socket s = new Socket();
         s.connect(new InetSocketAddress("localhost", 8888));
-        SocketManager socketManager = new SocketManager("id2", "id", executorService, s, p2Promise::complete, (id, e) -> close2Promise.complete(e), 500);
+        SocketManager socketManager = new SocketManager("id2", 0, "id", executorService, s, p2Promise::complete, (id, e) -> close2Promise.complete(e), 500);
 
         assertThrows(TimeoutException.class, () -> p1Promise.get(50, TimeUnit.MILLISECONDS));
         assertThrows(TimeoutException.class, () -> p2Promise.get(50, TimeUnit.MILLISECONDS));
@@ -153,7 +153,7 @@ class SocketManagerTest {
 
         Socket s = new Socket();
         s.connect(new InetSocketAddress("localhost", 8888));
-        SocketManager socketManager = new SocketManager("id2", "id", executorService, s, p2Promise::complete, (id, e) -> close2Promise.complete(e), 500);
+        SocketManager socketManager = new SocketManager("id2", 0, "id", executorService, s, p2Promise::complete, (id, e) -> close2Promise.complete(e), 500);
 
         assertEquals(100, countDownLatch.getCount());
 
@@ -197,7 +197,7 @@ class SocketManagerTest {
 
         ImproperShutdownSocket s = new ImproperShutdownSocket();
         s.connect(new InetSocketAddress("localhost", 8888));
-        SocketManager socketManager = new SocketManager("id2", "id", executorService, s, p2Promise::complete, (id, e) -> close2Promise.complete(e), 500);
+        SocketManager socketManager = new SocketManager("id2", 0, "id", executorService, s, p2Promise::complete, (id, e) -> close2Promise.complete(e), 500);
 
         assertThrows(TimeoutException.class, () -> p1Promise.get(50, TimeUnit.MILLISECONDS));
         assertThrows(TimeoutException.class, () -> p2Promise.get(50, TimeUnit.MILLISECONDS));
