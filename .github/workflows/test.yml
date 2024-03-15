@@ -26,3 +26,23 @@ jobs:
         if: always()
         with:
           files: '**/target/surefire-reports/TEST-*.xml'
+      - name: Archive discovery jar
+        uses: actions/upload-artifact@v3
+        with:
+          name: Discovery
+          path: /**/HACOGroupChat-*-discovery.jar
+      - name: Archive peer jar
+        uses: actions/upload-artifact@v3
+        with:
+          name: Peer
+          path: /**/HACOGroupChat-*-peer.jar
+      - name: Create prerelease
+        uses: "marvinpinto/action-automatic-releases@latest"
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: "nightly"
+          prerelease: true
+          title: "Nightly Release"
+          files: |
+            /**/HACOGroupChat-*-peer.jar
+            /**/HACOGroupChat-*-discovery.jar
