@@ -34,7 +34,7 @@ public class Peer implements Closeable {
     private final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
     private volatile ScheduledFuture<?> reconnectTask;
     private volatile Future<?> acceptTask;
-    private ServerSocket serverSocket;
+    private volatile ServerSocket serverSocket;
     private String saveDirectory = STR."\{System.getProperty("user.home")}\{File.separator}HACOBackup\{File.separator}";
     private final Map<String, SocketAddress> ips;
     private final Map<String, SocketAddress> disconnectedIps;

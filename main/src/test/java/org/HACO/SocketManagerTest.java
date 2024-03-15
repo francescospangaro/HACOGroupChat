@@ -1,10 +1,9 @@
 package org.HACO;
 
-import org.HACO.packets.AckPacket;
 import org.HACO.packets.DeleteRoomPacket;
-import org.HACO.packets.HelloPacket;
 import org.HACO.packets.P2PPacket;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -21,7 +20,12 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class SocketManagerTest {
 
-    private static final ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor();
+    private static ExecutorService executorService;
+
+    @BeforeAll
+    static void beforeAll() {
+        executorService = Executors.newVirtualThreadPerTaskExecutor();
+    }
 
     @AfterAll
     static void afterAll() {
@@ -53,10 +57,10 @@ class SocketManagerTest {
         SocketManager socketManager = new SocketManager("id2", "id", executorService, s, p2Promise::complete, (id, e) -> close2Promise.complete(e), 500);
 
         assertNull(ex.get());
-        assertFalse(p1Promise.isDone());
-        assertFalse(p2Promise.isDone());
-        assertFalse(close1Promise.isDone());
-        assertFalse(close2Promise.isDone());
+        assertThrows(TimeoutException.class, () -> p1Promise.get(50, TimeUnit.MILLISECONDS));
+        assertThrows(TimeoutException.class, () -> p2Promise.get(50, TimeUnit.MILLISECONDS));
+        assertThrows(TimeoutException.class, () -> close1Promise.get(50, TimeUnit.MILLISECONDS));
+        assertThrows(TimeoutException.class, () -> close2Promise.get(50, TimeUnit.MILLISECONDS));
 
         socketManager.close();
         socketManager2.get().close();
@@ -87,11 +91,11 @@ class SocketManagerTest {
         s.connect(new InetSocketAddress("localhost", 8888));
         SocketManager socketManager = new SocketManager("id2", "id", executorService, s, p2Promise::complete, (id, e) -> close2Promise.complete(e), 500);
 
+        assertThrows(TimeoutException.class, () -> p1Promise.get(50, TimeUnit.MILLISECONDS));
+        assertThrows(TimeoutException.class, () -> p2Promise.get(50, TimeUnit.MILLISECONDS));
+        assertThrows(TimeoutException.class, () -> close1Promise.get(50, TimeUnit.MILLISECONDS));
+        assertThrows(TimeoutException.class, () -> close2Promise.get(50, TimeUnit.MILLISECONDS));
         assertNull(ex.get());
-        assertFalse(p1Promise.isDone());
-        assertFalse(p2Promise.isDone());
-        assertFalse(close1Promise.isDone());
-        assertFalse(close2Promise.isDone());
 
         var id1 = UUID.randomUUID();
         var id2 = UUID.randomUUID();
@@ -105,8 +109,8 @@ class SocketManagerTest {
 
         assertEquals(p2, p2Promise.get(500, TimeUnit.MILLISECONDS));
 
-        assertFalse(close1Promise.isDone());
-        assertFalse(close2Promise.isDone());
+        assertThrows(TimeoutException.class, () -> close1Promise.get(50, TimeUnit.MILLISECONDS));
+        assertThrows(TimeoutException.class, () -> close2Promise.get(50, TimeUnit.MILLISECONDS));
 
         socketManager.close();
         socketManager2.get().close();
@@ -163,8 +167,8 @@ class SocketManagerTest {
 
 
         assertFalse(p2Promise.isDone());
-        assertFalse(close1Promise.isDone());
-        assertFalse(close2Promise.isDone());
+        assertThrows(TimeoutException.class, () -> close1Promise.get(50, TimeUnit.MILLISECONDS));
+        assertThrows(TimeoutException.class, () -> close2Promise.get(50, TimeUnit.MILLISECONDS));
 
         socketManager.close();
         socketManager2.get().close();
@@ -195,11 +199,11 @@ class SocketManagerTest {
         s.connect(new InetSocketAddress("localhost", 8888));
         SocketManager socketManager = new SocketManager("id2", "id", executorService, s, p2Promise::complete, (id, e) -> close2Promise.complete(e), 500);
 
+        assertThrows(TimeoutException.class, () -> p1Promise.get(50, TimeUnit.MILLISECONDS));
+        assertThrows(TimeoutException.class, () -> p2Promise.get(50, TimeUnit.MILLISECONDS));
+        assertThrows(TimeoutException.class, () -> close1Promise.get(50, TimeUnit.MILLISECONDS));
+        assertThrows(TimeoutException.class, () -> close2Promise.get(50, TimeUnit.MILLISECONDS));
         assertNull(ex.get());
-        assertFalse(p1Promise.isDone());
-        assertFalse(p2Promise.isDone());
-        assertFalse(close1Promise.isDone());
-        assertFalse(close2Promise.isDone());
 
         s.close();
 
@@ -210,11 +214,11 @@ class SocketManagerTest {
         var p2 = new DeleteRoomPacket(UUID.randomUUID());
         assertThrows(IOException.class, () -> socketManager2.get().send(p2));
 
-        assertFalse(p1Promise.isDone());
+        assertThrows(TimeoutException.class, () -> p1Promise.get(50, TimeUnit.MILLISECONDS));
         //assertFalse(p2Promise.isDone());
 
-        assertFalse(close1Promise.isDone());
-        assertFalse(close2Promise.isDone());
+        assertThrows(TimeoutException.class, () -> close1Promise.get(50, TimeUnit.MILLISECONDS));
+        assertThrows(TimeoutException.class, () -> close2Promise.get(50, TimeUnit.MILLISECONDS));
 
         socketManager.close();
         socketManager2.get().close();
