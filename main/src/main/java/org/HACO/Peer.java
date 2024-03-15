@@ -290,8 +290,15 @@ public class Peer implements Closeable {
         chats.remove(toDelete);
 
         sendPacket(new DeleteRoomPacket(toDelete.getId()), toDelete.getUsers());
-
+        removeChatBackup(toDelete);
         roomsPropertyChangeSupport.firePropertyChange("DEL_ROOM", toDelete, null);
+    }
+
+    private void removeChatBackup(ChatRoom toDelete) {
+        File chatToDelete = new File(STR."\{saveDirectory}\{toDelete.getId()}.dat");
+        // If the file is not deleted is means that it wasn't backed up in the first place
+        // We don't care for the deletion outcome
+        chatToDelete.delete();
     }
 
     public String getId() {
