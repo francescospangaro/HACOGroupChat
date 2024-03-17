@@ -9,7 +9,6 @@ import java.awt.event.*;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.stream.Collectors;
 
 public class ChatPanel {
     private JPanel panel;
@@ -19,7 +18,7 @@ public class ChatPanel {
     private JComboBox<ChatRoom> chatRooms;
     private JButton deleteButton;
     private JButton disconnectReconnectButton;
-    private JList<String> msgList;
+    private JList<Message> msgList;
     private JLabel usernameLabel;
     private JLabel portLabel;
     private JLabel connectedLabel;
@@ -30,7 +29,7 @@ public class ChatPanel {
     private volatile Peer peer;
     private final ExecutorService executorService = Executors.newCachedThreadPool();
 
-    private DefaultListModel<String> msgListModel = new DefaultListModel<>();
+    private DefaultListModel<Message> msgListModel = new DefaultListModel<>();
 
     public ChatPanel(JFrame frame, String discovery, String user, int port) {
         //Want to create a new Group for chatting
@@ -85,10 +84,8 @@ public class ChatPanel {
                 if (chatRooms.getItemCount() > 0 && chatRooms.getSelectedItem() != null) {
                     chatLabel.setText("Chat: " + ((ChatRoom) chatRooms.getSelectedItem()).getName());
                     msgListModel.clear();
-
-                    msgListModel.addAll(0, ((ChatRoom) chatRooms.getSelectedItem()).getReceivedMsgs().stream()
-                            .map(Message::toString)
-                            .collect(Collectors.toList()));
+                    msgListModel.addAll(((ChatRoom) chatRooms.getSelectedItem()).getReceivedMsgs());
+                    msgList.ensureIndexIsVisible(msgListModel.size() - 1);
                 } else {
                     chatLabel.setText("Chat: -");
                     msgListModel.clear();
@@ -183,7 +180,10 @@ public class ChatPanel {
                     MessageGUI mgui = (MessageGUI) evt.getNewValue();
 
                     if (((ChatRoom) chatRooms.getSelectedItem()).getId().equals(mgui.chatRoom().getId())) {
-                        SwingUtilities.invokeLater(() -> msgListModel.addElement(mgui.message().toString()));
+                        SwingUtilities.invokeLater(() -> {
+                            msgListModel.addElement(mgui.message());
+                            msgList.ensureIndexIsVisible(msgListModel.size() - 1);
+                        });
                     }
                 }
             });
