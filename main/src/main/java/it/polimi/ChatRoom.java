@@ -27,7 +27,7 @@ public class ChatRoom {
 
     public ChatRoom(String name, Set<String> users, UUID id, PropertyChangeListener msgChangeListener) {
         this.name = name;
-        this.users = users;
+        this.users = Set.copyOf(users);
         this.id = id;
         this.pushLock = new ReentrantLock();
         this.waiting = ConcurrentHashMap.newKeySet();
@@ -44,13 +44,14 @@ public class ChatRoom {
     public ChatRoom(String name, Set<String> users, UUID id, PropertyChangeListener msgChangeListener,
                     Map<String, Integer> vectorClocks, Set<Message> waiting, List<Message> messages) {
         this.name = name;
-        this.users = users;
+        this.users = Set.copyOf(users);
         this.id = id;
         this.pushLock = new ReentrantLock();
-        this.waiting = waiting;
+        this.waiting = ConcurrentHashMap.newKeySet();
+        this.waiting.addAll(waiting);
 
-        this.vectorClocks = vectorClocks;
-        this.receivedMsgs = messages;
+        this.vectorClocks = new ConcurrentHashMap<>(vectorClocks);
+        this.receivedMsgs = new CopyOnWriteArrayList<>(messages);
         propertyChangeSupport = new PropertyChangeSupport(receivedMsgs);
         propertyChangeSupport.addPropertyChangeListener(msgChangeListener);
     }
@@ -150,7 +151,7 @@ public class ChatRoom {
     }
 
     public Map<String, Integer> getVectorClocks() {
-        return vectorClocks;
+        return Collections.unmodifiableMap(vectorClocks);
     }
 
     @Override
@@ -159,6 +160,6 @@ public class ChatRoom {
     }
 
     public List<Message> getReceivedMsgs() {
-        return receivedMsgs;
+        return Collections.unmodifiableList(receivedMsgs);
     }
 }

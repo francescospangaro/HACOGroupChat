@@ -138,7 +138,7 @@ public class ChatPanel {
         Thread.setDefaultUncaughtExceptionHandler((t, e) -> {
             e.printStackTrace();
             JOptionPane.showMessageDialog(JOptionPane.getRootFrame(),
-                    "Unexpected error. The application will terminate.\n" + e.getMessage(),
+                    "Unexpected error. The application will terminate.\n" + e,
                     "Fatal error",
                     JOptionPane.ERROR_MESSAGE);
 

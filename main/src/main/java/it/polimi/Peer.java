@@ -78,6 +78,8 @@ public class Peer implements Closeable {
         this.testing = testing;
         discovery = new DiscoveryConnector(new InetSocketAddress(discoveryAddr, 8080), id, port);
 
+        this.msgChangeListener = msgChangeListener;
+
         chats = getFromBackup();
         sockets = new ConcurrentHashMap<>();
         degradedConnections = ConcurrentHashMap.newKeySet();
@@ -89,8 +91,6 @@ public class Peer implements Closeable {
 
         usersPropertyChangeSupport = new PropertyChangeSupport(this);
         usersPropertyChangeSupport.addPropertyChangeListener(usersChangeListener);
-
-        this.msgChangeListener = msgChangeListener;
 
         for (ChatRoom c : chats) {
             roomsPropertyChangeSupport.firePropertyChange("ADD_ROOM", null, c);
