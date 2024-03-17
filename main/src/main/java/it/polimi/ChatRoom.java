@@ -6,15 +6,14 @@ import it.polimi.utility.MessageGUI;
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class ChatRoom {
     private final Set<String> users;
     private final Set<Message> waiting;
-    private final List<Message> receivedMsgs;
+    private final Queue<Message> receivedMsgs;
     private final Map<String, Integer> vectorClocks;
     private final PropertyChangeSupport propertyChangeSupport;
     private final String name;
@@ -30,28 +29,27 @@ public class ChatRoom {
         this.users = Set.copyOf(users);
         this.id = id;
         this.pushLock = new ReentrantLock();
-        this.waiting = ConcurrentHashMap.newKeySet();
+        this.waiting = new LinkedHashSet<>();
 
-        vectorClocks = new ConcurrentHashMap<>();
+        vectorClocks = new HashMap<>();
         for (String user : users) {
             vectorClocks.put(user, 0);
         }
-        receivedMsgs = new CopyOnWriteArrayList<>();
+        receivedMsgs = new ConcurrentLinkedQueue<>();
         propertyChangeSupport = new PropertyChangeSupport(receivedMsgs);
         propertyChangeSupport.addPropertyChangeListener(msgChangeListener);
     }
 
     public ChatRoom(String name, Set<String> users, UUID id, PropertyChangeListener msgChangeListener,
-                    Map<String, Integer> vectorClocks, Set<Message> waiting, List<Message> messages) {
+                    Map<String, Integer> vectorClocks, Set<Message> waiting, Collection<Message> messages) {
         this.name = name;
         this.users = Set.copyOf(users);
         this.id = id;
         this.pushLock = new ReentrantLock();
-        this.waiting = ConcurrentHashMap.newKeySet();
-        this.waiting.addAll(waiting);
+        this.waiting = new LinkedHashSet<>(waiting);
 
-        this.vectorClocks = new ConcurrentHashMap<>(vectorClocks);
-        this.receivedMsgs = new CopyOnWriteArrayList<>(messages);
+        this.vectorClocks = new HashMap<>(vectorClocks);
+        this.receivedMsgs = new ConcurrentLinkedQueue<>(messages);
         propertyChangeSupport = new PropertyChangeSupport(receivedMsgs);
         propertyChangeSupport.addPropertyChangeListener(msgChangeListener);
     }
@@ -89,14 +87,11 @@ public class ChatRoom {
                     vectorClocks.put(key, vectorClocks.get(key) > m.vectorClocks().get(key) ? vectorClocks.get(key) : m.vectorClocks().get(key));
                 }
                 receivedMsgs.add(m);
-                //Remove the message from the queue(if it was there)
-                waiting.remove(m);
+
                 propertyChangeSupport.firePropertyChange("ADD_MSG", null, new MessageGUI(m, this));
+
                 //Check the message queue to see if we can accept any other message
-                //RECURSION BABY LET'S GO
-                for (Message w : waiting) {
-                    push(w);
-                }
+                checkWaiting();
             } else if (res == -1) {
                 //puts the message in a queue
                 System.out.println("[" + id + "] Message " + m.vectorClocks() + " added in waiting list");
@@ -108,6 +103,29 @@ public class ChatRoom {
         } finally {
             pushLock.unlock();
         }
+    }
+
+    private void checkWaiting() {
+        boolean added;
+        do {
+            added = false;
+            var iter = waiting.iterator();
+            while (iter.hasNext()) {
+                Message m = iter.next();
+                if (checkVC(m) == 1) {
+                    //Increase the PID of the message sender
+                    for (String key : m.vectorClocks().keySet()) {
+                        vectorClocks.put(key, vectorClocks.get(key) > m.vectorClocks().get(key) ? vectorClocks.get(key) : m.vectorClocks().get(key));
+                    }
+                    receivedMsgs.add(m);
+                    added = true;
+
+                    //Remove the message from the queue(if it was there)
+                    iter.remove();
+                    propertyChangeSupport.firePropertyChange("ADD_MSG", null, new MessageGUI(m, this));
+                }
+            }
+        } while (added);
     }
 
     public Set<String> getUsers() {
@@ -147,7 +165,7 @@ public class ChatRoom {
     }
 
     public Set<Message> getWaiting() {
-        return Collections.unmodifiableSet(waiting);
+        return Set.copyOf(waiting);
     }
 
     public Map<String, Integer> getVectorClocks() {
@@ -159,7 +177,7 @@ public class ChatRoom {
         return name;
     }
 
-    public List<Message> getReceivedMsgs() {
-        return Collections.unmodifiableList(receivedMsgs);
+    public Collection<Message> getReceivedMsgs() {
+        return Collections.unmodifiableCollection(receivedMsgs);
     }
 }

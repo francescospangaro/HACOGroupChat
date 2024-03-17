@@ -462,9 +462,9 @@ public class Peer implements Closeable {
 
     @Override
     public void close() {
-        backupChats();
         disconnect();
         scheduledExecutorService.shutdownNow();
         executorService.shutdownNow();
+        backupChats();
     }
 }

@@ -3,12 +3,9 @@ package it.polimi.utility;
 import it.polimi.ChatRoom;
 
 import java.io.Serializable;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
-public record ChatToBackup(UUID id, String name, Set<String> users, Set<Message> waiting, List<Message> received,
+public record ChatToBackup(UUID id, String name, Set<String> users, Set<Message> waiting, Collection<Message> received,
                            Map<String, Integer> vectorClocks) implements Serializable {
 
     public ChatToBackup(ChatRoom chat) {
