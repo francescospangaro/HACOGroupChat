@@ -162,41 +162,42 @@ public class Peer implements Closeable {
     }
 
     private Set<ChatRoom> getFromBackup() {
-        if (new File(saveDirectory).listFiles() == null)
-            return ConcurrentHashMap.newKeySet();
-
+        var saveDir = new File(saveDirectory);
+        var files = saveDir.listFiles();
         Set<ChatRoom> tempChats = ConcurrentHashMap.newKeySet();
-        for (File f : Objects.requireNonNull(new File(saveDirectory).listFiles())) {
-            try {
-                FileInputStream fileInputStream = new FileInputStream(f);
-                ObjectInputStream objectInputStream = new ObjectInputStream(fileInputStream);
+
+        if (files == null)
+            return tempChats;
+
+        for (File f : files) {
+            try (FileInputStream fileInputStream = new FileInputStream(f);
+                 ObjectInputStream objectInputStream = new ObjectInputStream(fileInputStream)) {
                 ChatToBackup tempChat = (ChatToBackup) objectInputStream.readObject();
                 tempChats.add(new ChatRoom(tempChat.name(), tempChat.users(), tempChat.id(), msgChangeListener,
                         tempChat.vectorClocks(), tempChat.waiting(), tempChat.received()));
-                objectInputStream.close();
-                fileInputStream.close();
             } catch (IOException | ClassNotFoundException e) {
-                throw new RuntimeException(e);
+                System.err.println("Error reading file " + f + "from backup");
             }
         }
         return tempChats;
     }
 
     private void backupChats() {
+        //Create all save directories
         try {
-            //Create all save directories
             Files.createDirectories(Paths.get(saveDirectory));
-            for (ChatRoom c : chats) {
-                File backupFile = new File(STR."\{saveDirectory}\{c.getId()}.dat");
-                backupFile.createNewFile();
-                FileOutputStream fileOutputStream = new FileOutputStream(backupFile);
-                ObjectOutputStream objectOutputStream = new ObjectOutputStream(fileOutputStream);
-                objectOutputStream.writeObject(new ChatToBackup(c));
-                objectOutputStream.close();
-                fileOutputStream.close();
-            }
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            System.err.println("Error creating backup folder");
+        }
+        for (ChatRoom c : chats) {
+            File backupFile = new File(STR."\{saveDirectory}\{c.getId()}.dat");
+            try (FileOutputStream fileOutputStream = new FileOutputStream(backupFile);
+                 ObjectOutputStream objectOutputStream = new ObjectOutputStream(fileOutputStream)) {
+                backupFile.createNewFile();
+                objectOutputStream.writeObject(new ChatToBackup(c));
+            } catch (IOException e) {
+                System.err.println("Error during backup of chat " + c);
+            }
         }
     }
 
