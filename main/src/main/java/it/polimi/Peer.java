@@ -23,6 +23,7 @@ import java.util.concurrent.locks.ReentrantLock;
 
 
 public class Peer implements Closeable {
+    static final String SAVE_DIR = STR."\{System.getProperty("user.home")}\{File.separator}HACOBackup\{File.separator}";
     private final String id;
     private final boolean testing;
     private final int port;
@@ -35,7 +36,7 @@ public class Peer implements Closeable {
     private volatile ScheduledFuture<?> reconnectTask;
     private volatile Future<?> acceptTask;
     private volatile ServerSocket serverSocket;
-    private String saveDirectory = STR."\{System.getProperty("user.home")}\{File.separator}HACOBackup\{File.separator}";
+    private final String saveDirectory;
     private final Map<String, SocketAddress> ips;
     private final Set<String> disconnectedIds;
     private final Map<String, SocketManager> sockets;
@@ -73,7 +74,7 @@ public class Peer implements Closeable {
                  PropertyChangeListener msgChangeListener,
                  boolean testing) {
         this.id = id;
-        this.saveDirectory += id + File.separator;
+        this.saveDirectory = SAVE_DIR + id + File.separator;
         this.port = port;
         this.testing = testing;
         discovery = new DiscoveryConnector(new InetSocketAddress(discoveryAddr, 8080), id, port);
