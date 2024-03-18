@@ -2,7 +2,6 @@ package it.polimi;
 
 import it.polimi.Exceptions.PeerAlreadyConnectedException;
 import it.polimi.packets.*;
-import it.polimi.packets.discovery.ByePacket;
 import it.polimi.utility.ChatToBackup;
 import it.polimi.utility.Message;
 import org.jetbrains.annotations.VisibleForTesting;
@@ -356,7 +355,7 @@ public class Peer implements Closeable {
         }
 
         try {
-            discovery.sendToDiscovery(new ByePacket(id));
+            discovery.disconnect();
         } catch (IOException e) {
             LOGGER.error(STR."[\{this.id}] Can't contact the discovery", e);
         }
