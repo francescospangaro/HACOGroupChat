@@ -194,7 +194,6 @@ public class Peer implements Closeable {
             File backupFile = new File(STR."\{saveDirectory}\{c.getId()}.dat");
             try (FileOutputStream fileOutputStream = new FileOutputStream(backupFile);
                  ObjectOutputStream objectOutputStream = new ObjectOutputStream(fileOutputStream)) {
-                backupFile.createNewFile();
                 objectOutputStream.writeObject(new ChatToBackup(c));
             } catch (IOException e) {
                 System.err.println("Error during backup of chat " + c);
