@@ -83,9 +83,8 @@ public class ChatRoom {
             int res = checkVC(m);
             if (res == 1) {
                 //Increase the PID of the message sender
-                for (String key : m.vectorClocks().keySet()) {
-                    vectorClocks.put(key, vectorClocks.get(key) > m.vectorClocks().get(key) ? vectorClocks.get(key) : m.vectorClocks().get(key));
-                }
+                vectorClocks.put(m.sender(), m.vectorClocks().get(m.sender()));
+
                 receivedMsgs.add(m);
 
                 propertyChangeSupport.firePropertyChange("ADD_MSG", null, new MessageGUI(m, this));
@@ -114,13 +113,12 @@ public class ChatRoom {
                 Message m = iter.next();
                 if (checkVC(m) == 1) {
                     //Increase the PID of the message sender
-                    for (String key : m.vectorClocks().keySet()) {
-                        vectorClocks.put(key, vectorClocks.get(key) > m.vectorClocks().get(key) ? vectorClocks.get(key) : m.vectorClocks().get(key));
-                    }
+                    vectorClocks.put(m.sender(), m.vectorClocks().get(m.sender()));
+
                     receivedMsgs.add(m);
                     added = true;
 
-                    //Remove the message from the queue(if it was there)
+                    //Remove the message from the queue
                     iter.remove();
                     propertyChangeSupport.firePropertyChange("ADD_MSG", null, new MessageGUI(m, this));
                 }
