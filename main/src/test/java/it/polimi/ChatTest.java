@@ -1,10 +1,10 @@
 package it.polimi;
 
+import it.polimi.discovery.DiscoveryServer;
 import it.polimi.packets.MessagePacket;
 import it.polimi.utility.Message;
 import it.polimi.utility.MessageGUI;
 import it.polimi.utility.Randomize;
-import it.polimi.discovery.DiscoveryServer;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -643,6 +643,117 @@ class ChatTest {
             assertEquals(ids.get(2), m1_1.sender());
 
             ((ImproperShutdownSocket) socket_c2_c1_ref.get()).actuallyClose();
+        }
+    }
+
+    @Test
+    void backupTest() throws ExecutionException, InterruptedException, TimeoutException {
+        System.out.println("-------backupTest----------------");
+        CompletableFuture<ChatRoom> chat1Promise = new CompletableFuture<>();
+        CompletableFuture<ChatRoom> chat2Promise = new CompletableFuture<>();
+
+        CountDownLatch msg1Latch = new CountDownLatch(2);
+        CountDownLatch msg2Latch = new CountDownLatch(4);
+
+        CompletableFuture<String> users1Promise = new CompletableFuture<>();
+        CompletableFuture<String> users2Promise = new CompletableFuture<>();
+
+        List<String> ids = new ArrayList<>();
+        ids.add(Randomize.generateRandomString(10));
+        ids.add(Randomize.generateRandomString(10));
+        try (
+                Peer c1 = new Peer(ids.get(0), 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
+                        e -> {
+                            if (e.getPropertyName().equals("USER_CONNECTED"))
+                                users1Promise.complete((String) e.getNewValue());
+                        },
+                        e -> msg1Latch.countDown());
+
+                Peer c2 = new Peer(ids.get(1), 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
+                        e -> {
+                            if (e.getPropertyName().equals("USER_CONNECTED"))
+                                users2Promise.complete((String) e.getNewValue());
+                        },
+                        e -> msg2Latch.countDown())
+        ) {
+            users1Promise.get(500, TimeUnit.MILLISECONDS);
+            users2Promise.get(500, TimeUnit.MILLISECONDS);
+
+            Set<String> users = Set.of(ids.get(0), ids.get(1));
+            c1.createRoom("room", users);
+
+            ChatRoom chat1 = chat1Promise.get(500, TimeUnit.MILLISECONDS);
+            ChatRoom chat2 = chat2Promise.get(500, TimeUnit.MILLISECONDS);
+
+            c2.sendMessage("TEST", chat2, 0);
+            c2.sendMessage("TEST2", chat2, 0);
+
+            assertTrue(msg1Latch.await(500, TimeUnit.MILLISECONDS));
+
+            c1.sendMessage("TEST3", chat1, 0);
+            c1.sendMessage("TEST4", chat1, 0);
+
+            assertTrue(msg2Latch.await(500, TimeUnit.MILLISECONDS));
+        }
+
+
+        //Reopen peers
+        CompletableFuture<Message> msg1Promise = new CompletableFuture<>();
+        CompletableFuture<Message> msg2Promise = new CompletableFuture<>();
+
+        CompletableFuture<ChatRoom> chat1Promise_new = new CompletableFuture<>();
+        CompletableFuture<ChatRoom> chat2Promise_new = new CompletableFuture<>();
+
+        CompletableFuture<String> users1Promise_new = new CompletableFuture<>();
+        CompletableFuture<String> users2Promise_new = new CompletableFuture<>();
+
+        try (
+                Peer c1 = new Peer(ids.get(0), 12345, e -> chat1Promise_new.complete((ChatRoom) e.getNewValue()),
+                        e -> {
+                            if (e.getPropertyName().equals("USER_CONNECTED"))
+                                users1Promise_new.complete((String) e.getNewValue());
+                        },
+                        e -> msg1Promise.complete(((MessageGUI) e.getNewValue()).message()));
+
+                Peer c2 = new Peer(ids.get(1), 12346, e -> chat2Promise_new.complete((ChatRoom) e.getNewValue()),
+                        e -> {
+                            if (e.getPropertyName().equals("USER_CONNECTED"))
+                                users2Promise_new.complete((String) e.getNewValue());
+                        },
+                        e -> msg2Promise.complete(((MessageGUI) e.getNewValue()).message()))
+        ) {
+            users1Promise.get(500, TimeUnit.MILLISECONDS);
+            users2Promise.get(500, TimeUnit.MILLISECONDS);
+
+            ChatRoom chat1 = chat1Promise.get(500, TimeUnit.MILLISECONDS);
+            ChatRoom chat2 = chat2Promise.get(500, TimeUnit.MILLISECONDS);
+
+            var savedList1 = chat1.getReceivedMsgs().toArray(new Message[4]);
+            var savedList2 = chat2.getReceivedMsgs().toArray(new Message[4]);
+
+            assertEquals(4, savedList1.length);
+            assertEquals(4, savedList2.length);
+
+            assertEquals("TEST", savedList1[0].msg());
+            assertEquals(ids.get(1), savedList1[0].sender());
+            assertEquals("TEST2", savedList1[1].msg());
+            assertEquals(ids.get(1), savedList1[1].sender());
+            assertEquals("TEST3", savedList1[2].msg());
+            assertEquals(ids.get(0), savedList1[2].sender());
+            assertEquals("TEST4", savedList1[3].msg());
+            assertEquals(ids.get(0), savedList1[3].sender());
+            assertArrayEquals(savedList1, savedList2);
+
+            c2.sendMessage("new test", chat2, 0);
+            c1.sendMessage("new test2", chat1, 0);
+
+            var m1 = msg1Promise.get(500, TimeUnit.MILLISECONDS);
+            assertEquals("new test", m1.msg());
+            assertEquals(ids.get(1), m1.sender());
+
+            var m2 = msg2Promise.get(500, TimeUnit.MILLISECONDS);
+            assertEquals("new test2", m2.msg());
+            assertEquals(ids.get(0), m2.sender());
         }
     }
 }
