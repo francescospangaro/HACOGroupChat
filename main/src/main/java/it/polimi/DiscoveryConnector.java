@@ -3,6 +3,8 @@ package it.polimi;
 import it.polimi.packets.discovery.IPsPacket;
 import it.polimi.packets.discovery.Peer2DiscoveryPacket;
 import it.polimi.packets.discovery.UpdateIpPacket;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
@@ -13,6 +15,8 @@ import java.net.SocketAddress;
 import java.util.Map;
 
 public class DiscoveryConnector {
+    private static final Logger LOGGER = LoggerFactory.getLogger(DiscoveryConnector.class);
+
     private final SocketAddress address;
     private final String id;
     private final int port;
@@ -29,19 +33,19 @@ public class DiscoveryConnector {
         for (int i = 0; i < RETRIES; i++) {
             try (Socket s = new Socket()) {
                 s.connect(address);
-                System.out.println("[" + id + "] Connected");
+                LOGGER.info(STR."[\{id}] Connected to discovery");
 
                 //Send a UpdateIpPacket
                 ObjectOutputStream oos = new ObjectOutputStream(s.getOutputStream());
                 ObjectInputStream ois = new ObjectInputStream(s.getInputStream());
                 oos.writeObject(new UpdateIpPacket(id, port));
-                System.out.println("[" + id + "] Sent subscribe message to discovery");
+                LOGGER.info(STR."[\{id}] Sent subscribe message to discovery");
 
                 oos.flush();
 
-                //Waiting list of <ID_otherPeer,HisSocketAddress> from DISCOVERY_SERVER
+                //List of <ID_otherPeer,HisSocketAddress> from DISCOVERY_SERVER
                 Map<String, SocketAddress> ips = ((IPsPacket) ois.readObject()).ips();
-                System.out.println("[" + id + "] Received peers map " + ips);
+                LOGGER.info(STR."[\{id}] Received peers map \{ips}");
 
                 return ips;
             } catch (IOException e) {
@@ -55,30 +59,29 @@ public class DiscoveryConnector {
                     throw new InterruptedIOException("Interrupted while contacting the discovery");
                 }
             } catch (ClassNotFoundException | ClassCastException ex) {
-                throw new IOException("[" + id + "] Received unexpected packet" + ex);
+                throw new IOException(STR."[\{id}] Received unexpected packet", ex);
             }
         }
         throw new IllegalStateException("Unreachable");
     }
 
     public void sendToDiscovery(Peer2DiscoveryPacket packet) throws IOException {
-        //I send to the DISCOVERY_SERVER my ID and Port
         for (int i = 0; i < RETRIES; i++) {
             try (Socket s = new Socket()) {
                 s.connect(address);
-                System.out.println("[" + id + "] Connected to DISCOVERY_SERVER");
+                LOGGER.info(STR."[\{id}] Connected to DISCOVERY_SERVER");
 
                 //Send a UpdateIpPacket
                 ObjectOutputStream oos = new ObjectOutputStream(s.getOutputStream());
                 oos.writeObject(packet);
                 var ois = new ObjectInputStream(s.getInputStream());
-                System.out.println("[" + id + "] Sent to DISCOVERY_SERVER");
+                LOGGER.info(STR."[\{id}] Sent to DISCOVERY_SERVER");
 
                 oos.flush();
 
                 //Waiting ACK from DISCOVERY_SERVER
                 ois.readObject();
-                System.out.println("[" + id + "] Received ACK");
+                LOGGER.trace(STR."[\{id}] Received ACK");
                 return;
             } catch (IOException e) {
                 //Couldn't connect to DS
@@ -91,7 +94,7 @@ public class DiscoveryConnector {
                     throw new InterruptedIOException("Interrupted while contacting the discovery");
                 }
             } catch (ClassNotFoundException | ClassCastException ex) {
-                throw new IOException("[" + id + "] Received unexpected packet" + ex);
+                throw new IOException(STR."[\{id}] Received unexpected packet", ex);
             }
         }
         throw new IllegalStateException("Unreachable");

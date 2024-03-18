@@ -4,6 +4,8 @@ import it.polimi.packets.discovery.ByePacket;
 import it.polimi.packets.discovery.IPsPacket;
 import it.polimi.packets.discovery.Peer2DiscoveryPacket;
 import it.polimi.packets.discovery.UpdateIpPacket;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -16,6 +18,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class DiscoveryServer implements Runnable {
+    private static final Logger LOGGER = LoggerFactory.getLogger(DiscoveryServer.class);
 
     private final Map<String, SocketAddress> ips;
     private final ServerSocket serverSocket;
@@ -31,16 +34,17 @@ public class DiscoveryServer implements Runnable {
 
     @Override
     public void run() {
+        LOGGER.info("Running discovery server...");
         while (!serverSocket.isClosed()) {
-            System.out.println("Waiting connection...");
+            LOGGER.info("Waiting connection...");
             try (Socket s = serverSocket.accept()) {
-                System.out.println("A Peer connected");
+                LOGGER.info("A Peer connected");
 
                 ObjectOutputStream oos = new ObjectOutputStream(s.getOutputStream());
                 ObjectInputStream ois = new ObjectInputStream(s.getInputStream());
 
                 Peer2DiscoveryPacket p = (Peer2DiscoveryPacket) ois.readObject();
-                System.out.println("Received " + p);
+                LOGGER.info(STR."Received \{p}");
 
                 switch (p) {
                     case UpdateIpPacket ipPacket -> {
@@ -50,12 +54,12 @@ public class DiscoveryServer implements Runnable {
 //                                .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue))
                         ));
                         oos.flush();
-                        System.out.println("Send info of all peers");
+                        LOGGER.info("Sending info of all peers");
                         ips.put(ipPacket.id(), new InetSocketAddress(s.getInetAddress(), ipPacket.port()));
                     }
                     case ByePacket byePacket -> {
                         ips.remove(byePacket.id());
-                        System.out.println("Client disconnected id: " + byePacket.id());
+                        LOGGER.info(STR."Client disconnected id: \{byePacket.id()}");
 
                         //Let the peer know that I received his request avoiding that he closes the connection
                         // while I have not read all the bytes
@@ -64,14 +68,14 @@ public class DiscoveryServer implements Runnable {
                     }
                 }
             } catch (IOException | ClassNotFoundException e) {
-                throw new RuntimeException(e);
+                LOGGER.error("Error during communication", e);
             }
         }
     }
 
     public void close() throws IOException {
         serverSocket.close();
-        System.out.println("closed discovery");
+        LOGGER.info("Closed discovery");
     }
 
 

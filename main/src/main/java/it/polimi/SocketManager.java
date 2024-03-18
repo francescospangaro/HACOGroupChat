@@ -2,6 +2,8 @@ package it.polimi;
 
 import it.polimi.packets.*;
 import org.jetbrains.annotations.VisibleForTesting;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.net.Socket;
@@ -13,6 +15,8 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 public class SocketManager implements Closeable {
+    private static final Logger LOGGER = LoggerFactory.getLogger(SocketManager.class);
+
     private static final int DEFAULT_TIMEOUT = 5000;
     private final int timeout;
     private final Socket socket;
@@ -150,20 +154,20 @@ public class SocketManager implements Closeable {
                 try {
                     p = (SeqPacket) ois.readObject();
                 } catch (ClassNotFoundException | ClassCastException ex) {
-                    System.err.println("[" + myId + "] Received unexpected input packet" + ex);
+                    LOGGER.error(STR."[\{myId}] Received unexpected input packet", ex);
                     continue;
                 }
 
 
                 switch (p) {
                     case AckPacket ack -> {
-                        System.out.println("Received ack" + ack);
+                        LOGGER.trace(STR."[\{this.myId} Received ack \{ack}");
                         if (ack.seqNum() != seq.get() - 1)
                             throw new IllegalStateException("This show never happen(?)");
                         ackPromise.complete(null);
                     }
                     case SeqPacketImpl seqPacket -> {
-                        System.out.println("Received packet: " + p);
+                        LOGGER.info(STR."[\{this.myId} Received packet: \{p}");
                         sendAck(seqPacket.seqNum());
                         if (seqPacket.p() instanceof HelloPacket helloPacket) {
                             otherId.complete(helloPacket.id());
@@ -205,7 +209,7 @@ public class SocketManager implements Closeable {
                 writeLock.unlock();
             }
 
-            System.out.println("Sent " + packet);
+            LOGGER.info(STR."[\{this.myId} Sent \{packet}");
 
             try {
                 ackPromise.get(timeout, TimeUnit.MILLISECONDS);
@@ -229,7 +233,7 @@ public class SocketManager implements Closeable {
         } finally {
             writeLock.unlock();
         }
-        System.out.println("Sent ack for" + seq);
+        LOGGER.trace(STR."[\{this.myId} Sent ack for\{seq}");
     }
 
     /**

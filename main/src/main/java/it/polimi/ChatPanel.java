@@ -2,6 +2,8 @@ package it.polimi;
 
 import it.polimi.utility.Message;
 import it.polimi.utility.MessageGUI;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 import java.awt.*;
@@ -11,6 +13,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class ChatPanel {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ChatPanel.class);
+
     private JPanel panel;
     private JTextArea msgArea;
     private JButton sendButton;
@@ -34,7 +38,6 @@ public class ChatPanel {
     public ChatPanel(JFrame frame, String discovery, String user, int port) {
         //Want to create a new Group for chatting
         newChatButton.addActionListener(e -> executorService.execute(() -> {
-            System.out.println(peer);
             CreateRoomDialog dialog = new CreateRoomDialog(peer.getIps().keySet());
 
             if (dialog.isConfirmed()) {
@@ -71,7 +74,6 @@ public class ChatPanel {
 
         deleteButton.addActionListener(e -> executorService.execute(() -> {
             ChatRoom toDelete = (ChatRoom) chatRooms.getSelectedItem();
-            System.out.println("Deleting room " + toDelete.getId());
             peer.deleteRoom(toDelete);
         }));
 
@@ -136,7 +138,7 @@ public class ChatPanel {
         connectedList.setModel(connectedModelList);
 
         Thread.setDefaultUncaughtExceptionHandler((t, e) -> {
-            e.printStackTrace();
+            LOGGER.error(STR."Unexpected error in thread \{t}. The application will terminate", e);
             JOptionPane.showMessageDialog(JOptionPane.getRootFrame(),
                     "Unexpected error. The application will terminate.\n" + e,
                     "Fatal error",
@@ -154,13 +156,13 @@ public class ChatPanel {
             peer = new Peer(discovery, user, port, evt -> SwingUtilities.invokeLater(() -> {
                 if (evt.getPropertyName().equals("ADD_ROOM")) {
                     ChatRoom chat = (ChatRoom) evt.getNewValue();
-                    System.out.println("Room " + chat + " added in gui");
+                    LOGGER.trace(STR."Room \{chat} added in gui");
                     chatRooms.addItem(chat);
                     sendButton.setEnabled(true);
                     deleteButton.setEnabled(true);
                 } else if (evt.getPropertyName().equals("DEL_ROOM")) {
                     ChatRoom chat = (ChatRoom) evt.getOldValue();
-                    System.out.println("Room " + chat + " removed from gui");
+                    LOGGER.trace(STR."Room \{chat} removed from gui");
                     chatRooms.removeItem(chat);
                     if (chatRooms.getItemCount() == 0) {
                         sendButton.setEnabled(false);
@@ -171,13 +173,13 @@ public class ChatPanel {
                 if (evt.getPropertyName().equals("USER_CONNECTED")) {
                     connectedModelList.addElement((String) evt.getNewValue());
                 } else {
-                    System.out.println("Removing " + evt.getOldValue() + " " + connectedModelList.removeElement(evt.getOldValue()));
+                    connectedModelList.removeElement(evt.getOldValue());
                 }
             }), evt -> {
                 if (evt.getPropertyName().equals("ADD_MSG")) {
-                    System.out.println("Msg added in gui");
-
                     MessageGUI mgui = (MessageGUI) evt.getNewValue();
+
+                    LOGGER.trace(STR."Msg \{mgui} added in gui");
 
                     if (((ChatRoom) chatRooms.getSelectedItem()).getId().equals(mgui.chatRoom().getId())) {
                         SwingUtilities.invokeLater(() -> {
@@ -187,7 +189,7 @@ public class ChatPanel {
                     }
                 }
             });
-            System.out.println("started " + peer);
+            LOGGER.info(STR."Started \{peer}");
             SwingUtilities.invokeLater(() -> {
                 connectedLabel.setText("Connected");
                 connectedLabel.setForeground(new Color(0, 153, 51));

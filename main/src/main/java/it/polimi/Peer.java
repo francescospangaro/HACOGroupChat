@@ -6,6 +6,8 @@ import it.polimi.packets.discovery.ByePacket;
 import it.polimi.utility.ChatToBackup;
 import it.polimi.utility.Message;
 import org.jetbrains.annotations.VisibleForTesting;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
@@ -24,6 +26,8 @@ import java.util.concurrent.locks.ReentrantLock;
 
 public class Peer implements Closeable {
     static final String SAVE_DIR = STR."\{System.getProperty("user.home")}\{File.separator}HACOBackup\{File.separator}";
+    private static final Logger LOGGER = LoggerFactory.getLogger(Peer.class);
+
     private final String id;
     private final boolean testing;
     private final int port;
@@ -102,7 +106,7 @@ public class Peer implements Closeable {
 
 
     public void start() {
-        System.out.println("STARTING " + id);
+        LOGGER.info(STR."[\{id}] STARTING");
         try {
             serverSocket = new ServerSocket(port);
         } catch (IOException e) {
@@ -131,7 +135,7 @@ public class Peer implements Closeable {
                 onPeerDisconnected(id, e);
             } catch (PeerAlreadyConnectedException e) {
                 connectLock.unlock();
-                System.out.println("Peer " + id + " already connected");
+                LOGGER.info(STR."[\{this.id}] Peer \{id} already connected");
             }
         });
         connected = true;
@@ -143,16 +147,15 @@ public class Peer implements Closeable {
         //Every 5 seconds retry, until I'm connected with everyone
         reconnectTask = scheduledExecutorService.scheduleAtFixedRate(() -> disconnectedIds.forEach(id -> {
             var addr = ips.get(id);
-            System.out.println("Trying to reconnect to " + id + ": " + addr);
+            LOGGER.info(STR."[\{this.id}] Trying to reconnect to \{id}: \{addr}");
             try {
                 connectToSinglePeer(id, addr);
             } catch (IOException e) {
                 connectLock.unlock();
-                System.err.println("Failed to reconnect to " + id);
-                e.printStackTrace();
+                LOGGER.warn(STR."[\{this.id}] Failed to reconnect to \{id}", e);
             } catch (PeerAlreadyConnectedException e) {
                 connectLock.unlock();
-                System.out.println("Peer " + id + " already connected");
+                LOGGER.info(STR."Peer \{id} already connected");
             }
         }), 5, 5, TimeUnit.SECONDS);
     }
@@ -177,7 +180,7 @@ public class Peer implements Closeable {
                 tempChats.add(new ChatRoom(tempChat.name(), tempChat.users(), tempChat.id(), msgChangeListener,
                         tempChat.vectorClocks(), tempChat.waiting(), tempChat.received()));
             } catch (IOException | ClassNotFoundException e) {
-                System.err.println("Error reading file " + f + "from backup");
+                LOGGER.error(STR."[\{this.id}] Error reading file \{f} from backup", e);
             }
         }
         return tempChats;
@@ -188,7 +191,7 @@ public class Peer implements Closeable {
         try {
             Files.createDirectories(Paths.get(saveDirectory));
         } catch (IOException e) {
-            System.err.println("Error creating backup folder");
+            LOGGER.error(STR."[\{this.id}] Error creating backup folder", e);
         }
         for (ChatRoom c : chats) {
             File backupFile = new File(STR."\{saveDirectory}\{c.getId()}.dat");
@@ -196,7 +199,7 @@ public class Peer implements Closeable {
                  ObjectOutputStream objectOutputStream = new ObjectOutputStream(fileOutputStream)) {
                 objectOutputStream.writeObject(new ChatToBackup(c));
             } catch (IOException e) {
-                System.err.println("Error during backup of chat " + c);
+                LOGGER.error(STR."[\{this.id} Error during backup of chat \{c}", e);
             }
         }
     }
@@ -204,7 +207,7 @@ public class Peer implements Closeable {
 
     private void connectToSinglePeer(String id, SocketAddress addr) throws PeerAlreadyConnectedException, IOException {
         connectLock.lock();
-        System.out.println("Got client lock");
+        LOGGER.trace(STR."[\{this.id}] Got lock to connect to \{id}: \{addr}");
 
         //After getting lock, re-check if this peer is not connected yet
         if (sockets.containsKey(id)) {
@@ -212,10 +215,10 @@ public class Peer implements Closeable {
         }
 
         Socket s = createNewSocket();
-        System.out.println("[" + this.id + "] connecting to " + id);
+        LOGGER.trace(STR."[\{this.id}] connecting to \{id}");
         s.connect(addr, 500);
 
-        System.out.println("[" + this.id + "] connected");
+        LOGGER.info(STR."[\{this.id}] connected to \{id}: \{addr}");
 
         SocketManager socketManager = new SocketManager(this.id, port, id, executorService, s,
                 new ChatUpdater(chats, roomsPropertyChangeSupport, msgChangeListener),
@@ -278,6 +281,8 @@ public class Peer implements Closeable {
     }
 
     public void createRoom(String name, Set<String> users) {
+        LOGGER.info(STR."[\{this.id}] Creating room \{name}");
+
         //Add the ChatRoom to the list of available ChatRooms
         ChatRoom newRoom = new ChatRoom(name, users, msgChangeListener);
         chats.add(newRoom);
@@ -290,6 +295,7 @@ public class Peer implements Closeable {
     }
 
     public void deleteRoom(ChatRoom toDelete) {
+        LOGGER.info(STR."[\{this.id}] Deleting room \{toDelete.getName()} \{toDelete.getId()}");
         chats.remove(toDelete);
 
         sendPacket(new DeleteRoomPacket(toDelete.getId()), toDelete.getUsers());
@@ -313,11 +319,11 @@ public class Peer implements Closeable {
             if (!id.equals(this.id)) {
                 if (sockets.containsKey(id)) {
                     executorService.execute(() -> {
-                        System.out.println("[" + this.id + "] sending " + packet + " to " + id);
+                        LOGGER.trace(STR."[\{this.id}] sending \{packet} to \{id}");
                         sendSinglePeer(packet, id);
                     });
                 } else {
-                    System.out.println("[" + this.id + "] Peer " + id + " currently disconnected, enqueuing packet only for him...");
+                    LOGGER.warn(STR."[\{this.id}] Peer \{id} currently disconnected, enqueuing packet only for him...");
                     disconnectMsgs.computeIfAbsent(id, _ -> ConcurrentHashMap.newKeySet());
                     disconnectMsgs.get(id).add(packet);
                 }
@@ -330,7 +336,7 @@ public class Peer implements Closeable {
             sockets.get(id).send(packet);
             return true;
         } catch (IOException e) {
-            System.err.println("[" + this.id + "] Error sending message to +" + id + ". Enqueuing it...");
+            LOGGER.warn(STR."[\{this.id}] Error sending message to \{id}. Enqueuing it...", e);
             disconnectMsgs.computeIfAbsent(id, _ -> ConcurrentHashMap.newKeySet());
             disconnectMsgs.get(id).add(packet);
             onPeerDisconnected(id, e);
@@ -339,7 +345,7 @@ public class Peer implements Closeable {
     }
 
     public void disconnect() {
-        System.out.println("[" + id + "] Disconnecting...");
+        LOGGER.info(STR."[\{this.id}] Disconnecting...");
         connected = false;
         reconnectTask.cancel(true);
 
@@ -352,7 +358,7 @@ public class Peer implements Closeable {
         try {
             discovery.sendToDiscovery(new ByePacket(id));
         } catch (IOException e) {
-            System.err.println("Can't contact the discovery " + e);
+            LOGGER.error(STR."[\{this.id}] Can't contact the discovery", e);
         }
 
         sockets.keySet().forEach(id -> onPeerDisconnected(id, new IOException("Disconnected")));
@@ -370,22 +376,22 @@ public class Peer implements Closeable {
 
     private void runServer() {
         //Waiting for incoming packets by creating a serverSocket
-        System.out.println("[" + id + "] server started");
+        LOGGER.info(STR."[\{id}] server started");
         while (true) {
             Socket justConnectedClient;
-            System.out.println("[" + id + "] Waiting connection...");
+            LOGGER.trace(STR."[\{id}] Waiting connection...");
             try {
                 justConnectedClient = serverSocket.accept();
             } catch (IOException e) {
                 //Error on the server socket, stop the server
-                System.err.println("[" + id + "] Server shut down " + e + serverSocket.isClosed());
+                LOGGER.error(STR."[\{id}] Error accepting new connection. Server shut down. Socket closed: \{serverSocket.isClosed()}", e);
                 return;
             } finally {
-                System.out.println("[" + id + "] Finished waiting connection");
+                LOGGER.trace(STR."[\{id}] Finished waiting connection");
             }
 
             //Someone has just connected to me
-            System.out.println("[" + id + "] " + justConnectedClient.getRemoteSocketAddress() + " is connected. Waiting for his id...");
+            LOGGER.info(STR."[\{id}] \{justConnectedClient.getRemoteSocketAddress()} is connected. Waiting for his id...");
             String otherId;
             int otherPort;
 
@@ -393,19 +399,19 @@ public class Peer implements Closeable {
                 //Try to acquire lock, timeout of 2 secs to avoid deadlocks.
                 // if I can't acquire lock in 2 sec, I assume a deadlock and close the connection.
                 if (!connectLock.tryLock(2, TimeUnit.SECONDS)) {
-                    System.err.println("[" + id + "] Can't get lock. Connection refused");
+                    LOGGER.warn(STR."[\{id}] Can't get lock. Connection refused");
                     justConnectedClient.close();
                     continue;
                 }
 
-                System.out.println("Got server lock");
+                LOGGER.trace(STR."[\{this.id}] Got lock to accept connection");
 
                 SocketManager socketManager = new SocketManager(this.id, executorService, justConnectedClient,
                         new ChatUpdater(chats, roomsPropertyChangeSupport, msgChangeListener), this::onPeerDisconnected);
 
                 otherId = socketManager.getOtherId();
                 otherPort = socketManager.getServerPort();
-                System.out.println("[" + id + "]" + otherId + " is connected. His server is on port " + otherPort);
+                LOGGER.info(STR."[\{id}] \{otherId} is connected. His server is on port \{otherPort}");
 
                 //Remove from the disconnected peers (if present)
                 disconnectedIds.remove(otherId);
@@ -421,11 +427,11 @@ public class Peer implements Closeable {
                 ips.put(otherId, new InetSocketAddress(justConnectedClient.getInetAddress(), otherPort));
             } catch (InterruptedException e) {
                 //We got interrupted, quit
-                e.printStackTrace();
+                LOGGER.error(STR."[\{id}] Server interrupted while getting lock. Server shut down.", e);
                 return;
             } catch (IOException e) {
                 //Error creating the socket manager, close the socket and continue listening for new connection
-                System.err.println("[" + this.id + "] Error accepting connection");
+                LOGGER.error(STR."[\{this.id}] Error creating socket manager", e);
                 try {
                     justConnectedClient.close();
                 } catch (IOException ignored) {
@@ -442,7 +448,7 @@ public class Peer implements Closeable {
     }
 
     private void onPeerDisconnected(String id, Throwable e) {
-        e.printStackTrace();
+        LOGGER.warn(STR."[\{this.id}] \{id} disconnected", e);
 
         disconnectedIds.add(id);
 
@@ -451,7 +457,6 @@ public class Peer implements Closeable {
             socket.close();
 
         usersPropertyChangeSupport.firePropertyChange("USER_DISCONNECTED", id, null);
-        System.err.println("[" + this.id + "] " + id + " disconnected " + e);
     }
 
     @VisibleForTesting

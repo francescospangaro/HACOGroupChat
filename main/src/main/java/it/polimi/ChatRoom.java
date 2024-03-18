@@ -2,6 +2,8 @@ package it.polimi;
 
 import it.polimi.utility.Message;
 import it.polimi.utility.MessageGUI;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
@@ -11,6 +13,8 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class ChatRoom {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ChatRoom.class);
+
     private final Set<String> users;
     private final Set<Message> waiting;
     private final Queue<Message> receivedMsgs;
@@ -93,11 +97,11 @@ public class ChatRoom {
                 checkWaiting();
             } else if (res == -1) {
                 //puts the message in a queue
-                System.out.println("[" + id + "] Message " + m.vectorClocks() + " added in waiting list");
+                LOGGER.info(STR."[\{id}] Message \{m.vectorClocks()} added in waiting list");
                 waiting.add(m);
             } else {
                 //If it doesn't enter any of the above ifs ignore the received message
-                System.out.println("[" + id + "] Ignoring duplicated message " + m.vectorClocks());
+                LOGGER.info(STR."[\{id}] Ignoring duplicated message \{m.vectorClocks()}");
             }
         } finally {
             pushLock.unlock();
@@ -115,6 +119,7 @@ public class ChatRoom {
                     //Increase the PID of the message sender
                     vectorClocks.put(m.sender(), m.vectorClocks().get(m.sender()));
 
+                    LOGGER.info(STR."[\{this.id}] Removing message \{m.vectorClocks()} from waiting list");
                     receivedMsgs.add(m);
                     added = true;
 
