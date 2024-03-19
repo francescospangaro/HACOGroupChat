@@ -3,8 +3,8 @@
     <Appenders>
         <Console name="console"
                  target="SYSTEM_OUT">
-            <PatternLayout>
-                <Pattern>%d{HH:mm:ss.SSS} %-5level %logger{36} [%t] - %msg %ex%n</Pattern>
+            <PatternLayout disableAnsi="false">
+                <Pattern>%highlight{%d{HH:mm:ss.SSS} %-5level %logger{36} - %msg %ex%n}</Pattern>
             </PatternLayout>
         </Console>
         <RollingRandomAccessFile name="file"
@@ -12,8 +12,8 @@
                                  filePattern="./discovery-logs/%d{yyyy-MM-dd}/logs.%d{yyyy-MM-dd}.%i.log.gz"
                                  immediateFlush="true"
                                  append="true">
-            <PatternLayout disableAnsi="false">
-                <Pattern>%highlight{%d{HH:mm:ss.SSS} %-5level %logger{36} - %msg %ex%n}</Pattern>
+            <PatternLayout>
+                <Pattern>%d %-5level %logger{1.} [%t] - %msg %ex%n</Pattern>
             </PatternLayout>
             <Policies>
                 <OnStartupTriggeringPolicy/>
