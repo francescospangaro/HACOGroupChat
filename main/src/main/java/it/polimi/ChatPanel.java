@@ -105,7 +105,8 @@ public class ChatPanel {
         frame.addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosed(WindowEvent windowEvent) {
-                peer.close();
+                if (peer != null)
+                    peer.close();
                 executorService.shutdownNow();
             }
         });
