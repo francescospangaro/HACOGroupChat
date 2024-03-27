@@ -22,7 +22,7 @@ public class ChatPanel {
     private JComboBox<ChatRoom> chatRooms;
     private JButton deleteButton;
     private JButton disconnectReconnectButton;
-    private JList<Message> msgList;
+    private JList<String> msgList;
     private JLabel usernameLabel;
     private JLabel portLabel;
     private JLabel connectedLabel;
@@ -30,10 +30,11 @@ public class ChatPanel {
     private JList<String> connectedList;
     private JLabel chatLabel;
     private JPanel left;
+    private JCheckBox detailedViewCheckBox;
     private volatile Peer peer;
     private final ExecutorService executorService = Executors.newCachedThreadPool();
 
-    private DefaultListModel<Message> msgListModel = new DefaultListModel<>();
+    private DefaultListModel<String> msgListModel = new DefaultListModel<>();
 
     public ChatPanel(JFrame frame, String discovery, String user, int port) {
         //Want to create a new Group for chatting
@@ -73,7 +74,10 @@ public class ChatPanel {
                 if (chatRooms.getItemCount() > 0 && chatRooms.getSelectedItem() != null) {
                     chatLabel.setText("Chat: " + ((ChatRoom) chatRooms.getSelectedItem()).getName());
                     msgListModel.clear();
-                    msgListModel.addAll(((ChatRoom) chatRooms.getSelectedItem()).getReceivedMsgs());
+                    if (detailedViewCheckBox.isSelected())
+                        msgListModel.addAll(((ChatRoom) chatRooms.getSelectedItem()).getReceivedMsgs().stream().map(Message::toDetailedString).toList());
+                    else
+                        msgListModel.addAll(((ChatRoom) chatRooms.getSelectedItem()).getReceivedMsgs().stream().map(Message::toString).toList());
                     msgList.ensureIndexIsVisible(msgListModel.size() - 1);
                 } else {
                     chatLabel.setText("Chat: -");
@@ -171,7 +175,10 @@ public class ChatPanel {
 
                     if (((ChatRoom) chatRooms.getSelectedItem()).getId().equals(mgui.chatRoom().getId())) {
                         SwingUtilities.invokeLater(() -> {
-                            msgListModel.addElement(mgui.message());
+                            if (detailedViewCheckBox.isSelected())
+                                msgListModel.addElement(mgui.message().toDetailedString());
+                            else
+                                msgListModel.addElement(mgui.message().toString());
                             msgList.ensureIndexIsVisible(msgListModel.size() - 1);
                         });
                     }
@@ -185,10 +192,20 @@ public class ChatPanel {
                 newChatButton.setEnabled(true);
             });
         });
+        detailedViewCheckBox.addActionListener(e -> {
+            msgListModel.clear();
+            if (detailedViewCheckBox.isSelected())
+                msgListModel.addAll(((ChatRoom) chatRooms.getSelectedItem()).getReceivedMsgs().stream().map(Message::toDetailedString).toList());
+            else
+                msgListModel.addAll(((ChatRoom) chatRooms.getSelectedItem()).getReceivedMsgs().stream().map(Message::toString).toList());
+        });
     }
 
     private void send() {
         String msg = msgArea.getText();
+
+        SwingUtilities.invokeLater(() -> msgArea.setText(""));
+
         //Get the ChatRoom selected by the user in which he wants to send the msg
         ChatRoom chat = (ChatRoom) chatRooms.getSelectedItem();
 
@@ -208,8 +225,6 @@ public class ChatPanel {
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
-
-        SwingUtilities.invokeLater(() -> msgArea.setText(""));
     }
 
     private void setConnected(boolean connected) {
