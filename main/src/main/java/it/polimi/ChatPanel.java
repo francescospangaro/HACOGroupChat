@@ -51,26 +51,13 @@ public class ChatPanel {
         }));
 
         //Want to send a message to a ChatRoom
-        sendButton.addActionListener(e -> executorService.execute(() -> {
-            String msg = msgArea.getText();
-            //Get the ChatRoom selected by the user in which he wants to send the msg
-            ChatRoom chat = (ChatRoom) chatRooms.getSelectedItem();
+        sendButton.addActionListener(e -> executorService.execute(this::send));
 
-            int delay;
-            try {
-                delay = Integer.parseInt(delayTime.getText());
-                if (delay < 0) {
-                    throw new NumberFormatException();
-                }
-            } catch (NumberFormatException ignored) {
-                delay = 0;
+        msgArea.registerKeyboardAction(e -> {
+            if (sendButton.isEnabled()) {
+                executorService.execute(this::send);
             }
-
-            peer.sendMessage(msg, chat, delay);
-
-            SwingUtilities.invokeLater(() -> msgArea.setText(""));
-        }));
-
+        }, KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, KeyEvent.CTRL_DOWN_MASK), JComponent.WHEN_FOCUSED);
 
         deleteButton.addActionListener(e -> executorService.execute(() -> {
             ChatRoom toDelete = (ChatRoom) chatRooms.getSelectedItem();
@@ -198,6 +185,31 @@ public class ChatPanel {
                 newChatButton.setEnabled(true);
             });
         });
+    }
+
+    private void send() {
+        String msg = msgArea.getText();
+        //Get the ChatRoom selected by the user in which he wants to send the msg
+        ChatRoom chat = (ChatRoom) chatRooms.getSelectedItem();
+
+        int delay;
+        try {
+            delay = Integer.parseInt(delayTime.getText());
+            if (delay < 0) {
+                throw new NumberFormatException();
+            }
+        } catch (NumberFormatException ignored) {
+            delay = 0;
+        }
+
+        peer.sendMessage(msg, chat, delay);
+        try {
+            Thread.sleep(500);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+
+        SwingUtilities.invokeLater(() -> msgArea.setText(""));
     }
 
     private void setConnected(boolean connected) {
