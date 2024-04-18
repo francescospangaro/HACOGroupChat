@@ -25,6 +25,7 @@ import java.util.concurrent.locks.ReentrantLock;
 
 public class Peer implements Closeable {
     static final String SAVE_DIR = STR."\{System.getProperty("user.home")}\{File.separator}HACOBackup\{File.separator}";
+    private static final int DEFAULT_RECONNECT_TIMEOUT_SECONDS = 5;
     private static final Logger LOGGER = LoggerFactory.getLogger(Peer.class);
 
     private final String id;
@@ -47,6 +48,7 @@ public class Peer implements Closeable {
     private final PropertyChangeListener msgChangeListener;
 
     private boolean connected;
+    private final int reconnectTimeoutSeconds;
 
     private final Set<String> degradedConnections;
     private final Map<String, Set<P2PPacket>> disconnectMsgs = new ConcurrentHashMap<>();
@@ -61,21 +63,22 @@ public class Peer implements Closeable {
          PropertyChangeListener chatRoomsChangeListener,
          PropertyChangeListener usersChangeListener,
          PropertyChangeListener msgChangeListener) {
-        this("localhost", id, port, chatRoomsChangeListener, usersChangeListener, msgChangeListener, true);
+        this("localhost", id, port, chatRoomsChangeListener, usersChangeListener, msgChangeListener, true, 1);
     }
 
     public Peer(String discoveryAddr, String id, int port,
                 PropertyChangeListener chatRoomsChangeListener,
                 PropertyChangeListener usersChangeListener,
                 PropertyChangeListener msgChangeListener) {
-        this(discoveryAddr, id, port, chatRoomsChangeListener, usersChangeListener, msgChangeListener, false);
+        this(discoveryAddr, id, port, chatRoomsChangeListener, usersChangeListener, msgChangeListener, false, DEFAULT_RECONNECT_TIMEOUT_SECONDS);
     }
 
     private Peer(String discoveryAddr, String id, int port,
                  PropertyChangeListener chatRoomsChangeListener,
                  PropertyChangeListener usersChangeListener,
                  PropertyChangeListener msgChangeListener,
-                 boolean testing) {
+                 boolean testing,
+                 int reconnectTimeoutSeconds) {
         this.id = id;
         this.saveDirectory = SAVE_DIR + id + File.separator;
         this.port = port;
@@ -89,6 +92,8 @@ public class Peer implements Closeable {
         degradedConnections = ConcurrentHashMap.newKeySet();
         ips = new ConcurrentHashMap<>();
         disconnectedIds = ConcurrentHashMap.newKeySet();
+
+        this.reconnectTimeoutSeconds = reconnectTimeoutSeconds;
 
         roomsPropertyChangeSupport = new PropertyChangeSupport(chats);
         roomsPropertyChangeSupport.addPropertyChangeListener(chatRoomsChangeListener);
@@ -156,7 +161,7 @@ public class Peer implements Closeable {
                 connectLock.unlock();
                 LOGGER.info(STR."Peer \{id} already connected");
             }
-        }), 5, 5, TimeUnit.SECONDS);
+        }), reconnectTimeoutSeconds, reconnectTimeoutSeconds, TimeUnit.SECONDS);
     }
 
     @VisibleForTesting
