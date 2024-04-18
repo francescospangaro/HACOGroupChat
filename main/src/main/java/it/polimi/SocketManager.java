@@ -161,13 +161,13 @@ public class SocketManager implements Closeable {
 
                 switch (p) {
                     case AckPacket ack -> {
-                        LOGGER.trace(STR."[\{this.myId} Received ack \{ack}");
+                        LOGGER.trace(STR."[\{this.myId}] Received ack \{ack}");
                         if (ack.seqNum() != seq.get() - 1)
                             throw new IllegalStateException("This show never happen(?)");
                         ackPromise.complete(null);
                     }
                     case SeqPacketImpl seqPacket -> {
-                        LOGGER.info(STR."[\{this.myId} Received packet: \{p}");
+                        LOGGER.info(STR."[\{this.myId}] Received packet: \{p}");
                         sendAck(seqPacket.seqNum());
                         if (seqPacket.p() instanceof HelloPacket helloPacket) {
                             otherId.complete(helloPacket.id());
@@ -209,7 +209,7 @@ public class SocketManager implements Closeable {
                 writeLock.unlock();
             }
 
-            LOGGER.info(STR."[\{this.myId} Sent \{packet}");
+            LOGGER.info(STR."[\{this.myId}] Sent \{packet}");
 
             try {
                 ackPromise.get(timeout, TimeUnit.MILLISECONDS);
@@ -233,7 +233,7 @@ public class SocketManager implements Closeable {
         } finally {
             writeLock.unlock();
         }
-        LOGGER.trace(STR."[\{this.myId} Sent ack for\{seq}");
+        LOGGER.trace(STR."[\{this.myId}] Sent ack for packet number \{seq}");
     }
 
     /**
