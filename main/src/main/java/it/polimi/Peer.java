@@ -379,6 +379,7 @@ public class Peer implements Closeable {
     }
 
     private void runServer() {
+        final Random random = new Random();
         //Waiting for incoming packets by creating a serverSocket
         LOGGER.info(STR."[\{id}] server started");
         while (true) {
@@ -400,35 +401,41 @@ public class Peer implements Closeable {
             int otherPort;
 
             try {
-                //Try to acquire lock, timeout of 2 secs to avoid deadlocks.
-                // if I can't acquire lock in 2 sec, I assume a deadlock and close the connection.
-                if (!connectLock.tryLock(2, TimeUnit.SECONDS)) {
-                    LOGGER.warn(STR."[\{id}] Can't get lock. Connection refused");
+                //Try to acquire lock, with a random timeout (~2 sec) to avoid deadlocks.
+                // if I can't acquire lock, I assume a deadlock and close the connection.
+                int timeout = random.nextInt(1500, 2500);
+                if (!connectLock.tryLock(timeout, TimeUnit.MILLISECONDS)) {
+                    LOGGER.warn(STR."[\{id}] Can't get lock. Refusing connection...");
                     justConnectedClient.close();
+                    LOGGER.trace(STR."[\{id}] Connection refused. Continuing...");
                     continue;
                 }
 
-                LOGGER.trace(STR."[\{this.id}] Got lock to accept connection");
+                try {
+                    LOGGER.trace(STR."[\{this.id}] Got lock to accept connection");
 
-                SocketManager socketManager = new SocketManager(this.id, executorService, justConnectedClient,
-                        new ChatUpdater(chats, roomsPropertyChangeSupport, msgChangeListener), this::onPeerDisconnected);
+                    SocketManager socketManager = new SocketManager(this.id, executorService, justConnectedClient,
+                            new ChatUpdater(chats, roomsPropertyChangeSupport, msgChangeListener), this::onPeerDisconnected);
 
-                otherId = socketManager.getOtherId();
-                otherPort = socketManager.getServerPort();
-                LOGGER.info(STR."[\{id}] \{otherId} is connected. His server is on port \{otherPort}");
+                    otherId = socketManager.getOtherId();
+                    otherPort = socketManager.getServerPort();
+                    LOGGER.info(STR."[\{id}] \{otherId} is connected. His server is on port \{otherPort}");
 
-                //Remove from the disconnected peers (if present)
-                disconnectedIds.remove(otherId);
+                    //Remove from the disconnected peers (if present)
+                    disconnectedIds.remove(otherId);
 
-                //Close pending socket for this peer (if any)
-                if (sockets.containsKey(otherId))
-                    sockets.get(otherId).close();
+                    //Close pending socket for this peer (if any)
+                    if (sockets.containsKey(otherId))
+                        sockets.get(otherId).close();
 
-                //Update the list of sockets of the other peers
-                sockets.put(otherId, socketManager);
+                    //Update the list of sockets of the other peers
+                    sockets.put(otherId, socketManager);
 
-                //Update the list of Addresses of the other peers
-                ips.put(otherId, new InetSocketAddress(justConnectedClient.getInetAddress(), otherPort));
+                    //Update the list of Addresses of the other peers
+                    ips.put(otherId, new InetSocketAddress(justConnectedClient.getInetAddress(), otherPort));
+                } finally {
+                    connectLock.unlock();
+                }
             } catch (InterruptedException e) {
                 //We got interrupted, quit
                 LOGGER.error(STR."[\{id}] Server interrupted while getting lock. Server shut down.", e);
@@ -441,8 +448,6 @@ public class Peer implements Closeable {
                 } catch (IOException ignored) {
                 }
                 continue;
-            } finally {
-                connectLock.unlock();
             }
 
             usersPropertyChangeSupport.firePropertyChange("USER_CONNECTED", null, otherId);
