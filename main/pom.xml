@@ -113,6 +113,20 @@
                                 <exclude>META-INF/MANIFEST.MF</exclude>
                             </excludes>
                         </filter>
+                        <!-- Force the inclusion on logger class used in xml config files
+                         see https://stackoverflow.com/questions/58329170/how-do-i-include-classes-from-log4j-xml-when-maven-shade-plugin-minimizes-the-ja -->
+                        <filter>
+                            <artifact>org.apache.logging.log4j:log4j-core</artifact>
+                            <includes>
+                                <include>**</include>
+                            </includes>
+                        </filter>
+                        <filter>
+                            <artifact>org.slf4j:slf4j-jdk-platform-logging</artifact>
+                            <includes>
+                                <include>**</include>
+                            </includes>
+                        </filter>
                     </filters>
                     <transformers>
                         <transformer
