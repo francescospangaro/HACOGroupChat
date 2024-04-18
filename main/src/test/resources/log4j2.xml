@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN">
+    <Appenders>
+        <Console name="console"
+                 target="SYSTEM_OUT">
+            <PatternLayout disableAnsi="false">
+                <Pattern>%highlight{%d{HH:mm:ss.SSS} %-5level %logger{36} - %msg %ex%n}</Pattern>
+            </PatternLayout>
+        </Console>
+    </Appenders>
+    <Loggers>
+        <Logger name="it.polimi"
+                additivity="false"
+                level="trace">
+            <AppenderRef ref="console" level="trace"/>
+        </Logger>
+
+        <Root level="warn">
+            <AppenderRef ref="console"/>
+        </Root>
+    </Loggers>
+</Configuration>
