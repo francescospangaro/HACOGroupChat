@@ -499,7 +499,6 @@ class ChatTest {
             c3.sendMessage("TEST2", chat3, 0);
 
             assertTrue(msg1.await(500, TimeUnit.MILLISECONDS));
-            assertEquals(ID2, userReconnect.get(10, TimeUnit.SECONDS));
 
             assertEquals(2, msg1List.size());
             var m1_0 = msg1List.get(0);
@@ -510,7 +509,7 @@ class ChatTest {
             assertEquals("TEST2", m1_1.msg());
             assertEquals(ID3, m1_1.sender());
 
-            assertTrue(msg2.await(10, TimeUnit.SECONDS));
+            assertTrue(msg2.await(500, TimeUnit.MILLISECONDS));
             assertEquals(2, msg2List.size());
             var m2_0 = msg2List.get(0);
             assertEquals("TEST", m2_0.msg());
@@ -519,6 +518,13 @@ class ChatTest {
             var m2_1 = msg2List.get(1);
             assertEquals("TEST2", m2_1.msg());
             assertEquals(ID3, m2_1.sender());
+
+            assertEquals(ID2, userReconnect.get(10, TimeUnit.SECONDS));
+
+            //Peer c1 still has to resend msg1 to c2, because the ack got lost.
+            //Waits for 1 seconds and checks that the duplicated packet was discarded.
+            Thread.sleep(1000);
+            assertEquals(2, msg2List.size());
 
             ((ImproperShutdownSocket) socket_c2_c1_ref.get()).actuallyClose();
         }
