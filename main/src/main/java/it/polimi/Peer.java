@@ -53,8 +53,10 @@ public class Peer implements Closeable {
     private final Set<String> degradedConnections;
     private final Map<String, Set<P2PPacket>> disconnectMsgs = new ConcurrentHashMap<>();
 
-    //Lock to acquire before connect to / accept connection from a new peer
-    // to avoid that two peer try to connect to each other at the same time.
+    /**
+     * Lock to acquire before connect to / accept connection from a new peer
+     * to avoid that two peer try to connect to each other at the same time.
+     */
     private final Lock connectLock = new ReentrantLock();
     private final DiscoveryConnector discovery;
 
@@ -66,6 +68,19 @@ public class Peer implements Closeable {
         this("localhost", id, port, chatRoomsChangeListener, usersChangeListener, msgChangeListener, true, 1);
     }
 
+    /**
+     * Creates a new peer
+     * <p>
+     * Tries to recover an existing backup (see {@link #getFromBackup()}
+     * and calls {@link #start()}
+     *
+     * @param discoveryAddr           address of the discovery server
+     * @param id                      unique identifier of the peer
+     * @param port                    port to listen on for new connections
+     * @param chatRoomsChangeListener listener to call when a room is created or deleted
+     * @param usersChangeListener     listener to call when a user is connected or disconnected
+     * @param msgChangeListener       listener to call when a new message is received
+     */
     public Peer(String discoveryAddr, String id, int port,
                 PropertyChangeListener chatRoomsChangeListener,
                 PropertyChangeListener usersChangeListener,
@@ -109,6 +124,15 @@ public class Peer implements Closeable {
     }
 
 
+    /**
+     * Starts the peer.
+     * <p>
+     * Opens the server socket and starts the server in a new thread (see {@link #runServer()}
+     * Registers to the discovery server and receives the lists of peers in the network (see {@link DiscoveryConnector#register()}
+     * Calls {@link #connect()} to connect to other clients.
+     *
+     * @throws Error if the server socket can't be opened or the discovery server can't be reached
+     */
     public void start() {
         LOGGER.info(STR."[\{id}] STARTING");
         try {
@@ -129,7 +153,11 @@ public class Peer implements Closeable {
     }
 
 
-    public void connect() {
+    /**
+     * Connect to peers in the {@link #ips} map.
+     * Call {@link #reconnectToPeers()} to start the reconnection task
+     */
+    private void connect() {
         //For each peer in the network I try to connect to him by sending a helloPacket
         ips.forEach((id, addr) -> {
             try {
@@ -147,6 +175,12 @@ public class Peer implements Closeable {
         reconnectToPeers();
     }
 
+    /**
+     * Starts the reconnection task.
+     * <p>
+     * Every {@link #reconnectTimeoutSeconds} seconds tries to reconnect to disconnected peer
+     * (peers in the {@link #disconnectedIds} list)
+     */
     private void reconnectToPeers() {
         //Every 5 seconds retry, until I'm connected with everyone
         reconnectTask = scheduledExecutorService.scheduleAtFixedRate(() -> disconnectedIds.forEach(id -> {
@@ -209,6 +243,18 @@ public class Peer implements Closeable {
     }
 
 
+    /**
+     * Connect to a peer and send queued message.
+     * <p>
+     * Acquire the {@link #connectLock} before connecting so that we are sure that the other peer is not trying to connect to us.
+     * Creates the {@link SocketManager} for the given peer
+     *
+     * @param id   id of the other peer
+     * @param addr address of the other peer
+     * @throws PeerAlreadyConnectedException if this peer was connected before the lock is acquired
+     * @throws IOException                   in case of communication problems
+     * @see #resendQueued(String)
+     */
     private void connectToSinglePeer(String id, SocketAddress addr) throws PeerAlreadyConnectedException, IOException {
         connectLock.lock();
         LOGGER.trace(STR."[\{this.id}] Got lock to connect to \{id}: \{addr}");
@@ -238,6 +284,14 @@ public class Peer implements Closeable {
         resendQueued(id);
     }
 
+    /**
+     * Resend queued packets to a peer
+     * <p>
+     * Tries to resend packets in the {@link #disconnectedIds} list (sent to a peer when it was disconnected).
+     * Removes packets from the list when they are sent successfully.
+     *
+     * @param id id of the peer
+     */
     private void resendQueued(String id) {
         if (disconnectMsgs.containsKey(id)) {
             Iterator<P2PPacket> iter = disconnectMsgs.get(id).iterator();
@@ -255,7 +309,10 @@ public class Peer implements Closeable {
     /**
      * Send a message to the given chat
      * <p>
-     * This method is NOT thread-safe.
+     * Sends the message to all users in the given chat.
+     * If the delayedTime param is 0, a {@link MessagePacket} is sent, otherwise a {@link DelayedMessagePacket} is sent.
+     * <p>
+     * Warning: this method is NOT thread-safe.
      * If it is called simultaneously by two threads, there is no guarantee on the order of the two messages.
      *
      * @param msg         the message to be sent
@@ -318,6 +375,15 @@ public class Peer implements Closeable {
         return id;
     }
 
+    /**
+     * Sends the packet to the given peers
+     * <p>
+     * For each connected peer (peer in the {@link #sockets} map, calls {@link #sendSinglePeer(P2PPacket, String)}.
+     * For disconnected peers, adds the message to the {@link #disconnectMsgs} queue
+     *
+     * @param packet packet to be sent
+     * @param ids    ids of peers to send to
+     */
     private void sendPacket(P2PPacket packet, Set<String> ids) {
         ids.forEach(id -> {
             if (!id.equals(this.id)) {
@@ -335,6 +401,16 @@ public class Peer implements Closeable {
         });
     }
 
+    /**
+     * Send the packet to the given peer
+     * <p>
+     * If the sending fails, adds the message to the {@link #disconnectMsgs} queue
+     * and calls {@link #onPeerDisconnected(String, Throwable)}
+     *
+     * @param packet packet to be sent
+     * @param id     id of the peer to send to
+     * @return true if the packet is correctly sent (ack received)
+     */
     private boolean sendSinglePeer(P2PPacket packet, String id) {
         try {
             sockets.get(id).send(packet);
@@ -348,6 +424,13 @@ public class Peer implements Closeable {
         return false;
     }
 
+    /**
+     * Disconnect from the network
+     * <p>
+     * Stops the server and the reconnection task.
+     * Sends a disconnection packet to the discovery server {@link DiscoveryConnector#disconnect()}.
+     * Closes connection with all peers {@link #onPeerDisconnected(String, Throwable)}
+     */
     public void disconnect() {
         LOGGER.info(STR."[\{this.id}] Disconnecting...");
         connected = false;
@@ -370,7 +453,8 @@ public class Peer implements Closeable {
         ips.clear();
     }
 
-    public void degradePerformance(String id) {
+    @VisibleForTesting
+    void degradePerformance(String id) {
         degradedConnections.add(id);
     }
 
@@ -378,6 +462,14 @@ public class Peer implements Closeable {
         return this.connected;
     }
 
+    /**
+     * Server loop
+     * <p>
+     * Accepts new connections from other peers.
+     * Acquire the {@link #connectLock} when accepting a new connection to be sure that
+     * we aren't connecting to the other peer at the same time.
+     * Creates the {@link SocketManager} for each connected peer and resend queues messages calling {@link #resendQueued(String)}
+     */
     private void runServer() {
         final Random random = new Random();
         //Waiting for incoming packets by creating a serverSocket
@@ -456,6 +548,15 @@ public class Peer implements Closeable {
         }
     }
 
+    /**
+     * Method to call when a peer is disconnected
+     * <p>
+     * Adds the peer to the {@link #disconnectedIds} list
+     * Closes the socket and removes it from the {@link #sockets} map.
+     *
+     * @param id id of the disconnected peer
+     * @param e  cause of the disconnection
+     */
     private void onPeerDisconnected(String id, Throwable e) {
         LOGGER.warn(STR."[\{this.id}] \{id} disconnected", e);
 
@@ -475,6 +576,14 @@ public class Peer implements Closeable {
         return null;
     }
 
+    /**
+     * Close the peer
+     * <p>
+     * Disconnect from the network, shutdown tasks and backup chats
+     *
+     * @see #disconnect()
+     * @see #backupChats()
+     */
     @Override
     public void close() {
         disconnect();
