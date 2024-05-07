@@ -1,0 +1,73 @@
+On start up/or click reconnect client:
+  apre connessione TCP con discovery server
+  client sends UPDATE_IP_ACKET to discovery server specificando NOME + HIS_PORTA
+  discovery server risponde con IPsPACKET con elenco di <USER_ID:ADDRESS>
+  client chiude la connessione con discovery
+
+After startup/or crashed and reconnect client:
+  client si collega con TCP a tutti gli users ricevuti dal discovery server
+  creando un thread per ogni connessione.
+  Alla creazione del thread, si presenta inviando un HELLO_PACKET con USER_ID:PORT (la sua listening port)
+
+  + rimane in ascolto per connessioni in ingresso TCP e ad ogni nuova connessione avvia
+    un thread per gestirlo
+    (per futuri clients che entreranno nella network o per client che fanno reconnect
+    se fanno reconnect vai a punto (*1) )
+
+
+
+Ora le seguenti funzioni possono essere effettuate:
+
+____________________________
+Tutti i send vengono effettuati dal socket manager il quale incapsula il msg che si vuole inviare
+in un SeqPacketImpl(P2PPacket p, long seqNum) generando un sequential number
+si aspetterà un ACK con lo stesso sequential:
+If timeout:
+  classifica il peer come disconnesso e tutti i msg che dovrebbe inviare vengono mantenuti
+  in un buffer per quel client.
+  ogni tot secondi riprova a riconnettersi con tutti i peers classificati come disconnessi
+  e in caso di reconnection (o io mi riconnect o lui mi manda HELLO_PACKET) (*1) gli invio tutti i msgs accodati.
+
+____________________________
+Gestione dei locks:
+  le chat di un client hanno ogniuna un lock: pushLock
+  così facendo il thread che gestisce la ricezione e il send dei msgs considera un msg alla volta
+  (per evitare ad es. che mentre sto controllando un received_vector_clock, ricevo un altro msg e
+  che si crea accesso concorrente al mio_vector_clock)
+
+  abbiamo un altro lock: connectLock che lo si prende prima di aprire una connessione con un altro client
+  e rilasciato quando invio HELLO_PACKET e ricevo ACK.
+  acquisito anche quando ricevo una nuova richiesta di connessione.
+  Questo per evitare che clientA e clientB provano a collegarsi in simultanea e poi non si capisce più quale
+  socket bisogna usare.
+
+____________________________
+Creazione della chat:
+  client sends CreateRoomPacket a tutti i clients con cui vuole creare la chat
+  alla ricezione i clients update GUI
+  => Chat con CHAT_ID creata
+
+____________________________
+Eliminazione della chat:
+  client sends DeleteRoomPacket a tutti i clients che appartengono alla chat
+  alla ricezione i clients update the GUI
+
+____________________________
+Invio di un messaggio in una chat:
+  Implementazione dei vector clocks.
+  Ogni client ha un vector clocks per ogni chat lungo tanti quanti sono i clients partecipanti alla chat.
+  Al send:
+    increment sua pos + invio msg con vector clock updated
+
+  Al receive:
+    riceverà il vector clock del sender.
+    confronta mio_vector_clock con received_vector_clock.
+    if mio_vector_clock[pos_sender] + 1 == received_vector_clock[pos_sender]
+      && mio_vector_clock[i] >= received_vector_clock[i] con i!= pos_sender:
+      aggiorna mio_vector_clock[pos_sender]++
+      accetta il msg visualizzandolo
+      + controlla se il buffer di waiting di msg c'è qualcuno che può ora essere accettato di conseguenza
+    else if mio_vector_clock != received_vector_clock
+            accoda il msg nel buffer di waiting
+         else
+            già ricevuto e non faccio nulla
