@@ -1,4 +1,4 @@
-package it.polimi;
+package it.polimi.gui;
 
 import javax.swing.*;
 import java.awt.event.KeyEvent;

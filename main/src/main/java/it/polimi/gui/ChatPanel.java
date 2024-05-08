@@ -1,6 +1,7 @@
-package it.polimi;
+package it.polimi.gui;
 
-import it.polimi.utility.Message;
+import it.polimi.ChatRoom;
+import it.polimi.Peer;
 import it.polimi.utility.MessageGUI;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,7 +23,7 @@ public class ChatPanel {
     private JComboBox<ChatRoom> chatRooms;
     private JButton deleteButton;
     private JButton disconnectReconnectButton;
-    private JList<String> msgList;
+    private JList<MessageBubble> msgList;
     private JLabel usernameLabel;
     private JLabel portLabel;
     private JLabel connectedLabel;
@@ -34,7 +35,7 @@ public class ChatPanel {
     private volatile Peer peer;
     private final ExecutorService executorService = Executors.newCachedThreadPool();
 
-    private DefaultListModel<String> msgListModel = new DefaultListModel<>();
+    private DefaultListModel<MessageBubble> msgListModel = new DefaultListModel<>();
 
     public ChatPanel(JFrame frame, String discovery, String user, int port) {
         //Want to create a new Group for chatting
@@ -74,10 +75,12 @@ public class ChatPanel {
                 if (chatRooms.getItemCount() > 0 && chatRooms.getSelectedItem() != null) {
                     chatLabel.setText("Chat: " + ((ChatRoom) chatRooms.getSelectedItem()).getName());
                     msgListModel.clear();
-                    if (detailedViewCheckBox.isSelected())
-                        msgListModel.addAll(((ChatRoom) chatRooms.getSelectedItem()).getReceivedMsgs().stream().map(Message::toDetailedString).toList());
-                    else
-                        msgListModel.addAll(((ChatRoom) chatRooms.getSelectedItem()).getReceivedMsgs().stream().map(Message::toString).toList());
+                    msgListModel.addAll(((ChatRoom) chatRooms.getSelectedItem()).getReceivedMsgs().stream().map(m -> {
+                        if (m.sender().equals(user))
+                            return new RightArrowBubble(m.sender(), detailedViewCheckBox.isSelected() ? m.toDetailedString() : m.toString());
+                        else
+                            return new LeftArrowBubble(m.sender(), detailedViewCheckBox.isSelected() ? m.toDetailedString() : m.toString());
+                    }).toList());
                     msgList.ensureIndexIsVisible(msgListModel.size() - 1);
                 } else {
                     chatLabel.setText("Chat: -");
@@ -124,6 +127,7 @@ public class ChatPanel {
         portLabel.setText(String.valueOf(port));
         usernameLabel.setText(user);
 
+        msgList.setCellRenderer((list, value, index, isSelected, cellHasFocus) -> value);
         msgList.setModel(msgListModel);
 
         DefaultListModel<String> connectedModelList = new DefaultListModel<>();
@@ -175,10 +179,10 @@ public class ChatPanel {
 
                     if (((ChatRoom) chatRooms.getSelectedItem()).getId().equals(mgui.chatRoom().getId())) {
                         SwingUtilities.invokeLater(() -> {
-                            if (detailedViewCheckBox.isSelected())
-                                msgListModel.addElement(mgui.message().toDetailedString());
+                            if (mgui.message().sender().equals(user))
+                                msgListModel.addElement(new RightArrowBubble(mgui.message().sender(), detailedViewCheckBox.isSelected() ? mgui.message().toDetailedString() : mgui.message().toString()));
                             else
-                                msgListModel.addElement(mgui.message().toString());
+                                msgListModel.addElement(new LeftArrowBubble(mgui.message().sender(), detailedViewCheckBox.isSelected() ? mgui.message().toDetailedString() : mgui.message().toString()));
                             msgList.ensureIndexIsVisible(msgListModel.size() - 1);
                         });
                     }
@@ -194,10 +198,12 @@ public class ChatPanel {
         });
         detailedViewCheckBox.addActionListener(e -> {
             msgListModel.clear();
-            if (detailedViewCheckBox.isSelected())
-                msgListModel.addAll(((ChatRoom) chatRooms.getSelectedItem()).getReceivedMsgs().stream().map(Message::toDetailedString).toList());
-            else
-                msgListModel.addAll(((ChatRoom) chatRooms.getSelectedItem()).getReceivedMsgs().stream().map(Message::toString).toList());
+            msgListModel.addAll(((ChatRoom) chatRooms.getSelectedItem()).getReceivedMsgs().stream().map(m -> {
+                if (m.sender().equals(user))
+                    return new RightArrowBubble(m.sender(), detailedViewCheckBox.isSelected() ? m.toDetailedString() : m.toString());
+                else
+                    return new LeftArrowBubble(m.sender(), detailedViewCheckBox.isSelected() ? m.toDetailedString() : m.toString());
+            }).toList());
         });
     }
 

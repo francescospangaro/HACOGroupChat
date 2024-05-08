@@ -8,19 +8,15 @@ public record Message(String msg, Map<String, Integer> vectorClocks, String send
     //Apparently in JList to format text you have to use HTML
     @Override
     public String toString() {
-        return STR."""
-        <html>
-                [\{this.sender}]: \{this.msg.replace("\n", "<br>")}
-                """;
+        return msg;
     }
 
     public String toDetailedString() {
         return STR."""
-        <html>
-                [\{this.sender}]: \{this.msg.replace("\n", "<br>")} <br>
+                \{this.msg} \n
                 \{this.vectorClocks.keySet().stream()
-                .map((k) -> STR."<pre>   User:\{k} PID: \{this.vectorClocks.get(k)}</pre>")
-                .collect(Collectors.joining(",", "Vector clocks: {<br>", "}"))}
+                .map((k) -> STR."\tUser:\{k} PID: \{this.vectorClocks.get(k)}")
+                .collect(Collectors.joining(",\n", "Vector clocks: {\n", "\n}"))}
                 """;
     }
 }

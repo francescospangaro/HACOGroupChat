@@ -1,5 +1,6 @@
 package it.polimi;
 
+import it.polimi.gui.ConnectionPanel;
 import org.slf4j.bridge.SLF4JBridgeHandler;
 
 import javax.swing.*;
