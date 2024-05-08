@@ -202,9 +202,12 @@ public class ChatPanel {
     }
 
     private void send() {
-        String msg = msgArea.getText();
+        String msg = msgArea.getText().trim();
 
         SwingUtilities.invokeLater(() -> msgArea.setText(""));
+
+        if (msg.isEmpty())
+            return;
 
         //Get the ChatRoom selected by the user in which he wants to send the msg
         ChatRoom chat = (ChatRoom) chatRooms.getSelectedItem();

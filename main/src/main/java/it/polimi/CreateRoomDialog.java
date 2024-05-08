@@ -47,7 +47,7 @@ public class CreateRoomDialog extends JDialog {
 
     private void onOK() {
         // add your code here
-        if (!roomName.getText().isEmpty()) {
+        if (!roomName.getText().isBlank()) {
             confirmed = true;
             dispose();
         }
@@ -59,7 +59,7 @@ public class CreateRoomDialog extends JDialog {
     }
 
     public String getRoomName() {
-        return roomName.getText();
+        return roomName.getText().trim();
     }
 
     public Set<String> getSelectedUsers() {
