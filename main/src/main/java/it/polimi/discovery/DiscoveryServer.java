@@ -17,6 +17,14 @@ import java.net.SocketAddress;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ *
+ * Discovery server class: Serves the purpose of being a first point of connection
+ * when a new peer connects to the app.
+ * When connected, the server will send this peer a list of all peers connected, so that
+ * the new peer can establish connections with everyone else in the network.
+ *
+ */
 public class DiscoveryServer implements Runnable {
     private static final Logger LOGGER = LoggerFactory.getLogger(DiscoveryServer.class);
 
@@ -32,6 +40,14 @@ public class DiscoveryServer implements Runnable {
         }
     }
 
+    /**
+     * Method that accepts connections and parses each received message.
+     * Once connection with a new peer is established, this method becomes a parser
+     * for the packets the server receives from the peers.
+     * 1. UpdateIdPacket - Sends the peer that changed his IP address the list of all connected peers,
+     * then saves the changes to the ips list.
+     * 2. ByePacket - Removes the IP of the disconnected peer from his connected peers list
+     */
     @Override
     public void run() {
         LOGGER.info("Running discovery server...");
@@ -60,9 +76,6 @@ public class DiscoveryServer implements Runnable {
                     case ByePacket byePacket -> {
                         ips.remove(byePacket.id());
                         LOGGER.info(STR."Client disconnected id: \{byePacket.id()}");
-
-                        //Let the peer know that I received his request avoiding that he closes the connection
-                        // while I have not read all the bytes
                         oos.writeObject(new IPsPacket(null));
                         oos.flush();
                     }
@@ -73,6 +86,10 @@ public class DiscoveryServer implements Runnable {
         }
     }
 
+    /**
+     * Closes the connection
+     * @throws IOException on IOException
+     */
     public void close() throws IOException {
         serverSocket.close();
         LOGGER.info("Closed discovery");

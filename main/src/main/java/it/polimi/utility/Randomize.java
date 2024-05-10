@@ -2,21 +2,19 @@ package it.polimi.utility;
 
 import java.security.SecureRandom;
 
+/**
+ * Chat that creates all random IDs used in the project.
+ */
 public class Randomize {
     private static final String CHARACTERS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    private static final String NUMBERS = "0123456789";
 
     public static String generateRandomString(int length) {
         return generateRandomString(length, CHARACTERS);
     }
 
-    public static String generateRandomNumberString(int length) {
-        return generateRandomString(length, NUMBERS);
-    }
-
     public static int generateRandomPort() {
         // Port range is 1-65535
-        return generateRandomNumberInRange(12345, 65535);
+        return generateRandomNumberInRange();
     }
 
     private static String generateRandomString(int length, String characters) {
@@ -36,9 +34,9 @@ public class Randomize {
         return randomString.toString();
     }
 
-    private static int generateRandomNumberInRange(int min, int max) {
+    private static int generateRandomNumberInRange() {
         SecureRandom random = new SecureRandom();
-        return random.nextInt(max - min + 1) + min;
+        return random.nextInt(65535 - 12345 + 1) + 12345;
     }
 
 }
