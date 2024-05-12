@@ -47,7 +47,7 @@ class ChatTest {
     private static void deleteBackups() throws IOException {
         var users = Set.of(ID1, ID2, ID3);
         for (String u : users) {
-            var path = Paths.get(Peer.SAVE_DIR + u);
+            var path = Paths.get(BackupManager.SAVE_DIR + u);
             if (Files.exists(path))
                 try (Stream<Path> walk = Files.walk(path)) {
                     walk.sorted(Comparator.reverseOrder())
@@ -67,10 +67,10 @@ class ChatTest {
         CompletableFuture<String> c1Promise = new CompletableFuture<>();
         CompletableFuture<String> c2Promise = new CompletableFuture<>();
         try (
-                Peer c1 = new Peer(ID1, 12345, e -> {
+                PeerNetManager p1 = new PeerNetManager(ID1, 12345, e -> {
                 }, e -> c1Promise.complete((String) e.getNewValue()), e -> {
                 });
-                Peer c2 = new Peer(ID2, 12346, e -> {
+                PeerNetManager p2 = new PeerNetManager(ID2, 12346, e -> {
                 }, e -> c2Promise.complete((String) e.getNewValue()), e -> {
                 })
         ) {
@@ -90,10 +90,10 @@ class ChatTest {
         CompletableFuture<ChatRoom> chat1Promise = new CompletableFuture<>();
         CompletableFuture<ChatRoom> chat2Promise = new CompletableFuture<>();
         try (
-                Peer c1 = new Peer(ID1, 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
+                PeerNetManager p1 = new PeerNetManager(ID1, 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
                         e -> c1Promise.complete((String) e.getNewValue()), e -> {
                 });
-                Peer c2 = new Peer(ID2, 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
+                PeerNetManager p2 = new PeerNetManager(ID2, 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
                         e -> c2Promise.complete((String) e.getNewValue()), e -> {
                 })
         ) {
@@ -101,7 +101,7 @@ class ChatTest {
             c2Promise.get(500, TimeUnit.MILLISECONDS);
 
             Set<String> users = Set.of(ID1, ID2);
-            c1.createRoom("room", users);
+            p1.getController().createRoom("room", users);
 
             ChatRoom chat1 = chat1Promise.get(500, TimeUnit.MILLISECONDS);
             ChatRoom chat2 = chat2Promise.get(500, TimeUnit.MILLISECONDS);
@@ -124,14 +124,15 @@ class ChatTest {
         CompletableFuture<Message> msg1Promise = new CompletableFuture<>();
         CompletableFuture<Message> msg2Promise = new CompletableFuture<>();
         try (
-                Peer c1 = new Peer(ID1, 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
+                PeerNetManager p1 = new PeerNetManager(ID1, 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
                         e -> c1Promise.complete((String) e.getNewValue()),
                         e -> msg1Promise.complete(((MessageGUI) e.getNewValue()).message()));
 
-                Peer c2 = new Peer(ID2, 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
+                PeerNetManager p2 = new PeerNetManager(ID2, 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
                         e -> c2Promise.complete((String) e.getNewValue()),
                         e -> msg2Promise.complete(((MessageGUI) e.getNewValue()).message()))
         ) {
+            PeerController c1 = p1.getController();
             System.out.println(c1Promise.get(500, TimeUnit.MILLISECONDS));
             System.out.println(c2Promise.get(500, TimeUnit.MILLISECONDS));
 
@@ -169,21 +170,23 @@ class ChatTest {
         CountDownLatch users2 = new CountDownLatch(2);
         CountDownLatch users3 = new CountDownLatch(2);
         try (
-                Peer c1 = new Peer(ID1, 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
+                PeerNetManager p1 = new PeerNetManager(ID1, 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
                         e -> users1.countDown(),
                         e -> msg1Promise.complete(((MessageGUI) e.getNewValue()).message()));
 
-                Peer c2 = new Peer(ID2, 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
+                PeerNetManager p2 = new PeerNetManager(ID2, 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
                         e -> users2.countDown(),
                         e -> msg2Promise.complete(((MessageGUI) e.getNewValue()).message()));
 
-                Peer c3 = new Peer(ID3, 12347, e -> chat3Promise.complete((ChatRoom) e.getNewValue()),
+                PeerNetManager p3 = new PeerNetManager(ID3, 12347, e -> chat3Promise.complete((ChatRoom) e.getNewValue()),
                         e -> users3.countDown(),
                         e -> {
                             msg3List.add(((MessageGUI) e.getNewValue()).message());
                             msg3.countDown();
                         })
         ) {
+            PeerController c1 = p1.getController();
+            PeerController c2 = p2.getController();
             assertTrue(users1.await(500, TimeUnit.MILLISECONDS));
             assertTrue(users2.await(500, TimeUnit.MILLISECONDS));
             assertTrue(users3.await(500, TimeUnit.MILLISECONDS));
@@ -245,7 +248,7 @@ class ChatTest {
         CompletableFuture<String> disc3Promise = new CompletableFuture<>();
         CountDownLatch disc2 = new CountDownLatch(2);
         try (
-                Peer c1 = new Peer(ID1, 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
+                PeerNetManager p1 = new PeerNetManager(ID1, 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
                         e -> {
                             if (e.getPropertyName().equals("USER_CONNECTED"))
                                 users1.countDown();
@@ -254,7 +257,7 @@ class ChatTest {
                         },
                         e -> msg1Promise.complete(((MessageGUI) e.getNewValue()).message()));
 
-                Peer c2 = new Peer(ID2, 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
+                PeerNetManager p2 = new PeerNetManager(ID2, 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
                         e -> {
                             if (e.getPropertyName().equals("USER_CONNECTED"))
                                 users2.countDown();
@@ -263,7 +266,7 @@ class ChatTest {
                         },
                         e -> msg2Promise.complete(((MessageGUI) e.getNewValue()).message()));
 
-                Peer c3 = new Peer(ID3, 12347, e -> chat3Promise.complete((ChatRoom) e.getNewValue()),
+                PeerNetManager p3 = new PeerNetManager(ID3, 12347, e -> chat3Promise.complete((ChatRoom) e.getNewValue()),
                         e -> {
                             if (e.getPropertyName().equals("USER_CONNECTED"))
                                 users3.countDown();
@@ -272,6 +275,7 @@ class ChatTest {
                         },
                         e -> msg3Promise.complete(((MessageGUI) e.getNewValue()).message()))
         ) {
+            PeerController c1 = p1.getController();
             assertTrue(users1.await(500, TimeUnit.MILLISECONDS));
             assertTrue(users2.await(500, TimeUnit.MILLISECONDS));
             assertTrue(users3.await(500, TimeUnit.MILLISECONDS));
@@ -283,7 +287,7 @@ class ChatTest {
             ChatRoom chat2 = chat2Promise.get(500, TimeUnit.MILLISECONDS);
             ChatRoom chat3 = chat3Promise.get(500, TimeUnit.MILLISECONDS);
 
-            c2.disconnect();
+            p2.disconnect();
 
             assertTrue(disc2.await(500, TimeUnit.MILLISECONDS));
             assertEquals(ID2, disc1Promise.get(500, TimeUnit.MILLISECONDS));
@@ -307,7 +311,7 @@ class ChatTest {
             assertEquals("TEST", msg.msg());
             assertEquals(ID1, msg.sender());
 
-            c2.start();
+            p2.start();
 
             Message m2 = msg2Promise.get(500, TimeUnit.MILLISECONDS);
             assertEquals("TEST", m2.msg());
@@ -336,7 +340,7 @@ class ChatTest {
 
         AtomicReference<Socket> socketRef = new AtomicReference<>();
         try (
-                Peer c1 = new Peer(ID1, 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
+                PeerNetManager p1 = new PeerNetManager(ID1, 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
                         e -> {
                             if (e.getPropertyName().equals("USER_CONNECTED"))
                                 users1Promise.complete((String) e.getNewValue());
@@ -345,7 +349,7 @@ class ChatTest {
                         },
                         e -> msg1Promise.complete(((MessageGUI) e.getNewValue()).message()));
 
-                Peer c2 = new Peer(ID2, 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
+                PeerNetManager p2 = new PeerNetManager(ID2, 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
                         e -> {
                             if (e.getPropertyName().equals("USER_CONNECTED"))
                                 users2Promise.complete((String) e.getNewValue());
@@ -364,6 +368,8 @@ class ChatTest {
                     }
                 }
         ) {
+            PeerController c1 = p1.getController();
+            PeerController c2 = p2.getController();
             users1Promise.get(500, TimeUnit.MILLISECONDS);
             users2Promise.get(500, TimeUnit.MILLISECONDS);
 
@@ -429,7 +435,7 @@ class ChatTest {
         CompletableFuture<String> disc1Promise = new CompletableFuture<>();
         CompletableFuture<String> disc2Promise = new CompletableFuture<>();
         try (
-                Peer c1 = new Peer(ID1, 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
+                PeerNetManager p1 = new PeerNetManager(ID1, 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
                         e -> {
                             if (e.getPropertyName().equals("USER_CONNECTED"))
                                 if (disc1Promise.isDone())
@@ -444,7 +450,7 @@ class ChatTest {
                             msg1.countDown();
                         });
 
-                Peer c2 = new Peer(ID2, 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
+                PeerNetManager p2 = new PeerNetManager(ID2, 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
                         e -> {
                             if (e.getPropertyName().equals("USER_CONNECTED"))
                                 users2.countDown();
@@ -466,7 +472,7 @@ class ChatTest {
                     }
                 };
 
-                Peer c3 = new Peer(ID3, 12347, e -> chat3Promise.complete((ChatRoom) e.getNewValue()),
+                PeerNetManager p3 = new PeerNetManager(ID3, 12347, e -> chat3Promise.complete((ChatRoom) e.getNewValue()),
                         e -> {
                             if (e.getPropertyName().equals("USER_CONNECTED"))
                                 users3.countDown();
@@ -475,6 +481,8 @@ class ChatTest {
                         },
                         e -> msg3Promise.complete(((MessageGUI) e.getNewValue()).message()))
         ) {
+            PeerController c1 = p1.getController();
+            PeerController c3 = p3.getController();
             assertTrue(users1.await(500, TimeUnit.MILLISECONDS));
             assertTrue(users2.await(500, TimeUnit.MILLISECONDS));
             assertTrue(users3.await(500, TimeUnit.MILLISECONDS));
@@ -555,7 +563,7 @@ class ChatTest {
         CompletableFuture<String> disc2Promise = new CompletableFuture<>();
 
         try (
-                Peer c1 = new Peer(ID1, 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
+                PeerNetManager p1 = new PeerNetManager(ID1, 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
                         e -> {
                             if (e.getPropertyName().equals("USER_CONNECTED"))
                                 users1.countDown();
@@ -567,7 +575,7 @@ class ChatTest {
                             msg1.countDown();
                         });
 
-                Peer c2 = new Peer(ID2, 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
+                PeerNetManager p2 = new PeerNetManager(ID2, 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
                         e -> {
                             if (e.getPropertyName().equals("USER_CONNECTED"))
                                 if (disc2Promise.isDone())
@@ -592,7 +600,7 @@ class ChatTest {
                     }
                 };
 
-                Peer c3 = new Peer(ID3, 12347, e -> chat3Promise.complete((ChatRoom) e.getNewValue()),
+                PeerNetManager p3 = new PeerNetManager(ID3, 12347, e -> chat3Promise.complete((ChatRoom) e.getNewValue()),
                         e -> {
                             if (e.getPropertyName().equals("USER_CONNECTED"))
                                 users3.countDown();
@@ -601,6 +609,9 @@ class ChatTest {
                         },
                         e -> msg3Promise.complete(((MessageGUI) e.getNewValue()).message()))
         ) {
+            PeerController c1 = p1.getController();
+            PeerController c2 = p2.getController();
+            PeerController c3 = p3.getController();
             assertTrue(users1.await(500, TimeUnit.MILLISECONDS));
             assertTrue(users2.await(500, TimeUnit.MILLISECONDS));
             assertTrue(users3.await(500, TimeUnit.MILLISECONDS));
@@ -666,20 +677,23 @@ class ChatTest {
         CompletableFuture<String> users2Promise = new CompletableFuture<>();
 
         try (
-                Peer c1 = new Peer(ID1, 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
+                PeerNetManager p1 = new PeerNetManager(ID1, 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
                         e -> {
                             if (e.getPropertyName().equals("USER_CONNECTED"))
                                 users1Promise.complete((String) e.getNewValue());
                         },
                         e -> msg1Latch.countDown());
 
-                Peer c2 = new Peer(ID2, 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
+                PeerNetManager p2 = new PeerNetManager(ID2, 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
                         e -> {
                             if (e.getPropertyName().equals("USER_CONNECTED"))
                                 users2Promise.complete((String) e.getNewValue());
                         },
                         e -> msg2Latch.countDown())
         ) {
+            PeerController c1 = p1.getController();
+            PeerController c2 = p2.getController();
+
             users1Promise.get(500, TimeUnit.MILLISECONDS);
             users2Promise.get(500, TimeUnit.MILLISECONDS);
 
@@ -712,20 +726,23 @@ class ChatTest {
         CompletableFuture<String> users2Promise_new = new CompletableFuture<>();
 
         try (
-                Peer c1 = new Peer(ID1, 12345, e -> chat1Promise_new.complete((ChatRoom) e.getNewValue()),
+                PeerNetManager p1 = new PeerNetManager(ID1, 12345, e -> chat1Promise_new.complete((ChatRoom) e.getNewValue()),
                         e -> {
                             if (e.getPropertyName().equals("USER_CONNECTED"))
                                 users1Promise_new.complete((String) e.getNewValue());
                         },
                         e -> msg1Promise.complete(((MessageGUI) e.getNewValue()).message()));
 
-                Peer c2 = new Peer(ID2, 12346, e -> chat2Promise_new.complete((ChatRoom) e.getNewValue()),
+                PeerNetManager p2 = new PeerNetManager(ID2, 12346, e -> chat2Promise_new.complete((ChatRoom) e.getNewValue()),
                         e -> {
                             if (e.getPropertyName().equals("USER_CONNECTED"))
                                 users2Promise_new.complete((String) e.getNewValue());
                         },
                         e -> msg2Promise.complete(((MessageGUI) e.getNewValue()).message()))
         ) {
+            PeerController c1 = p1.getController();
+            PeerController c2 = p2.getController();
+
             users1Promise.get(500, TimeUnit.MILLISECONDS);
             users2Promise.get(500, TimeUnit.MILLISECONDS);
 

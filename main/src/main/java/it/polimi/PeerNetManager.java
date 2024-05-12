@@ -1,35 +1,32 @@
 package it.polimi;
 
 import it.polimi.Exceptions.PeerAlreadyConnectedException;
-import it.polimi.packets.*;
-import it.polimi.utility.ChatToBackup;
-import it.polimi.utility.Message;
 import org.jetbrains.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
-import java.io.*;
+import java.io.Closeable;
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketAddress;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.*;
+import java.util.Collections;
+import java.util.Map;
+import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.*;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 
-public class Peer implements Closeable {
-    static final String SAVE_DIR = STR."\{System.getProperty("user.home")}\{File.separator}HACOBackup\{File.separator}";
+public class PeerNetManager implements Closeable {
     private static final int DEFAULT_RECONNECT_TIMEOUT_SECONDS = 5;
-    private static final Logger LOGGER = LoggerFactory.getLogger(Peer.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(PeerNetManager.class);
 
     private final String id;
-    private final boolean testing;
     private final int port;
     private final Set<ChatRoom> chats;
     private final PropertyChangeSupport roomsPropertyChangeSupport;
@@ -40,7 +37,6 @@ public class Peer implements Closeable {
     private volatile ScheduledFuture<?> reconnectTask;
     private volatile Future<?> acceptTask;
     private volatile ServerSocket serverSocket;
-    private final String saveDirectory;
     private final Map<String, SocketAddress> ips;
     private final Set<String> disconnectedIds;
     private final Map<String, SocketManager> sockets;
@@ -50,28 +46,27 @@ public class Peer implements Closeable {
     private boolean connected;
     private final int reconnectTimeoutSeconds;
 
-    private final Set<String> degradedConnections;
-    private final Map<String, Set<P2PPacket>> disconnectMsgs = new ConcurrentHashMap<>();
-
     /**
      * Lock to acquire before connect to / accept connection from a new peer
      * to avoid that two peer try to connect to each other at the same time.
      */
     private final Lock connectLock = new ReentrantLock();
     private final DiscoveryConnector discovery;
+    private final PeerController controller;
+    private final BackupManager backupManager;
 
     @VisibleForTesting
-    Peer(String id, int port,
-         PropertyChangeListener chatRoomsChangeListener,
-         PropertyChangeListener usersChangeListener,
-         PropertyChangeListener msgChangeListener) {
-        this("localhost", id, port, chatRoomsChangeListener, usersChangeListener, msgChangeListener, true, 1);
+    PeerNetManager(String id, int port,
+                   PropertyChangeListener chatRoomsChangeListener,
+                   PropertyChangeListener usersChangeListener,
+                   PropertyChangeListener msgChangeListener) {
+        this("localhost", id, port, chatRoomsChangeListener, usersChangeListener, msgChangeListener, 1);
     }
 
     /**
      * Creates a new peer
      * <p>
-     * Tries to recover an existing backup (see {@link #getFromBackup()}
+     * Tries to recover an existing backup (see {@link BackupManager#getFromBackup()}
      * and calls {@link #start()}
      *
      * @param discoveryAddr           address of the discovery server
@@ -81,30 +76,27 @@ public class Peer implements Closeable {
      * @param usersChangeListener     listener to call when a user is connected or disconnected
      * @param msgChangeListener       listener to call when a new message is received
      */
-    public Peer(String discoveryAddr, String id, int port,
-                PropertyChangeListener chatRoomsChangeListener,
-                PropertyChangeListener usersChangeListener,
-                PropertyChangeListener msgChangeListener) {
-        this(discoveryAddr, id, port, chatRoomsChangeListener, usersChangeListener, msgChangeListener, false, DEFAULT_RECONNECT_TIMEOUT_SECONDS);
+    public PeerNetManager(String discoveryAddr, String id, int port,
+                          PropertyChangeListener chatRoomsChangeListener,
+                          PropertyChangeListener usersChangeListener,
+                          PropertyChangeListener msgChangeListener) {
+        this(discoveryAddr, id, port, chatRoomsChangeListener, usersChangeListener, msgChangeListener, DEFAULT_RECONNECT_TIMEOUT_SECONDS);
     }
 
-    private Peer(String discoveryAddr, String id, int port,
-                 PropertyChangeListener chatRoomsChangeListener,
-                 PropertyChangeListener usersChangeListener,
-                 PropertyChangeListener msgChangeListener,
-                 boolean testing,
-                 int reconnectTimeoutSeconds) {
+    private PeerNetManager(String discoveryAddr, String id, int port,
+                           PropertyChangeListener chatRoomsChangeListener,
+                           PropertyChangeListener usersChangeListener,
+                           PropertyChangeListener msgChangeListener,
+                           int reconnectTimeoutSeconds) {
         this.id = id;
-        this.saveDirectory = SAVE_DIR + id + File.separator;
         this.port = port;
-        this.testing = testing;
         discovery = new DiscoveryConnector(new InetSocketAddress(discoveryAddr, 8080), id, port);
 
         this.msgChangeListener = msgChangeListener;
 
-        chats = getFromBackup();
+        backupManager = new BackupManager(id, msgChangeListener);
+        chats = backupManager.getFromBackup();
         sockets = new ConcurrentHashMap<>();
-        degradedConnections = ConcurrentHashMap.newKeySet();
         ips = new ConcurrentHashMap<>();
         disconnectedIds = ConcurrentHashMap.newKeySet();
 
@@ -119,6 +111,8 @@ public class Peer implements Closeable {
         for (ChatRoom c : chats) {
             roomsPropertyChangeSupport.firePropertyChange("ADD_ROOM", null, c);
         }
+
+        controller = new PeerController(id, chats, sockets, msgChangeListener, roomsPropertyChangeSupport, executorService, backupManager, this::onPeerDisconnected);
 
         start();
     }
@@ -151,7 +145,6 @@ public class Peer implements Closeable {
         }
         connect();
     }
-
 
     /**
      * Connect to peers in the {@link #ips} map.
@@ -203,46 +196,6 @@ public class Peer implements Closeable {
         return new Socket();
     }
 
-    private Set<ChatRoom> getFromBackup() {
-        var saveDir = new File(saveDirectory);
-        var files = saveDir.listFiles();
-        Set<ChatRoom> tempChats = ConcurrentHashMap.newKeySet();
-
-        if (files == null)
-            return tempChats;
-
-        for (File f : files) {
-            try (FileInputStream fileInputStream = new FileInputStream(f);
-                 ObjectInputStream objectInputStream = new ObjectInputStream(fileInputStream)) {
-                ChatToBackup tempChat = (ChatToBackup) objectInputStream.readObject();
-                tempChats.add(new ChatRoom(tempChat.name(), tempChat.users(), tempChat.id(), msgChangeListener,
-                        tempChat.vectorClocks(), tempChat.waiting(), tempChat.received()));
-            } catch (IOException | ClassNotFoundException e) {
-                LOGGER.error(STR."[\{this.id}] Error reading file \{f} from backup", e);
-            }
-        }
-        return tempChats;
-    }
-
-    private void backupChats() {
-        //Create all save directories
-        try {
-            Files.createDirectories(Paths.get(saveDirectory));
-        } catch (IOException e) {
-            LOGGER.error(STR."[\{this.id}] Error creating backup folder", e);
-        }
-        for (ChatRoom c : chats) {
-            File backupFile = new File(STR."\{saveDirectory}\{c.getId()}.dat");
-            try (FileOutputStream fileOutputStream = new FileOutputStream(backupFile);
-                 ObjectOutputStream objectOutputStream = new ObjectOutputStream(fileOutputStream)) {
-                objectOutputStream.writeObject(new ChatToBackup(c));
-            } catch (IOException e) {
-                LOGGER.error(STR."[\{this.id} Error during backup of chat \{c}", e);
-            }
-        }
-    }
-
-
     /**
      * Connect to a peer and send queued message.
      * <p>
@@ -253,7 +206,7 @@ public class Peer implements Closeable {
      * @param addr address of the other peer
      * @throws PeerAlreadyConnectedException if this peer was connected before the lock is acquired
      * @throws IOException                   in case of communication problems
-     * @see #resendQueued(String)
+     * @see PeerController#resendQueued(String)
      */
     private void connectToSinglePeer(String id, SocketAddress addr) throws PeerAlreadyConnectedException, IOException {
         connectLock.lock();
@@ -281,147 +234,15 @@ public class Peer implements Closeable {
 
         usersPropertyChangeSupport.firePropertyChange("USER_CONNECTED", null, id);
 
-        resendQueued(id);
-    }
-
-    /**
-     * Resend queued packets to a peer
-     * <p>
-     * Tries to resend packets in the {@link #disconnectedIds} list (sent to a peer when it was disconnected).
-     * Removes packets from the list when they are sent successfully.
-     *
-     * @param id id of the peer
-     */
-    private void resendQueued(String id) {
-        if (disconnectMsgs.containsKey(id)) {
-            Iterator<P2PPacket> iter = disconnectMsgs.get(id).iterator();
-            while (iter.hasNext()) {
-                if (!sendSinglePeer(iter.next(), id)) {
-                    break;
-                } else {
-                    iter.remove();
-                }
-            }
-        }
-    }
-
-
-    /**
-     * Send a message to the given chat
-     * <p>
-     * Sends the message to all users in the given chat.
-     * If the delayedTime param is 0, a {@link MessagePacket} is sent, otherwise a {@link DelayedMessagePacket} is sent.
-     * <p>
-     * Warning: this method is NOT thread-safe.
-     * If it is called simultaneously by two threads, there is no guarantee on the order of the two messages.
-     *
-     * @param msg         the message to be sent
-     * @param chat        chat where the message is sent
-     * @param delayedTime seconds to wait before sending the message (for testing purposes)
-     */
-    public void sendMessage(String msg, ChatRoom chat, int delayedTime) {
-        boolean isDelayed = delayedTime != 0;
-
-        Message m = chat.send(msg, id);
-
-        //Send a MessagePacket containing the Message just created to each User of the ChatRoom
-        if (!isDelayed) {
-            Set<String> normalPeers = new HashSet<>(chat.getUsers());
-            if (testing) {
-                normalPeers.removeAll(degradedConnections);
-                sendPacket(new DelayedMessagePacket(chat.getId(), m, 2), degradedConnections);
-            }
-            sendPacket(new MessagePacket(chat.getId(), m), normalPeers);
-        } else {
-            sendPacket(new DelayedMessagePacket(chat.getId(), m, delayedTime), chat.getUsers());
-        }
+        controller.resendQueued(id);
     }
 
     public Map<String, SocketAddress> getIps() {
         return Collections.unmodifiableMap(ips);
     }
 
-    public void createRoom(String name, Set<String> users) {
-        LOGGER.info(STR."[\{this.id}] Creating room \{name}");
-
-        //Add the ChatRoom to the list of available ChatRooms
-        ChatRoom newRoom = new ChatRoom(name, users, msgChangeListener);
-        chats.add(newRoom);
-
-        //Inform all the users about the creation of the new chat room by sending to them a CreateRoomPacket
-        sendPacket(new CreateRoomPacket(newRoom.getId(), name, users), users);
-
-        //Fires ADD_ROOM Event in order to update the GUI
-        roomsPropertyChangeSupport.firePropertyChange("ADD_ROOM", null, newRoom);
-    }
-
-    public void deleteRoom(ChatRoom toDelete) {
-        LOGGER.info(STR."[\{this.id}] Deleting room \{toDelete.getName()} \{toDelete.getId()}");
-        chats.remove(toDelete);
-
-        sendPacket(new DeleteRoomPacket(toDelete.getId()), toDelete.getUsers());
-        removeChatBackup(toDelete);
-        roomsPropertyChangeSupport.firePropertyChange("DEL_ROOM", toDelete, null);
-    }
-
-    private void removeChatBackup(ChatRoom toDelete) {
-        File chatToDelete = new File(STR."\{saveDirectory}\{toDelete.getId()}.dat");
-        // If the file is not deleted is means that it wasn't backed up in the first place
-        // We don't care for the deletion outcome
-        chatToDelete.delete();
-    }
-
     public String getId() {
         return id;
-    }
-
-    /**
-     * Sends the packet to the given peers
-     * <p>
-     * For each connected peer (peer in the {@link #sockets} map, calls {@link #sendSinglePeer(P2PPacket, String)}.
-     * For disconnected peers, adds the message to the {@link #disconnectMsgs} queue
-     *
-     * @param packet packet to be sent
-     * @param ids    ids of peers to send to
-     */
-    private void sendPacket(P2PPacket packet, Set<String> ids) {
-        ids.forEach(id -> {
-            if (!id.equals(this.id)) {
-                if (sockets.containsKey(id)) {
-                    executorService.execute(() -> {
-                        LOGGER.trace(STR."[\{this.id}] sending \{packet} to \{id}");
-                        sendSinglePeer(packet, id);
-                    });
-                } else {
-                    LOGGER.warn(STR."[\{this.id}] Peer \{id} currently disconnected, enqueuing packet only for him...");
-                    disconnectMsgs.computeIfAbsent(id, _ -> ConcurrentHashMap.newKeySet());
-                    disconnectMsgs.get(id).add(packet);
-                }
-            }
-        });
-    }
-
-    /**
-     * Send the packet to the given peer
-     * <p>
-     * If the sending fails, adds the message to the {@link #disconnectMsgs} queue
-     * and calls {@link #onPeerDisconnected(String, Throwable)}
-     *
-     * @param packet packet to be sent
-     * @param id     id of the peer to send to
-     * @return true if the packet is correctly sent (ack received)
-     */
-    private boolean sendSinglePeer(P2PPacket packet, String id) {
-        try {
-            sockets.get(id).send(packet);
-            return true;
-        } catch (IOException e) {
-            LOGGER.warn(STR."[\{this.id}] Error sending message to \{id}. Enqueuing it...", e);
-            disconnectMsgs.computeIfAbsent(id, _ -> ConcurrentHashMap.newKeySet());
-            disconnectMsgs.get(id).add(packet);
-            onPeerDisconnected(id, e);
-        }
-        return false;
     }
 
     /**
@@ -453,13 +274,12 @@ public class Peer implements Closeable {
         ips.clear();
     }
 
-    @VisibleForTesting
-    void degradePerformance(String id) {
-        degradedConnections.add(id);
-    }
-
     public boolean isConnected() {
         return this.connected;
+    }
+
+    public PeerController getController() {
+        return controller;
     }
 
     /**
@@ -468,7 +288,7 @@ public class Peer implements Closeable {
      * Accepts new connections from other peers.
      * Acquire the {@link #connectLock} when accepting a new connection to be sure that
      * we aren't connecting to the other peer at the same time.
-     * Creates the {@link SocketManager} for each connected peer and resend queues messages calling {@link #resendQueued(String)}
+     * Creates the {@link SocketManager} for each connected peer and resend queues messages calling {@link PeerController#resendQueued(String)}
      */
     private void runServer() {
         final Random random = new Random();
@@ -544,7 +364,7 @@ public class Peer implements Closeable {
 
             usersPropertyChangeSupport.firePropertyChange("USER_CONNECTED", null, otherId);
 
-            resendQueued(otherId);
+            controller.resendQueued(otherId);
         }
     }
 
@@ -569,26 +389,19 @@ public class Peer implements Closeable {
         usersPropertyChangeSupport.firePropertyChange("USER_DISCONNECTED", id, null);
     }
 
-    @VisibleForTesting
-    Set<P2PPacket> getDiscMsg(String id) {
-        if (disconnectMsgs.containsKey(id))
-            return Collections.unmodifiableSet(disconnectMsgs.get(id));
-        return null;
-    }
-
     /**
      * Close the peer
      * <p>
      * Disconnect from the network, shutdown tasks and backup chats
      *
      * @see #disconnect()
-     * @see #backupChats()
+     * @see BackupManager#backupChats(Set)
      */
     @Override
     public void close() {
         disconnect();
         scheduledExecutorService.shutdownNow();
         executorService.shutdownNow();
-        backupChats();
+        backupManager.backupChats(Collections.unmodifiableSet(chats));
     }
 }

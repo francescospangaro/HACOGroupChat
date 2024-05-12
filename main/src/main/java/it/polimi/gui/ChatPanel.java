@@ -1,7 +1,8 @@
 package it.polimi.gui;
 
 import it.polimi.ChatRoom;
-import it.polimi.Peer;
+import it.polimi.PeerController;
+import it.polimi.PeerNetManager;
 import it.polimi.utility.MessageGUI;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,7 +33,8 @@ public class ChatPanel {
     private JLabel chatLabel;
     private JPanel left;
     private JCheckBox detailedViewCheckBox;
-    private volatile Peer peer;
+    private volatile PeerNetManager peerNetManager;
+    private volatile PeerController peerController;
     private final ExecutorService executorService = Executors.newCachedThreadPool();
 
     private DefaultListModel<MessageBubble> msgListModel = new DefaultListModel<>();
@@ -40,15 +42,15 @@ public class ChatPanel {
     public ChatPanel(JFrame frame, String discovery, String user, int port) {
         //Want to create a new Group for chatting
         newChatButton.addActionListener(e -> executorService.execute(() -> {
-            CreateRoomDialog dialog = new CreateRoomDialog(peer.getIps().keySet());
+            CreateRoomDialog dialog = new CreateRoomDialog(peerNetManager.getIps().keySet());
 
             if (dialog.isConfirmed()) {
                 Set<String> users = dialog.getSelectedUsers();
-                users.add(peer.getId());
+                users.add(peerNetManager.getId());
                 String name = dialog.getRoomName();
 
                 //Request the creation of the room with this name and with all the users
-                peer.createRoom(name, users);
+                peerController.createRoom(name, users);
             }
         }));
 
@@ -63,11 +65,11 @@ public class ChatPanel {
 
         deleteButton.addActionListener(e -> executorService.execute(() -> {
             ChatRoom toDelete = (ChatRoom) chatRooms.getSelectedItem();
-            peer.deleteRoom(toDelete);
+            peerController.deleteRoom(toDelete);
         }));
 
         disconnectReconnectButton.addActionListener(e ->
-                setConnected(!peer.isConnected())
+                setConnected(!peerNetManager.isConnected())
         );
 
         chatRooms.addItemListener(e -> {
@@ -99,8 +101,8 @@ public class ChatPanel {
         frame.addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosed(WindowEvent windowEvent) {
-                if (peer != null)
-                    peer.close();
+                if (peerNetManager != null)
+                    peerNetManager.close();
                 executorService.shutdownNow();
             }
         });
@@ -141,15 +143,15 @@ public class ChatPanel {
                     JOptionPane.ERROR_MESSAGE);
 
             //Try to disconnect before killing
-            if (peer != null && peer.isConnected()) {
-                peer.close();
+            if (peerNetManager != null && peerNetManager.isConnected()) {
+                peerNetManager.close();
             }
 
             System.exit(-1);
         });
 
         executorService.execute(() -> {
-            peer = new Peer(discovery, user, port, evt -> SwingUtilities.invokeLater(() -> {
+            peerNetManager = new PeerNetManager(discovery, user, port, evt -> SwingUtilities.invokeLater(() -> {
                 if (evt.getPropertyName().equals("ADD_ROOM")) {
                     ChatRoom chat = (ChatRoom) evt.getNewValue();
                     LOGGER.trace(STR."Room \{chat} added in gui");
@@ -188,7 +190,8 @@ public class ChatPanel {
                     }
                 }
             });
-            LOGGER.info(STR."Started \{peer}");
+            LOGGER.info(STR."Started \{peerNetManager}");
+            peerController = peerNetManager.getController();
             SwingUtilities.invokeLater(() -> {
                 connectedLabel.setText("Connected");
                 connectedLabel.setForeground(new Color(0, 153, 51));
@@ -228,7 +231,7 @@ public class ChatPanel {
             delay = 0;
         }
 
-        peer.sendMessage(msg, chat, delay);
+        peerController.sendMessage(msg, chat, delay);
         try {
             Thread.sleep(500);
         } catch (InterruptedException e) {
@@ -242,7 +245,7 @@ public class ChatPanel {
             executorService.execute(() -> {
                 connectedLabel.setText("Connecting...");
                 connectedLabel.setForeground(Color.yellow);
-                peer.start();
+                peerNetManager.start();
                 SwingUtilities.invokeLater(() -> {
                     connectedLabel.setText("Connected");
                     connectedLabel.setForeground(new Color(0, 153, 51));
@@ -254,7 +257,7 @@ public class ChatPanel {
         } else {
             disconnectReconnectButton.setEnabled(false);
             executorService.execute(() -> {
-                peer.disconnect();
+                peerNetManager.disconnect();
                 SwingUtilities.invokeLater(() -> {
                     connectedLabel.setText("Disconnected");
                     connectedLabel.setForeground(Color.red);
