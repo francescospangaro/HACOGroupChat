@@ -11,13 +11,14 @@ import java.beans.PropertyChangeSupport;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BiConsumer;
 
 public class PeerController {
     private static final Logger LOGGER = LoggerFactory.getLogger(PeerController.class);
     private final Set<String> degradedConnections = ConcurrentHashMap.newKeySet();
-    private final Map<String, Set<P2PPacket>> disconnectMsgs = new ConcurrentHashMap<>();
+    private final Map<String, Queue<P2PPacket>> disconnectMsgs = new ConcurrentHashMap<>();
     private final String id;
     private final Set<ChatRoom> chats;
     private final Map<String, SocketManager> sockets;
@@ -136,8 +137,7 @@ public class PeerController {
                     });
                 } else {
                     LOGGER.warn(STR."[\{this.id}] Peer \{id} currently disconnected, enqueuing packet only for him...");
-                    disconnectMsgs.computeIfAbsent(id, _ -> ConcurrentHashMap.newKeySet());
-                    disconnectMsgs.get(id).add(packet);
+                    disconnectMsgs.computeIfAbsent(id, _ -> new ConcurrentLinkedQueue<>()).add(packet);
                 }
             }
         });
@@ -159,8 +159,7 @@ public class PeerController {
             return true;
         } catch (IOException e) {
             LOGGER.warn(STR."[\{this.id}] Error sending message to \{id}. Enqueuing it...", e);
-            disconnectMsgs.computeIfAbsent(id, _ -> ConcurrentHashMap.newKeySet());
-            disconnectMsgs.get(id).add(packet);
+            disconnectMsgs.computeIfAbsent(id, _ -> new ConcurrentLinkedQueue<>()).add(packet);
             onPeerDisconnected.accept(id, e);
         }
         return false;
@@ -172,9 +171,9 @@ public class PeerController {
     }
 
     @VisibleForTesting
-    Set<P2PPacket> getDiscMsg(String id) {
+    Collection<P2PPacket> getDiscMsg(String id) {
         if (disconnectMsgs.containsKey(id))
-            return Collections.unmodifiableSet(disconnectMsgs.get(id));
+            return Collections.unmodifiableCollection(disconnectMsgs.get(id));
         return null;
     }
 }
