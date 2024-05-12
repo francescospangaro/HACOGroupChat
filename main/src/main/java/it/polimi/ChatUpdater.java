@@ -30,7 +30,11 @@ public class ChatUpdater implements Consumer<P2PPacket> {
         //Message handler
         switch (p2PPacket) {
             case MessagePacket m -> {
-                ChatRoom chat = chats.stream().filter(c -> Objects.equals(c.getId(), m.chatId())).findFirst().orElseThrow();
+                ChatRoom chat = chats
+                        .stream()
+                        .filter(c -> Objects.equals(c.getId(), m.chatId()))
+                        .findFirst()
+                        .orElseThrow(() -> new IllegalStateException("This chat does not exists"));
                 chat.push(m.msg());
             }
             //Sends a message with a delay of 7 seconds, in order to test the vector clocks ordering
@@ -42,7 +46,11 @@ public class ChatUpdater implements Consumer<P2PPacket> {
                     } catch (InterruptedException e) {
                         throw new RuntimeException(e);
                     }
-                    ChatRoom chat = chats.stream().filter(c -> Objects.equals(c.getId(), dm.chatId())).findFirst().orElseThrow();
+                    ChatRoom chat = chats
+                            .stream()
+                            .filter(c -> Objects.equals(c.getId(), dm.chatId()))
+                            .findFirst()
+                            .orElseThrow(() -> new IllegalStateException("This chat does not exists"));
                     chat.push(dm.msg());
                 }).start();
             }
@@ -55,7 +63,11 @@ public class ChatUpdater implements Consumer<P2PPacket> {
             }
 
             case DeleteRoomPacket drp -> {
-                ChatRoom toDelete = chats.stream().filter(c -> Objects.equals(c.getId(), drp.id())).findFirst().orElseThrow();
+                ChatRoom toDelete = chats
+                        .stream()
+                        .filter(c -> Objects.equals(c.getId(), drp.id()))
+                        .findFirst()
+                        .orElseThrow(() -> new IllegalStateException("This chat does not exists"));
                 LOGGER.info(STR."Deleting room \{toDelete.getName()} \{drp.id()}");
                 chats.remove(toDelete);
                 propertyChangeSupport.firePropertyChange("DEL_ROOM", toDelete, null);

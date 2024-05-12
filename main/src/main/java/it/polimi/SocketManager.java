@@ -173,7 +173,11 @@ public class SocketManager implements Closeable {
                             otherId.complete(helloPacket.id());
                             serverPort.complete(helloPacket.serverPort());
                         } else {
-                            inPacketConsumer.accept(seqPacket.p());
+                            try {
+                                inPacketConsumer.accept(seqPacket.p());
+                            } catch (Throwable ex) {
+                                LOGGER.error(STR."Error processing the packet \{seqPacket.p()}.", ex);
+                            }
                         }
                     }
                 }
