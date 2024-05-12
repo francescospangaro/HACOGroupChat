@@ -23,6 +23,6 @@ public class MainServer {
 
 
         DiscoveryServer s = new DiscoveryServer();
-        s.run();
+        s.start();
     }
 }

@@ -36,7 +36,8 @@ class ChatTest {
         //Delete previous backup files (just to be sure)
         deleteBackups();
 
-        CompletableFuture.runAsync(discovery = new DiscoveryServer());
+        discovery = new DiscoveryServer();
+        CompletableFuture.runAsync(() -> discovery.start());
     }
 
     @AfterAll
