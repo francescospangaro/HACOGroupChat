@@ -143,7 +143,7 @@ class ChatTest {
             ChatRoom chat = chat1Promise.get(500, TimeUnit.MILLISECONDS);
             chat2Promise.get(500, TimeUnit.MILLISECONDS);
 
-            c1.sendMessage("TEST", chat, 0);
+            c1.sendMessage("TEST", chat);
 
             Message m1 = msg1Promise.get(500, TimeUnit.MILLISECONDS);
             Message m2 = msg2Promise.get(1000, TimeUnit.MILLISECONDS);
@@ -199,9 +199,9 @@ class ChatTest {
             ChatRoom chat2 = chat2Promise.get(500, TimeUnit.MILLISECONDS);
             ChatRoom chat3 = chat3Promise.get(500, TimeUnit.MILLISECONDS);
 
-            c1.degradePerformance(ID3);
+            c1.degradeConnection(ID3);
 
-            c1.sendMessage("TEST", chat1, 0);
+            c1.sendMessage("TEST", chat1);
 
             Message m1 = msg1Promise.get(500, TimeUnit.MILLISECONDS);
             Message m2 = msg2Promise.get(500, TimeUnit.MILLISECONDS);
@@ -215,7 +215,7 @@ class ChatTest {
             assertEquals("TEST", m2.msg());
             assertEquals(ID1, m2.sender());
 
-            c2.sendMessage("TEST2", chat2, 0);
+            c2.sendMessage("TEST2", chat2);
 
             for (int i = 0; i < 50; i++) {
                 Thread.sleep(10);
@@ -294,7 +294,7 @@ class ChatTest {
             assertEquals(ID2, disc1Promise.get(500, TimeUnit.MILLISECONDS));
             assertEquals(ID2, disc3Promise.get(500, TimeUnit.MILLISECONDS));
 
-            c1.sendMessage("TEST", chat1, 0);
+            c1.sendMessage("TEST", chat1);
 
             Message m1 = msg1Promise.get(500, TimeUnit.MILLISECONDS);
             Message m3 = msg3Promise.get(500, TimeUnit.MILLISECONDS);
@@ -382,7 +382,7 @@ class ChatTest {
 
             socketRef.get().close();
 
-            c2.sendMessage("TEST", chat2, 0);
+            c2.sendMessage("TEST", chat2);
 
             Message m2 = msg2Promise.get(500, TimeUnit.MILLISECONDS);
             assertEquals("TEST", m2.msg());
@@ -497,7 +497,7 @@ class ChatTest {
 
             socket_c2_c1_ref.get().close();
 
-            c1.sendMessage("TEST", chat1, 0);
+            c1.sendMessage("TEST", chat1);
 
             var m3 = msg3Promise.get(500, TimeUnit.MILLISECONDS);
             assertEquals("TEST", m3.msg());
@@ -505,7 +505,7 @@ class ChatTest {
 
             disc1Promise.get(6, TimeUnit.SECONDS);
 
-            c3.sendMessage("TEST2", chat3, 0);
+            c3.sendMessage("TEST2", chat3);
 
             assertTrue(msg1.await(500, TimeUnit.MILLISECONDS));
 
@@ -626,7 +626,7 @@ class ChatTest {
 
             socket_c2_c1_ref.get().close();
 
-            c2.sendMessage("TEST", chat2, 0);
+            c2.sendMessage("TEST", chat2);
 
             var m3 = msg3Promise.get(500, TimeUnit.MILLISECONDS);
             assertEquals("TEST", m3.msg());
@@ -634,7 +634,7 @@ class ChatTest {
 
             disc2Promise.get(10, TimeUnit.SECONDS);
 
-            c3.sendMessage("TEST2", chat3, 0);
+            c3.sendMessage("TEST2", chat3);
 
             assertTrue(msg2.await(500, TimeUnit.MILLISECONDS));
 
@@ -704,13 +704,13 @@ class ChatTest {
             ChatRoom chat1 = chat1Promise.get(500, TimeUnit.MILLISECONDS);
             ChatRoom chat2 = chat2Promise.get(500, TimeUnit.MILLISECONDS);
 
-            c2.sendMessage("TEST", chat2, 0);
-            c2.sendMessage("TEST2", chat2, 0);
+            c2.sendMessage("TEST", chat2);
+            c2.sendMessage("TEST2", chat2);
 
             assertTrue(msg1Latch.await(500, TimeUnit.MILLISECONDS));
 
-            c1.sendMessage("TEST3", chat1, 0);
-            c1.sendMessage("TEST4", chat1, 0);
+            c1.sendMessage("TEST3", chat1);
+            c1.sendMessage("TEST4", chat1);
 
             assertTrue(msg2Latch.await(500, TimeUnit.MILLISECONDS));
         }
@@ -766,8 +766,8 @@ class ChatTest {
             assertEquals(ID1, savedList1[3].sender());
             assertArrayEquals(savedList1, savedList2);
 
-            c2.sendMessage("new test", chat2, 0);
-            c1.sendMessage("new test2", chat1, 0);
+            c2.sendMessage("new test", chat2);
+            c1.sendMessage("new test2", chat1);
 
             var m1 = msg1Promise.get(500, TimeUnit.MILLISECONDS);
             assertEquals("new test", m1.msg());

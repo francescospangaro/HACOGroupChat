@@ -17,7 +17,7 @@ import java.util.function.BiConsumer;
 
 public class PeerController {
     private static final Logger LOGGER = LoggerFactory.getLogger(PeerController.class);
-    private final Set<String> degradedConnections = ConcurrentHashMap.newKeySet();
+    private final Map<String, Integer> degradedConnections = new ConcurrentHashMap<>();
     private final Map<String, Queue<P2PPacket>> disconnectMsgs = new ConcurrentHashMap<>();
     private final String id;
     private final Set<ChatRoom> chats;
@@ -71,27 +71,21 @@ public class PeerController {
      * Warning: this method is NOT thread-safe.
      * If it is called simultaneously by two threads, there is no guarantee on the order of the two messages.
      *
-     * @param msg         the message to be sent
-     * @param chat        chat where the message is sent
-     * @param delayedTime seconds to wait before sending the message (for testing purposes)
+     * @param msg  the message to be sent
+     * @param chat chat where the message is sent
      */
-    public void sendMessage(String msg, ChatRoom chat, int delayedTime) {
-        boolean isDelayed = delayedTime != 0;
+    public void sendMessage(String msg, ChatRoom chat) {
 
         Message m = chat.send(msg, id);
 
         //Send a MessagePacket containing the Message just created to each User of the ChatRoom
-        if (!isDelayed) {
-            Set<String> normalPeers = new HashSet<>(chat.getUsers());
+        Set<String> normalPeers = new HashSet<>(chat.getUsers());
 
-            //For testing purpose
-            normalPeers.removeAll(degradedConnections);
-            sendPacket(new DelayedMessagePacket(chat.getId(), m, 2), degradedConnections);
+        //For testing purpose
+        normalPeers.removeAll(degradedConnections.keySet());
+        sendPacket(new MessagePacket(chat.getId(), m), normalPeers);
 
-            sendPacket(new MessagePacket(chat.getId(), m), normalPeers);
-        } else {
-            sendPacket(new DelayedMessagePacket(chat.getId(), m, delayedTime), chat.getUsers());
-        }
+        degradedConnections.forEach((u, d) -> sendPacket(new DelayedMessagePacket(chat.getId(), m, d), Set.of(u)));
     }
 
 
@@ -165,9 +159,20 @@ public class PeerController {
         return false;
     }
 
-    @VisibleForTesting
-    void degradePerformance(String id) {
-        degradedConnections.add(id);
+    public void degradeConnection(String id) {
+        degradedConnections.put(id, 2);
+    }
+
+    public void degradeConnections(Map<String, Integer> delays) {
+        degradedConnections.putAll(delays);
+    }
+
+    public void resetDegradedConnections() {
+        degradedConnections.clear();
+    }
+
+    public Map<String, Integer> getDegradedConnections() {
+        return Collections.unmodifiableMap(degradedConnections);
     }
 
     @VisibleForTesting

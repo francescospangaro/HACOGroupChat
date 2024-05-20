@@ -28,11 +28,11 @@ public class ChatPanel {
     private JLabel usernameLabel;
     private JLabel portLabel;
     private JLabel connectedLabel;
-    private JTextField delayTime;
     private JList<String> connectedList;
     private JLabel chatLabel;
     private JPanel left;
     private JCheckBox detailedViewCheckBox;
+    private JButton delaysButton;
     private volatile PeerNetManager peerNetManager;
     private volatile PeerController peerController;
     private final ExecutorService executorService = Executors.newCachedThreadPool();
@@ -124,8 +124,6 @@ public class ChatPanel {
         disconnectReconnectButton.setEnabled(false);
         newChatButton.setEnabled(false);
 
-        delayTime.setColumns(10);
-
         portLabel.setText(String.valueOf(port));
         usernameLabel.setText(user);
 
@@ -208,6 +206,15 @@ public class ChatPanel {
                     return new LeftArrowBubble(m.sender(), detailedViewCheckBox.isSelected() ? m.toDetailedString() : m.toString());
             }).toList());
         });
+
+        delaysButton.addActionListener(e -> {
+            DegradeConnectionsDialog dialog = new DegradeConnectionsDialog(peerNetManager.getIps().keySet(), peerController.getDegradedConnections());
+
+            if (dialog.isConfirmed()) {
+                peerController.resetDegradedConnections();
+                peerController.degradeConnections(dialog.getDelays());
+            }
+        });
     }
 
     private void send() {
@@ -221,17 +228,7 @@ public class ChatPanel {
         //Get the ChatRoom selected by the user in which he wants to send the msg
         ChatRoom chat = (ChatRoom) chatRooms.getSelectedItem();
 
-        int delay;
-        try {
-            delay = Integer.parseInt(delayTime.getText());
-            if (delay < 0) {
-                throw new NumberFormatException();
-            }
-        } catch (NumberFormatException ignored) {
-            delay = 0;
-        }
-
-        peerController.sendMessage(msg, chat, delay);
+        peerController.sendMessage(msg, chat);
         try {
             Thread.sleep(500);
         } catch (InterruptedException e) {
