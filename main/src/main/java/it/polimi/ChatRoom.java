@@ -148,22 +148,19 @@ public class ChatRoom {
      */
     private int checkVC(Message m) {
         Map<String, Integer> newClocks = Map.copyOf(m.vectorClocks());
-        int checker = 0;
-        boolean justEnough = false;
+        boolean senderFound = false;
         //Cycle through all users
-        for (String temp : users) {
+        for (String u : users) {
             //If user's PID is increased by one from the one I have, and it's the first time this happens, then ok
-            if ((Objects.equals(newClocks.get(temp), vectorClocks.get(temp) + 1) && !justEnough)) {
-                justEnough = true;
+            if ((newClocks.get(u) == vectorClocks.get(u) + 1 && !senderFound)) {
+                senderFound = true;
                 //If user's PID is greater than expected, or if I find another PID greater than one of the ones I have, then put the message in a queue
-            } else if ((newClocks.get(temp) > vectorClocks.get(temp))) {
+            } else if ((newClocks.get(u) > vectorClocks.get(u))) {
                 return -1;
-            } else if (newClocks.get(temp) <= vectorClocks.get(temp)) {
-                checker++;
             }
         }
         //If all VCs are <= then mine do nothing
-        if (checker == vectorClocks.size()) return 0;
+        if (!senderFound) return 0;
         return 1;
     }
 
