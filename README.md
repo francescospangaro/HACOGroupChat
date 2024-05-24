@@ -14,5 +14,28 @@ can be simulated using OmNet++.
   
 **Assumptions**  
 • Clients are reliable but they can join and leave the network at any time. Network failures and partitions may happen. 
-  
+
+The pdf of the spec is available [here](docs/Projects_assignment_23_24_UPDATE.pdf)
+
 We chose to implement the application with a real distributed application using Java.  
+
+
+## Running the application
+
+The application requires an installation of Java 21. Newer versions cannot be used
+as preview features were used which may have been changed in Java 22. 
+
+The jars can be found in the
+[releases](https://github.com/francescospangaro/HACOGroupChat/releases) section.
+
+The discovery server needs to be run from terminal using the following command:
+
+```shell
+java --enable-preview -jar HACOGroupChat-1.0-discovery.jar
+```
+
+The distributed application needs to be run from terminal using the following command:
+
+```shell
+java --enable-preview -jar HACOGroupChat-1.0-peer.jar
+```
