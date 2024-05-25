@@ -118,7 +118,7 @@ public class SocketManager implements Closeable {
         } catch (TimeoutException e) {
             throw new IOException(e);
         } catch (InterruptedException e) {
-            throw new InterruptedIOException("Interrupted while waiting for the recipient id: " + e.getMessage());
+            throw new InterruptedIOException(STR."Interrupted while waiting for the recipient id: \{e.getMessage()}");
         }
     }
 
@@ -222,7 +222,7 @@ public class SocketManager implements Closeable {
             } catch (TimeoutException e) {
                 throw new IOException(e);
             } catch (InterruptedException e) {
-                throw new InterruptedIOException("Interrupted while waiting for the ack: " + e.getMessage());
+                throw new InterruptedIOException(STR."Interrupted while waiting for the ack: \{e.getMessage()}");
             }
         } finally {
             sendLock.unlock();

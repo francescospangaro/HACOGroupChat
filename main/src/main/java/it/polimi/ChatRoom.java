@@ -84,30 +84,39 @@ public class ChatRoom {
         try {
             pushLock.lock();
             //Checks if the user can accept the message arrived, or if he has to put it in a queue
-            int res = checkVC(m);
-            if (res == 1) {
-                //Increase the PID of the message sender
-                vectorClocks.put(m.sender(), m.vectorClocks().get(m.sender()));
+            switch(checkVC(m)){
+                //Accept message
+                case 1:
+                    //Increase the PID of the message sender
+                    vectorClocks.put(m.sender(), m.vectorClocks().get(m.sender()));
 
-                receivedMsgs.add(m);
+                    receivedMsgs.add(m);
 
-                propertyChangeSupport.firePropertyChange("ADD_MSG", null, new MessageGUI(m, this));
+                    propertyChangeSupport.firePropertyChange("ADD_MSG", null, new MessageGUI(m, this));
 
-                //Check the message queue to see if we can accept any other message
-                checkWaiting();
-            } else if (res == -1) {
-                //puts the message in a queue
-                LOGGER.info(STR."[\{id}] Message \{m.vectorClocks()} added in waiting list");
-                waiting.add(m);
-            } else {
-                //If it doesn't enter any of the above ifs ignore the received message
-                LOGGER.info(STR."[\{id}] Ignoring duplicated message \{m.vectorClocks()}");
+                    //Check the message queue to see if we can accept any other message
+                    checkWaiting();
+                    break;
+                //Message already received
+                case 0:
+                    //If it doesn't enter any of the above ifs ignore the received message
+                    LOGGER.info(STR."[\{id}] Ignoring duplicated message \{m.vectorClocks()}");
+                    break;
+                //Message can't be accepted (arrived out of order)
+                case -1:
+                    //puts the message in a queue
+                    LOGGER.info(STR."[\{id}] Message \{m.vectorClocks()} added in waiting list");
+                    waiting.add(m);
             }
         } finally {
             pushLock.unlock();
         }
     }
 
+    /**
+     * After a message has been accepted checks for all messages enqueued if any other one can be popped.
+     * Check recursively until a cycle in which no messages are popped
+     */
     private void checkWaiting() {
         boolean added;
         do {

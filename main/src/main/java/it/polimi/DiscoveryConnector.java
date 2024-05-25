@@ -49,7 +49,7 @@ public class DiscoveryConnector {
 
                 LOGGER.info(STR."[\{id}] Sent \{packet} to discovery server");
 
-                //Waiting response
+                //Await response
                 var res = (Discovery2PeerPacket) ois.readObject();
                 LOGGER.info(STR."[\{id}] Received response from discovery \{res}");
                 return res;

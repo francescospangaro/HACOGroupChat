@@ -65,7 +65,7 @@ public class BackupManager {
 
     public void removeChatBackup(ChatRoom toDelete) {
         File chatToDelete = new File(STR."\{saveDirectory}\{toDelete.getId()}.dat");
-        // If the file is not deleted is means that it wasn't backed up in the first place
+        // If the file is not deleted it means that it wasn't backed up in the first place
         // We don't care for the deletion outcome
         chatToDelete.delete();
     }

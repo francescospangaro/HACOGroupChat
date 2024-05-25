@@ -81,7 +81,7 @@ public class PeerController {
         //Send a MessagePacket containing the Message just created to each User of the ChatRoom
         Set<String> normalPeers = new HashSet<>(chat.getUsers());
 
-        //For testing purpose
+        //For testing purposes
         normalPeers.removeAll(degradedConnections.keySet());
         sendPacket(new MessagePacket(chat.getId(), m), normalPeers);
 

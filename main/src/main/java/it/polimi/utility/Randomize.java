@@ -13,12 +13,12 @@ public class Randomize {
     }
 
     public static int generateRandomPort() {
-        // Port range is 1-65535
+        // Port range is 12345-65535
         return generateRandomNumberInRange();
     }
 
-    private static String generateRandomString(int length, String characters) {
-        if (length <= 0 || characters == null || characters.isEmpty()) {
+    private static String generateRandomString(int length, String chars) {
+        if (length <= 0 || chars == null || chars.isEmpty()) {
             throw new IllegalArgumentException("Invalid input parameters");
         }
 
@@ -26,8 +26,8 @@ public class Randomize {
         SecureRandom random = new SecureRandom();
 
         for (int i = 0; i < length; i++) {
-            int randomIndex = random.nextInt(characters.length());
-            char randomChar = characters.charAt(randomIndex);
+            int randomIndex = random.nextInt(chars.length());
+            char randomChar = chars.charAt(randomIndex);
             randomString.append(randomChar);
         }
 
