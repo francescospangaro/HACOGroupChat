@@ -380,6 +380,7 @@ class ChatTest {
             ChatRoom chat1 = chat1Promise.get(500, TimeUnit.MILLISECONDS);
             ChatRoom chat2 = chat2Promise.get(500, TimeUnit.MILLISECONDS);
 
+            Thread.sleep(10);
             socketRef.get().close();
 
             c2.sendMessage("TEST", chat2);
@@ -495,6 +496,7 @@ class ChatTest {
             ChatRoom chat2 = chat2Promise.get(500, TimeUnit.MILLISECONDS);
             ChatRoom chat3 = chat3Promise.get(500, TimeUnit.MILLISECONDS);
 
+            Thread.sleep(10);
             socket_c2_c1_ref.get().close();
 
             c1.sendMessage("TEST", chat1);
@@ -624,6 +626,7 @@ class ChatTest {
             ChatRoom chat2 = chat2Promise.get(500, TimeUnit.MILLISECONDS);
             ChatRoom chat3 = chat3Promise.get(500, TimeUnit.MILLISECONDS);
 
+            Thread.sleep(10);
             socket_c2_c1_ref.get().close();
 
             c2.sendMessage("TEST", chat2);

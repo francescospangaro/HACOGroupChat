@@ -152,12 +152,12 @@ public class SocketManager implements Closeable {
             do {
                 SeqPacket p;
                 try {
+                    LOGGER.trace(STR."[\{myId}]: Waiting packet...");
                     p = (SeqPacket) ois.readObject();
                 } catch (ClassNotFoundException | ClassCastException ex) {
                     LOGGER.error(STR."[\{myId}] Received unexpected input packet", ex);
                     continue;
                 }
-
 
                 switch (p) {
                     case AckPacket ack -> {
@@ -186,6 +186,9 @@ public class SocketManager implements Closeable {
         } catch (IOException e) {
             if (!closed)
                 onClose.accept(otherId.resultNow(), e);
+        } catch (Throwable t) {
+            LOGGER.error(STR."[\{myId}]: Unexpected exception in read loop", t);
+            throw t;
         }
     }
 
