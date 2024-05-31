@@ -24,6 +24,7 @@ import java.util.concurrent.locks.ReentrantLock;
 
 public class PeerNetManager implements Closeable {
     private static final int DEFAULT_RECONNECT_TIMEOUT_SECONDS = 5;
+    private static final int DEFAULT_FIRST_RECONNECT_TIMEOUT_SECONDS = 3;
     private static final Logger LOGGER = LoggerFactory.getLogger(PeerNetManager.class);
 
     private final String id;
@@ -121,8 +122,8 @@ public class PeerNetManager implements Closeable {
     /**
      * Starts the peer.
      * <p>
-     * Opens the server socket and starts the server in a new thread (see {@link #runServer()}
-     * Registers to the discovery server and receives the lists of peers in the network (see {@link DiscoveryConnector#register()}
+     * Opens the server socket and starts the server in a new thread (see {@link #runServer()})
+     * Registers to the discovery server and receives the lists of peers in the network (see {@link DiscoveryConnector#register()})
      * Calls {@link #connect()} to connect to other clients.
      *
      * @throws Error if the server socket can't be opened or the discovery server can't be reached
@@ -175,8 +176,7 @@ public class PeerNetManager implements Closeable {
      * (peers in the {@link #disconnectedIds} list)
      */
     private void reconnectToPeers() {
-        //Every 5 seconds retry, until I'm connected with everyone
-        reconnectTask = scheduledExecutorService.scheduleAtFixedRate(() -> disconnectedIds.forEach(id -> {
+        Runnable reconnectMethod = () -> disconnectedIds.forEach(id -> {
             var addr = ips.get(id);
             LOGGER.info(STR."[\{this.id}] Trying to reconnect to \{id}: \{addr}");
             try {
@@ -184,11 +184,25 @@ public class PeerNetManager implements Closeable {
             } catch (IOException e) {
                 connectLock.unlock();
                 LOGGER.warn(STR."[\{this.id}] Failed to reconnect to \{id}", e);
+                Runnable reconnectToSinglePeer = () -> {
+                    try {
+                        connectToSinglePeer(id, addr);
+                    } catch (IOException ex) {
+                        connectLock.unlock();
+                        LOGGER.warn(STR."[\{this.id}] Failed to reconnect to \{id}", e);
+                    } catch (PeerAlreadyConnectedException ex) {
+                        connectLock.unlock();
+                        LOGGER.info(STR."Peer \{id} already connected");
+                    }
+                };
+                scheduledExecutorService.schedule(reconnectToSinglePeer, DEFAULT_RECONNECT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             } catch (PeerAlreadyConnectedException e) {
                 connectLock.unlock();
                 LOGGER.info(STR."Peer \{id} already connected");
             }
-        }), reconnectTimeoutSeconds, reconnectTimeoutSeconds, TimeUnit.SECONDS);
+        });
+        //Retry, until I'm connected with everyone
+        reconnectTask = scheduledExecutorService.schedule(reconnectMethod, DEFAULT_FIRST_RECONNECT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
     }
 
     @VisibleForTesting
@@ -231,7 +245,6 @@ public class PeerNetManager implements Closeable {
         sockets.put(id, socketManager);
 
         connectLock.unlock();
-
         usersPropertyChangeSupport.firePropertyChange("USER_CONNECTED", null, id);
 
         controller.resendQueued(id);
