@@ -1,7 +1,7 @@
 package it.polimi;
 
 import it.polimi.discovery.DiscoveryServer;
-import it.polimi.packets.MessagePacket;
+import it.polimi.packets.p2p.MessagePacket;
 import it.polimi.utility.Message;
 import it.polimi.utility.MessageGUI;
 import org.junit.jupiter.api.AfterAll;
@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.Socket;
+import java.net.DatagramSocket;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -64,7 +64,7 @@ class ChatTest {
     }
 
     @Test
-    void connect() throws ExecutionException, InterruptedException, TimeoutException {
+    void connect() throws ExecutionException, InterruptedException, TimeoutException, IOException {
         CompletableFuture<String> c1Promise = new CompletableFuture<>();
         CompletableFuture<String> c2Promise = new CompletableFuture<>();
         try (
@@ -84,7 +84,7 @@ class ChatTest {
     }
 
     @Test
-    void createRoom() throws ExecutionException, InterruptedException, TimeoutException {
+    void createRoom() throws ExecutionException, InterruptedException, TimeoutException, IOException {
         System.out.println("-------CREATE ROOM----------------");
         CompletableFuture<String> c1Promise = new CompletableFuture<>();
         CompletableFuture<String> c2Promise = new CompletableFuture<>();
@@ -116,7 +116,7 @@ class ChatTest {
     }
 
     @Test
-    void sendMsg() throws ExecutionException, InterruptedException, TimeoutException {
+    void sendMsg() throws ExecutionException, InterruptedException, TimeoutException, IOException {
         System.out.println("-------sendMsg----------------");
         CompletableFuture<String> c1Promise = new CompletableFuture<>();
         CompletableFuture<String> c2Promise = new CompletableFuture<>();
@@ -158,7 +158,7 @@ class ChatTest {
     }
 
     @Test
-    void vcTest() throws ExecutionException, InterruptedException, TimeoutException {
+    void vcTest() throws ExecutionException, InterruptedException, TimeoutException, IOException {
         System.out.println("-------vcTest----------------");
         CompletableFuture<ChatRoom> chat1Promise = new CompletableFuture<>();
         CompletableFuture<ChatRoom> chat2Promise = new CompletableFuture<>();
@@ -234,7 +234,7 @@ class ChatTest {
     }
 
     @Test
-    void disconnectTest() throws ExecutionException, InterruptedException, TimeoutException {
+    void disconnectTest() throws ExecutionException, InterruptedException, TimeoutException, IOException {
         System.out.println("-------disconnectTest----------------");
         CompletableFuture<ChatRoom> chat1Promise = new CompletableFuture<>();
         CompletableFuture<ChatRoom> chat2Promise = new CompletableFuture<>();
@@ -339,7 +339,7 @@ class ChatTest {
         CompletableFuture<String> disc1Promise = new CompletableFuture<>();
         CompletableFuture<String> disc2Promise = new CompletableFuture<>();
 
-        AtomicReference<Socket> socketRef = new AtomicReference<>();
+        AtomicReference<DatagramSocket> socketRef = new AtomicReference<>();
         try (
                 PeerNetManager p1 = new PeerNetManager(ID1, 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
                         e -> {
@@ -359,13 +359,13 @@ class ChatTest {
                         },
                         e -> msg2Promise.complete(((MessageGUI) e.getNewValue()).message())) {
                     @Override
-                    Socket createNewSocket() {
+                    SocketManager createSocketManager() throws IOException {
                         if (socketRef.get() == null) {
-                            Socket s = new ImproperShutdownSocket();
+                            DatagramSocket s = new ImproperShutdownSocket(port);
                             socketRef.set(s);
-                            return s;
+                            return new SocketManager(getId(), executorService, discoveryAddr, port, 1000, s);
                         }
-                        return super.createNewSocket();
+                        return super.createSocketManager();
                     }
                 }
         ) {
@@ -389,7 +389,7 @@ class ChatTest {
             assertEquals("TEST", m2.msg());
             assertEquals(ID2, m2.sender());
 
-            assertEquals(ID1, disc2Promise.get(6, TimeUnit.SECONDS));
+            assertEquals(ID1, disc2Promise.get(2, TimeUnit.SECONDS));
             var disc = c2.getDiscMsg(ID1);
             assertEquals(1, disc.size());
             var msg = ((MessagePacket) disc.stream().findFirst().orElseThrow()).msg();
@@ -432,7 +432,7 @@ class ChatTest {
         CountDownLatch users2 = new CountDownLatch(2);
         CountDownLatch users3 = new CountDownLatch(2);
 
-        AtomicReference<Socket> socket_c2_c1_ref = new AtomicReference<>();
+        AtomicReference<DatagramSocket> socket_c2_c1_ref = new AtomicReference<>();
 
         CompletableFuture<String> disc1Promise = new CompletableFuture<>();
         CompletableFuture<String> disc2Promise = new CompletableFuture<>();
@@ -464,13 +464,13 @@ class ChatTest {
                             msg2.countDown();
                         }) {
                     @Override
-                    Socket createNewSocket() {
+                    SocketManager createSocketManager() throws IOException {
                         if (socket_c2_c1_ref.get() == null) {
-                            Socket s = new ImproperShutdownSocket();
+                            DatagramSocket s = new ImproperShutdownSocket(port);
                             socket_c2_c1_ref.set(s);
-                            return s;
+                            return new SocketManager(getId(), executorService, discoveryAddr, port, 1000, s);
                         }
-                        return super.createNewSocket();
+                        return super.createSocketManager();
                     }
                 };
 
@@ -505,7 +505,7 @@ class ChatTest {
             assertEquals("TEST", m3.msg());
             assertEquals(ID1, m3.sender());
 
-            disc1Promise.get(6, TimeUnit.SECONDS);
+            disc1Promise.get(2, TimeUnit.SECONDS);
 
             c3.sendMessage("TEST2", chat3);
 
@@ -560,7 +560,7 @@ class ChatTest {
         CountDownLatch users2 = new CountDownLatch(2);
         CountDownLatch users3 = new CountDownLatch(2);
 
-        AtomicReference<Socket> socket_c2_c1_ref = new AtomicReference<>();
+        AtomicReference<DatagramSocket> socket_c2_c1_ref = new AtomicReference<>();
 
         CompletableFuture<String> disc1Promise = new CompletableFuture<>();
         CompletableFuture<String> disc2Promise = new CompletableFuture<>();
@@ -593,14 +593,15 @@ class ChatTest {
                             msg2.countDown();
                         }) {
                     @Override
-                    Socket createNewSocket() {
+                    SocketManager createSocketManager() throws IOException {
                         if (socket_c2_c1_ref.get() == null) {
-                            Socket s = new ImproperShutdownSocket();
+                            DatagramSocket s = new ImproperShutdownSocket(port);
                             socket_c2_c1_ref.set(s);
-                            return s;
+                            return new SocketManager(getId(), executorService, discoveryAddr, port, 1000, s);
                         }
-                        return super.createNewSocket();
+                        return super.createSocketManager();
                     }
+
                 };
 
                 PeerNetManager p3 = new PeerNetManager(ID3, 12347, e -> chat3Promise.complete((ChatRoom) e.getNewValue()),
@@ -669,7 +670,7 @@ class ChatTest {
     }
 
     @Test
-    void backupTest() throws ExecutionException, InterruptedException, TimeoutException {
+    void backupTest() throws ExecutionException, InterruptedException, TimeoutException, IOException {
         System.out.println("-------backupTest----------------");
         CompletableFuture<ChatRoom> chat1Promise = new CompletableFuture<>();
         CompletableFuture<ChatRoom> chat2Promise = new CompletableFuture<>();

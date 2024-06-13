@@ -1,24 +1,26 @@
 package it.polimi;
 
-import java.io.*;
-import java.net.Socket;
+import java.io.IOException;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.nio.channels.ClosedByInterruptException;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
-public class ImproperShutdownSocket extends Socket {
+public class ImproperShutdownSocket extends DatagramSocket {
     private final Semaphore readSemaphore = new Semaphore(Integer.MAX_VALUE);
     private volatile boolean discardOutput;
 
-    @Override
-    public InputStream getInputStream() throws IOException {
-        return new BlockableInputStream(super.getInputStream());
+    public ImproperShutdownSocket(int port) throws SocketException {
+        super(port);
     }
 
     @Override
-    public OutputStream getOutputStream() throws IOException {
-        return new NullableOutputStream(super.getOutputStream());
+    public void send(DatagramPacket p) throws IOException {
+        if (!discardOutput)
+            super.send(p);
     }
 
     @Override
@@ -31,98 +33,32 @@ public class ImproperShutdownSocket extends Socket {
         discardOutput = true;
     }
 
-    public synchronized void actuallyClose() throws IOException {
+    public synchronized void actuallyClose() {
         super.close();
         System.out.println("Actually closed");
     }
 
-    private class BlockableInputStream extends FilterInputStream {
-
-        protected BlockableInputStream(InputStream in) {
-            super(in);
-        }
-
-        private void acquireSemaphore() throws IOException {
-            try {
-                var soTimeout = getSoTimeout();
-                if (soTimeout <= 0) {
-                    readSemaphore.acquire();
-                } else {
-                    if (!readSemaphore.tryAcquire(soTimeout, TimeUnit.MILLISECONDS))
-                        throw new SocketTimeoutException();
-                }
-            } catch (InterruptedException e) {
-                throw (IOException) new ClosedByInterruptException().initCause(e);
+    private void acquireSemaphore() throws IOException {
+        try {
+            var soTimeout = getSoTimeout();
+            if (soTimeout <= 0) {
+                readSemaphore.acquire();
+            } else {
+                if (!readSemaphore.tryAcquire(soTimeout, TimeUnit.MILLISECONDS))
+                    throw new SocketTimeoutException();
             }
-        }
-
-        @Override
-        public int read() throws IOException {
-            acquireSemaphore();
-            try {
-                return super.read();
-            } finally {
-                readSemaphore.release();
-            }
-        }
-
-        @Override
-        public int read(byte[] b) throws IOException {
-            acquireSemaphore();
-            try {
-                return super.read(b);
-            } finally {
-                readSemaphore.release();
-            }
-        }
-
-        @Override
-        public int read(byte[] b, int off, int len) throws IOException {
-            acquireSemaphore();
-            try {
-                return super.read(b, off, len);
-            } finally {
-                readSemaphore.release();
-            }
-        }
-
-        @Override
-        public void close() {
+        } catch (InterruptedException e) {
+            throw (IOException) new ClosedByInterruptException().initCause(e);
         }
     }
 
-    private class NullableOutputStream extends FilterOutputStream {
-
-        public NullableOutputStream(OutputStream out) {
-            super(out);
-        }
-
-        @Override
-        public void write(int b) throws IOException {
-            if (!discardOutput)
-                super.write(b);
-        }
-
-        @Override
-        public void write(byte[] b) throws IOException {
-            if (!discardOutput)
-                super.write(b);
-        }
-
-        @Override
-        public void write(byte[] b, int off, int len) throws IOException {
-            if (!discardOutput)
-                super.write(b, off, len);
-        }
-
-        @Override
-        public void flush() throws IOException {
-            if (!discardOutput)
-                super.flush();
-        }
-
-        @Override
-        public void close() {
+    @Override
+    public void receive(DatagramPacket p) throws IOException {
+        acquireSemaphore();
+        try {
+            super.receive(p);
+        } finally {
+            readSemaphore.release();
         }
     }
 }

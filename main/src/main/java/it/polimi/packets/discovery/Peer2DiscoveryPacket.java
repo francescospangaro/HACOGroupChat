@@ -1,6 +1,7 @@
 package it.polimi.packets.discovery;
 
-import java.io.Serializable;
+import it.polimi.packets.ByePacket;
+import it.polimi.packets.Packet;
 
-public sealed interface Peer2DiscoveryPacket extends Serializable permits ByePacket, UpdateIpPacket {
+public sealed interface Peer2DiscoveryPacket extends Packet permits ByePacket, UpdateIpPacket {
 }

@@ -1,6 +1,6 @@
 package it.polimi;
 
-import it.polimi.packets.*;
+import it.polimi.packets.p2p.*;
 import it.polimi.utility.Message;
 import org.jetbrains.annotations.VisibleForTesting;
 import org.slf4j.Logger;
@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
 import java.io.IOException;
+import java.net.SocketAddress;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -21,7 +22,9 @@ public class PeerController {
     private final Map<String, Queue<P2PPacket>> disconnectMsgs = new ConcurrentHashMap<>();
     private final String id;
     private final Set<ChatRoom> chats;
-    private final Map<String, SocketManager> sockets;
+    private final Map<String, SocketAddress> ips;
+    private final Set<String> connectedPeers;
+    private final SocketManager socketManager;
     private final PropertyChangeListener msgChangeListener;
     private final PropertyChangeSupport roomsPropertyChangeSupport;
     private final ExecutorService executorService;
@@ -29,10 +32,21 @@ public class PeerController {
 
     private final BiConsumer<String, Throwable> onPeerDisconnected;
 
-    public PeerController(String id, Set<ChatRoom> chats, Map<String, SocketManager> sockets, PropertyChangeListener msgChangeListener, PropertyChangeSupport roomsPropertyChangeSupport, ExecutorService executorService, BackupManager backupManager, BiConsumer<String, Throwable> onPeerDisconnected) {
+    public PeerController(String id,
+                          Set<ChatRoom> chats,
+                          Map<String, SocketAddress> ips,
+                          Set<String> connectedPeers,
+                          SocketManager socketManager,
+                          PropertyChangeListener msgChangeListener,
+                          PropertyChangeSupport roomsPropertyChangeSupport,
+                          ExecutorService executorService,
+                          BackupManager backupManager,
+                          BiConsumer<String, Throwable> onPeerDisconnected) {
         this.id = id;
         this.chats = chats;
-        this.sockets = sockets;
+        this.ips = ips;
+        this.connectedPeers = connectedPeers;
+        this.socketManager = socketManager;
         this.msgChangeListener = msgChangeListener;
         this.roomsPropertyChangeSupport = roomsPropertyChangeSupport;
         this.executorService = executorService;
@@ -115,7 +129,7 @@ public class PeerController {
     /**
      * Sends the packet to the given peers
      * <p>
-     * For each connected peer (peer in the {@link #sockets} map, calls {@link #sendSinglePeer(P2PPacket, String)}.
+     * For each connected peer (peer in the {@link #connectedPeers} set, calls {@link #sendSinglePeer(P2PPacket, String)}.
      * For disconnected peers, adds the message to the {@link #disconnectMsgs} queue
      *
      * @param packet packet to be sent
@@ -124,7 +138,7 @@ public class PeerController {
     private void sendPacket(P2PPacket packet, Set<String> ids) {
         ids.forEach(id -> {
             if (!id.equals(this.id)) {
-                if (sockets.containsKey(id)) {
+                if (connectedPeers.contains(id)) {
                     executorService.execute(() -> {
                         LOGGER.trace(STR."[\{this.id}] sending \{packet} to \{id}");
                         sendSinglePeer(packet, id);
@@ -141,7 +155,7 @@ public class PeerController {
      * Send the packet to the given peer
      * <p>
      * If the sending fails, adds the message to the {@link #disconnectMsgs} queue
-     * and calls {@link PeerNetManager#onPeerDisconnected(String, Throwable)}
+     * and calls {@link PeerNetManager#onPeerUnreachable(String, Throwable)}
      *
      * @param packet packet to be sent
      * @param id     id of the peer to send to
@@ -149,7 +163,7 @@ public class PeerController {
      */
     private boolean sendSinglePeer(P2PPacket packet, String id) {
         try {
-            sockets.get(id).send(packet);
+            socketManager.send(packet, ips.get(id));
             return true;
         } catch (IOException e) {
             LOGGER.warn(STR."[\{this.id}] Error sending message to \{id}. Enqueuing it...", e);

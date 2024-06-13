@@ -1,6 +1,8 @@
 package it.polimi;
 
 import it.polimi.Exceptions.PeerAlreadyConnectedException;
+import it.polimi.packets.ByePacket;
+import it.polimi.packets.p2p.HelloPacket;
 import org.jetbrains.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,16 +12,11 @@ import java.beans.PropertyChangeSupport;
 import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.net.ServerSocket;
-import java.net.Socket;
 import java.net.SocketAddress;
 import java.util.Collections;
 import java.util.Map;
-import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.*;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 
 public class PeerNetManager implements Closeable {
@@ -27,39 +24,34 @@ public class PeerNetManager implements Closeable {
     private static final Logger LOGGER = LoggerFactory.getLogger(PeerNetManager.class);
 
     private final String id;
-    private final int port;
+    final SocketAddress discoveryAddr;
+    final int port;
     private final Set<ChatRoom> chats;
     private final PropertyChangeSupport roomsPropertyChangeSupport;
     private final PropertyChangeSupport usersPropertyChangeSupport;
 
-    private final ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor();
+    final ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor();
     private final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
     private volatile ScheduledFuture<?> reconnectTask;
-    private volatile Future<?> acceptTask;
-    private volatile ServerSocket serverSocket;
     private final Map<String, SocketAddress> ips;
-    private final Set<String> disconnectedIds;
-    private final Map<String, SocketManager> sockets;
-
+    private final Set<String> connectedPeers;
+    private final Set<String> unreachablePeers;
     private final PropertyChangeListener msgChangeListener;
+    private SocketManager socketManager;
 
     private boolean connected;
     private final int reconnectTimeoutSeconds;
 
-    /**
-     * Lock to acquire before connect to / accept connection from a new peer
-     * to avoid that two peer try to connect to each other at the same time.
-     */
-    private final Lock connectLock = new ReentrantLock();
-    private final DiscoveryConnector discovery;
-    private final PeerController controller;
+    private DiscoveryConnector discovery;
+    private PeerController controller;
     private final BackupManager backupManager;
+    private Future<?> updaterFuture;
 
     @VisibleForTesting
     PeerNetManager(String id, int port,
                    PropertyChangeListener chatRoomsChangeListener,
                    PropertyChangeListener usersChangeListener,
-                   PropertyChangeListener msgChangeListener) {
+                   PropertyChangeListener msgChangeListener) throws IOException {
         this("localhost", id, port, chatRoomsChangeListener, usersChangeListener, msgChangeListener, 1);
     }
 
@@ -79,7 +71,7 @@ public class PeerNetManager implements Closeable {
     public PeerNetManager(String discoveryAddr, String id, int port,
                           PropertyChangeListener chatRoomsChangeListener,
                           PropertyChangeListener usersChangeListener,
-                          PropertyChangeListener msgChangeListener) {
+                          PropertyChangeListener msgChangeListener) throws IOException {
         this(discoveryAddr, id, port, chatRoomsChangeListener, usersChangeListener, msgChangeListener, DEFAULT_RECONNECT_TIMEOUT_SECONDS);
     }
 
@@ -87,20 +79,22 @@ public class PeerNetManager implements Closeable {
                            PropertyChangeListener chatRoomsChangeListener,
                            PropertyChangeListener usersChangeListener,
                            PropertyChangeListener msgChangeListener,
-                           int reconnectTimeoutSeconds) {
+                           int reconnectTimeoutSeconds) throws IOException {
         this.id = id;
-        this.port = port;
-        discovery = new DiscoveryConnector(new InetSocketAddress(discoveryAddr, 8080), id, port);
 
         this.msgChangeListener = msgChangeListener;
 
         backupManager = new BackupManager(id, msgChangeListener);
         chats = backupManager.getFromBackup();
-        sockets = new ConcurrentHashMap<>();
         ips = new ConcurrentHashMap<>();
-        disconnectedIds = ConcurrentHashMap.newKeySet();
+        connectedPeers = ConcurrentHashMap.newKeySet();
+        unreachablePeers = ConcurrentHashMap.newKeySet();
 
         this.reconnectTimeoutSeconds = reconnectTimeoutSeconds;
+
+        this.port = port;
+        this.discoveryAddr = new InetSocketAddress(discoveryAddr, 8080);
+
 
         roomsPropertyChangeSupport = new PropertyChangeSupport(chats);
         roomsPropertyChangeSupport.addPropertyChangeListener(chatRoomsChangeListener);
@@ -112,32 +106,35 @@ public class PeerNetManager implements Closeable {
             roomsPropertyChangeSupport.firePropertyChange("ADD_ROOM", null, c);
         }
 
-        controller = new PeerController(id, chats, sockets, msgChangeListener, roomsPropertyChangeSupport, executorService, backupManager, this::onPeerDisconnected);
 
         start();
+    }
+
+    @VisibleForTesting
+    SocketManager createSocketManager() throws IOException {
+        return new SocketManager(id, executorService, discoveryAddr, port);
     }
 
 
     /**
      * Starts the peer.
      * <p>
-     * Opens the server socket and starts the server in a new thread (see {@link #runServer()}
+     * Opens the socket manager and starts the chat updater
      * Registers to the discovery server and receives the lists of peers in the network (see {@link DiscoveryConnector#register()}
      * Calls {@link #connect()} to connect to other clients.
      *
      * @throws Error if the server socket can't be opened or the discovery server can't be reached
      */
-    public void start() {
+    public void start() throws IOException {
         LOGGER.info(STR."[\{id}] STARTING");
-        try {
-            serverSocket = new ServerSocket(port);
-        } catch (IOException e) {
-            throw new Error(e);
-        }
-        acceptTask = executorService.submit(this::runServer);
+
+        socketManager = createSocketManager();
+        discovery = new DiscoveryConnector(socketManager, id, port);
+        updaterFuture = executorService.submit(new ChatUpdater(socketManager, chats, roomsPropertyChangeSupport, msgChangeListener, this::onPeerConnected, this::onPeerDisconnected));
+        controller = new PeerController(id, chats, ips, connectedPeers, socketManager, msgChangeListener, roomsPropertyChangeSupport, executorService, backupManager, this::onPeerUnreachable);
 
         //We are (re-)connecting from scratch, so delete all crashed peer and get a new list from the discovery
-        disconnectedIds.clear();
+        connectedPeers.clear();
         try {
             ips.putAll(discovery.register());
         } catch (IOException e) {
@@ -156,10 +153,8 @@ public class PeerNetManager implements Closeable {
             try {
                 connectToSinglePeer(id, addr);
             } catch (IOException e) {
-                connectLock.unlock();
-                onPeerDisconnected(id, e);
+                onPeerUnreachable(id, e);
             } catch (PeerAlreadyConnectedException e) {
-                connectLock.unlock();
                 LOGGER.info(STR."[\{this.id}] Peer \{id} already connected");
             }
         });
@@ -172,34 +167,27 @@ public class PeerNetManager implements Closeable {
      * Starts the reconnection task.
      * <p>
      * Every {@link #reconnectTimeoutSeconds} seconds tries to reconnect to disconnected peer
-     * (peers in the {@link #disconnectedIds} list)
+     * (peers in the {@link #unreachablePeers} list)
      */
     private void reconnectToPeers() {
         //Every 5 seconds retry, until I'm connected with everyone
-        reconnectTask = scheduledExecutorService.scheduleAtFixedRate(() -> disconnectedIds.forEach(id -> {
+        reconnectTask = scheduledExecutorService.scheduleAtFixedRate(() -> unreachablePeers.forEach(id -> {
             var addr = ips.get(id);
             LOGGER.info(STR."[\{this.id}] Trying to reconnect to \{id}: \{addr}");
             try {
                 connectToSinglePeer(id, addr);
             } catch (IOException e) {
-                connectLock.unlock();
                 LOGGER.warn(STR."[\{this.id}] Failed to reconnect to \{id}", e);
             } catch (PeerAlreadyConnectedException e) {
-                connectLock.unlock();
                 LOGGER.info(STR."Peer \{id} already connected");
             }
         }), reconnectTimeoutSeconds, reconnectTimeoutSeconds, TimeUnit.SECONDS);
     }
 
-    @VisibleForTesting
-    Socket createNewSocket() {
-        return new Socket();
-    }
 
     /**
      * Connect to a peer and send queued message.
      * <p>
-     * Acquire the {@link #connectLock} before connecting so that we are sure that the other peer is not trying to connect to us.
      * Creates the {@link SocketManager} for the given peer
      *
      * @param id   id of the other peer
@@ -209,28 +197,12 @@ public class PeerNetManager implements Closeable {
      * @see PeerController#resendQueued(String)
      */
     private void connectToSinglePeer(String id, SocketAddress addr) throws PeerAlreadyConnectedException, IOException {
-        connectLock.lock();
-        LOGGER.trace(STR."[\{this.id}] Got lock to connect to \{id}: \{addr}");
-
-        //After getting lock, re-check if this peer is not connected yet
-        if (sockets.containsKey(id)) {
-            throw new PeerAlreadyConnectedException();
-        }
-
-        Socket s = createNewSocket();
-        LOGGER.trace(STR."[\{this.id}] connecting to \{id}");
-        s.connect(addr, 500);
 
         LOGGER.info(STR."[\{this.id}] connected to \{id}: \{addr}");
 
-        SocketManager socketManager = new SocketManager(this.id, port, id, executorService, s,
-                new ChatUpdater(chats, roomsPropertyChangeSupport, msgChangeListener),
-                this::onPeerDisconnected);
-
-        disconnectedIds.remove(id);
-        sockets.put(id, socketManager);
-
-        connectLock.unlock();
+        socketManager.send(new HelloPacket(this.id), addr);
+        unreachablePeers.remove(id);
+        connectedPeers.add(id);
 
         usersPropertyChangeSupport.firePropertyChange("USER_CONNECTED", null, id);
 
@@ -250,27 +222,36 @@ public class PeerNetManager implements Closeable {
      * <p>
      * Stops the server and the reconnection task.
      * Sends a disconnection packet to the discovery server {@link DiscoveryConnector#disconnect()}.
-     * Closes connection with all peers {@link #onPeerDisconnected(String, Throwable)}
+     * Closes connection with all peers {@link #onPeerUnreachable(String, Throwable)}
      */
     public void disconnect() {
         LOGGER.info(STR."[\{this.id}] Disconnecting...");
-        connected = false;
-        reconnectTask.cancel(true);
-
-        acceptTask.cancel(true);
-        try {
-            serverSocket.close();
-        } catch (IOException ignored) {
-        }
 
         try {
             discovery.disconnect();
+            //TODO: Send enqueued stuff to discovery
         } catch (IOException e) {
             LOGGER.error(STR."[\{this.id}] Can't contact the discovery", e);
+            //TODO: rethrow
         }
 
-        sockets.keySet().forEach(id -> onPeerDisconnected(id, new IOException("Disconnected")));
-        sockets.clear();
+        reconnectTask.cancel(true);
+
+        ips.forEach((id, addr) -> {
+            if (connectedPeers.contains(id)) {
+                try {
+                    socketManager.send(new ByePacket(this.id), addr);
+                } catch (IOException _) {
+                    //Don't care
+                }
+            }
+        });
+        connectedPeers.clear();
+        connected = false;
+
+        updaterFuture.cancel(true);
+        socketManager.close();
+
         ips.clear();
     }
 
@@ -283,108 +264,37 @@ public class PeerNetManager implements Closeable {
     }
 
     /**
-     * Server loop
+     * Method to call when a peer becomes unreachable
      * <p>
-     * Accepts new connections from other peers.
-     * Acquire the {@link #connectLock} when accepting a new connection to be sure that
-     * we aren't connecting to the other peer at the same time.
-     * Creates the {@link SocketManager} for each connected peer and resend queues messages calling {@link PeerController#resendQueued(String)}
-     */
-    private void runServer() {
-        final Random random = new Random();
-        //Waiting for incoming packets by creating a serverSocket
-        LOGGER.info(STR."[\{id}] server started");
-        while (true) {
-            Socket justConnectedClient;
-            LOGGER.trace(STR."[\{id}] Waiting connection...");
-            try {
-                justConnectedClient = serverSocket.accept();
-            } catch (IOException e) {
-                //Error on the server socket, stop the server
-                LOGGER.error(STR."[\{id}] Error accepting new connection. Server shut down. Socket closed: \{serverSocket.isClosed()}", e);
-                return;
-            } finally {
-                LOGGER.trace(STR."[\{id}] Finished waiting connection");
-            }
-
-            //Someone has just connected to me
-            LOGGER.info(STR."[\{id}] \{justConnectedClient.getRemoteSocketAddress()} is connected. Waiting for his id...");
-            String otherId;
-            int otherPort;
-
-            try {
-                //Try to acquire lock, with a random timeout (~2 sec) to avoid deadlocks.
-                // if I can't acquire lock, I assume a deadlock and close the connection.
-                int timeout = random.nextInt(1500, 2500);
-                if (!connectLock.tryLock(timeout, TimeUnit.MILLISECONDS)) {
-                    LOGGER.warn(STR."[\{id}] Can't get lock. Refusing connection...");
-                    justConnectedClient.close();
-                    LOGGER.trace(STR."[\{id}] Connection refused. Continuing...");
-                    continue;
-                }
-
-                try {
-                    LOGGER.trace(STR."[\{this.id}] Got lock to accept connection");
-
-                    SocketManager socketManager = new SocketManager(this.id, executorService, justConnectedClient,
-                            new ChatUpdater(chats, roomsPropertyChangeSupport, msgChangeListener), this::onPeerDisconnected);
-
-                    otherId = socketManager.getOtherId();
-                    otherPort = socketManager.getServerPort();
-                    LOGGER.info(STR."[\{id}] \{otherId} is connected. His server is on port \{otherPort}");
-
-                    //Remove from the disconnected peers (if present)
-                    disconnectedIds.remove(otherId);
-
-                    //Close pending socket for this peer (if any)
-                    if (sockets.containsKey(otherId))
-                        sockets.get(otherId).close();
-
-                    //Update the list of sockets of the other peers
-                    sockets.put(otherId, socketManager);
-
-                    //Update the list of Addresses of the other peers
-                    ips.put(otherId, new InetSocketAddress(justConnectedClient.getInetAddress(), otherPort));
-                } finally {
-                    connectLock.unlock();
-                }
-            } catch (InterruptedException e) {
-                //We got interrupted, quit
-                LOGGER.error(STR."[\{id}] Server interrupted while getting lock. Server shut down.", e);
-                return;
-            } catch (IOException e) {
-                //Error creating the socket manager, close the socket and continue listening for new connection
-                LOGGER.error(STR."[\{this.id}] Error creating socket manager", e);
-                try {
-                    justConnectedClient.close();
-                } catch (IOException ignored) {
-                }
-                continue;
-            }
-
-            usersPropertyChangeSupport.firePropertyChange("USER_CONNECTED", null, otherId);
-
-            controller.resendQueued(otherId);
-        }
-    }
-
-    /**
-     * Method to call when a peer is disconnected
-     * <p>
-     * Adds the peer to the {@link #disconnectedIds} list
-     * Closes the socket and removes it from the {@link #sockets} map.
+     * Adds the peer to the {@link #unreachablePeers} list
      *
      * @param id id of the disconnected peer
      * @param e  cause of the disconnection
      */
-    private void onPeerDisconnected(String id, Throwable e) {
+    private void onPeerUnreachable(String id, Throwable e) {
         LOGGER.warn(STR."[\{this.id}] \{id} disconnected", e);
 
-        disconnectedIds.add(id);
+        unreachablePeers.add(id);
+        connectedPeers.remove(id);
 
-        var socket = sockets.remove(id);
-        if (socket != null)
-            socket.close();
+        usersPropertyChangeSupport.firePropertyChange("USER_DISCONNECTED", id, null);
+    }
+
+    private void onPeerConnected(String id, SocketAddress addr) {
+        LOGGER.info(STR."[\{this.id}] \{id} connected");
+
+        ips.put(id, addr);
+        unreachablePeers.remove(id);
+        connectedPeers.add(id);
+
+        usersPropertyChangeSupport.firePropertyChange("USER_CONNECTED", null, id);
+    }
+
+    private void onPeerDisconnected(String id) {
+        LOGGER.warn(STR."[\{this.id}] \{id} disconnected");
+
+        unreachablePeers.remove(id);
+        connectedPeers.remove(id);
 
         usersPropertyChangeSupport.firePropertyChange("USER_DISCONNECTED", id, null);
     }

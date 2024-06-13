@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
+import java.io.IOException;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -149,45 +150,53 @@ public class ChatPanel {
         });
 
         executorService.execute(() -> {
-            peerNetManager = new PeerNetManager(discovery, user, port, evt -> SwingUtilities.invokeLater(() -> {
-                if (evt.getPropertyName().equals("ADD_ROOM")) {
-                    ChatRoom chat = (ChatRoom) evt.getNewValue();
-                    LOGGER.trace(STR."Room \{chat} added in gui");
-                    chatRooms.addItem(chat);
-                    sendButton.setEnabled(true);
-                    deleteButton.setEnabled(true);
-                } else if (evt.getPropertyName().equals("DEL_ROOM")) {
-                    ChatRoom chat = (ChatRoom) evt.getOldValue();
-                    LOGGER.trace(STR."Room \{chat} removed from gui");
-                    chatRooms.removeItem(chat);
-                    if (chatRooms.getItemCount() == 0) {
-                        sendButton.setEnabled(false);
-                        deleteButton.setEnabled(false);
+            try {
+                peerNetManager = new PeerNetManager(discovery, user, port, evt -> SwingUtilities.invokeLater(() -> {
+                    if (evt.getPropertyName().equals("ADD_ROOM")) {
+                        ChatRoom chat = (ChatRoom) evt.getNewValue();
+                        LOGGER.trace(STR."Room \{chat} added in gui");
+                        chatRooms.addItem(chat);
+                        sendButton.setEnabled(true);
+                        deleteButton.setEnabled(true);
+                    } else if (evt.getPropertyName().equals("DEL_ROOM")) {
+                        ChatRoom chat = (ChatRoom) evt.getOldValue();
+                        LOGGER.trace(STR."Room \{chat} removed from gui");
+                        chatRooms.removeItem(chat);
+                        if (chatRooms.getItemCount() == 0) {
+                            sendButton.setEnabled(false);
+                            deleteButton.setEnabled(false);
+                        }
                     }
-                }
-            }), evt -> SwingUtilities.invokeLater(() -> {
-                if (evt.getPropertyName().equals("USER_CONNECTED")) {
-                    connectedModelList.addElement((String) evt.getNewValue());
-                } else {
-                    connectedModelList.removeElement(evt.getOldValue());
-                }
-            }), evt -> {
-                if (evt.getPropertyName().equals("ADD_MSG")) {
-                    MessageGUI mgui = (MessageGUI) evt.getNewValue();
-
-                    LOGGER.trace(STR."Msg \{mgui} added in gui");
-
-                    if (((ChatRoom) chatRooms.getSelectedItem()).getId().equals(mgui.chatRoom().getId())) {
-                        SwingUtilities.invokeLater(() -> {
-                            if (mgui.message().sender().equals(user))
-                                msgListModel.addElement(new RightArrowBubble(mgui.message().sender(), detailedViewCheckBox.isSelected() ? mgui.message().toDetailedString() : mgui.message().toString()));
-                            else
-                                msgListModel.addElement(new LeftArrowBubble(mgui.message().sender(), detailedViewCheckBox.isSelected() ? mgui.message().toDetailedString() : mgui.message().toString()));
-                            msgList.ensureIndexIsVisible(msgListModel.size() - 1);
-                        });
+                }), evt -> SwingUtilities.invokeLater(() -> {
+                    if (evt.getPropertyName().equals("USER_CONNECTED")) {
+                        connectedModelList.addElement((String) evt.getNewValue());
+                    } else {
+                        connectedModelList.removeElement(evt.getOldValue());
                     }
-                }
-            });
+                }), evt -> {
+                    if (evt.getPropertyName().equals("ADD_MSG")) {
+                        MessageGUI mgui = (MessageGUI) evt.getNewValue();
+
+                        LOGGER.trace(STR."Msg \{mgui} added in gui");
+
+                        if (((ChatRoom) chatRooms.getSelectedItem()).getId().equals(mgui.chatRoom().getId())) {
+                            SwingUtilities.invokeLater(() -> {
+                                if (mgui.message().sender().equals(user))
+                                    msgListModel.addElement(new RightArrowBubble(mgui.message().sender(), detailedViewCheckBox.isSelected() ? mgui.message().toDetailedString() : mgui.message().toString()));
+                                else
+                                    msgListModel.addElement(new LeftArrowBubble(mgui.message().sender(), detailedViewCheckBox.isSelected() ? mgui.message().toDetailedString() : mgui.message().toString()));
+                                msgList.ensureIndexIsVisible(msgListModel.size() - 1);
+                            });
+                        }
+                    }
+                });
+            } catch (IOException e) {
+                JOptionPane.showMessageDialog(JOptionPane.getRootFrame(),
+                        "Can't establish cthe connection. The application will terminate.\n" + e,
+                        "Error",
+                        JOptionPane.ERROR_MESSAGE);
+                System.exit(-1);
+            }
             LOGGER.info(STR."Started \{peerNetManager}");
             peerController = peerNetManager.getController();
             SwingUtilities.invokeLater(() -> {
@@ -239,17 +248,31 @@ public class ChatPanel {
     private void setConnected(boolean connected) {
         if (connected) {
             disconnectReconnectButton.setEnabled(false);
+            connectedLabel.setText("Connecting...");
+            connectedLabel.setForeground(Color.yellow);
             executorService.execute(() -> {
-                connectedLabel.setText("Connecting...");
-                connectedLabel.setForeground(Color.yellow);
-                peerNetManager.start();
-                SwingUtilities.invokeLater(() -> {
-                    connectedLabel.setText("Connected");
-                    connectedLabel.setForeground(new Color(0, 153, 51));
+                try {
+                    peerNetManager.start();
+                    SwingUtilities.invokeLater(() -> {
+                        connectedLabel.setText("Connected");
+                        connectedLabel.setForeground(new Color(0, 153, 51));
 
-                    disconnectReconnectButton.setText("Disconnect");
-                    disconnectReconnectButton.setEnabled(true);
-                });
+                        disconnectReconnectButton.setText("Disconnect");
+                        disconnectReconnectButton.setEnabled(true);
+                    });
+                } catch (IOException e) {
+                    JOptionPane.showMessageDialog(JOptionPane.getRootFrame(),
+                            "Can't establish cthe connection.\n" + e,
+                            "Error",
+                            JOptionPane.ERROR_MESSAGE);
+                    SwingUtilities.invokeLater(() -> {
+                        connectedLabel.setText("Disconnected");
+                        connectedLabel.setForeground(Color.red);
+
+                        disconnectReconnectButton.setText("Reconnect");
+                        disconnectReconnectButton.setEnabled(true);
+                    });
+                }
             });
         } else {
             disconnectReconnectButton.setEnabled(false);

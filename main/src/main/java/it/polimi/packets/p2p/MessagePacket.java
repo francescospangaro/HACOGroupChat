@@ -1,4 +1,4 @@
-package it.polimi.packets;
+package it.polimi.packets.p2p;
 
 import it.polimi.utility.Message;
 
