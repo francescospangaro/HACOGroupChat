@@ -1,0 +1,42 @@
+name: 'Tests'
+on:
+  push:
+    branches-ignore:
+      - main
+  pull_request:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: read
+      checks: write
+      pull-requests: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v3
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+      - name: Build with Maven
+        timeout-minutes: 5
+        run: mvn --batch-mode --update-snapshots verify
+      - name: Publish Test Report
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: '**/target/surefire-reports/TEST-*.xml'
+      - name: Archive discovery jar
+        uses: actions/upload-artifact@v3
+        with:
+          name: Discovery
+          path: ./**/HACOGroupChat-discovery-*.jar
+      - name: Archive peer jar
+        uses: actions/upload-artifact@v3
+        with:
+          name: Peer
+          path: ./**/HACOGroupChat-peer-*.jar
