@@ -253,6 +253,7 @@ public class ChatPanel {
             executorService.execute(() -> {
                 try {
                     peerNetManager.start();
+                    peerController = peerNetManager.getController();
                     SwingUtilities.invokeLater(() -> {
                         connectedLabel.setText("Connected");
                         connectedLabel.setForeground(new Color(0, 153, 51));

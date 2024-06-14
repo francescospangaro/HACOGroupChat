@@ -200,7 +200,6 @@ public class PeerNetManager implements Closeable {
      * @see PeerController#resendQueued(String)
      */
     private void connectToSinglePeer(String id, SocketAddress addr) throws PeerAlreadyConnectedException, IOException {
-
         LOGGER.info(STR."[\{this.id}] connected to \{id}: \{addr}");
 
         socketManager.send(new HelloPacket(this.id), addr);
@@ -230,26 +229,24 @@ public class PeerNetManager implements Closeable {
     public void disconnect() {
         LOGGER.info(STR."[\{this.id}] Disconnecting...", new Exception());
 
+        reconnectTask.cancel(true);
+
+        //Send ByePacket to all peer, also unreachable ones. They will be enqueued and forwarded to the discovery
+        controller.sendPacket(new ByePacket(this.id), ips.keySet());
+        connectedPeers.forEach(id -> usersPropertyChangeSupport.firePropertyChange("USER_DISCONNECTED", id, null));
+
         try {
-            discovery.disconnect();
             //TODO: Send enqueued stuff to discovery
+            ips.forEach((id, addr) -> {
+                var enqueued = controller.getDiscMsg(id);
+                //...
+            });
+            discovery.disconnect();
         } catch (IOException e) {
             LOGGER.error(STR."[\{this.id}] Can't contact the discovery", e);
             //TODO: rethrow
         }
 
-        reconnectTask.cancel(true);
-
-        ips.forEach((id, addr) -> {
-            if (connectedPeers.contains(id)) {
-                try {
-                    socketManager.send(new ByePacket(this.id), addr);
-                } catch (IOException _) {
-                    //Don't care
-                }
-                usersPropertyChangeSupport.firePropertyChange("USER_DISCONNECTED", id, null);
-            }
-        });
         connectedPeers.clear();
         connected = false;
 

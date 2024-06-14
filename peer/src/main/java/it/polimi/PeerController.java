@@ -29,7 +29,7 @@ public class PeerController {
     private final ExecutorService executorService;
     private final BackupManager backupManager;
 
-    private final BiConsumer<String, Throwable> onPeerDisconnected;
+    private final BiConsumer<String, Throwable> onPeerUnreachable;
 
     public PeerController(String id,
                           Set<ChatRoom> chats,
@@ -40,7 +40,7 @@ public class PeerController {
                           PropertyChangeSupport roomsPropertyChangeSupport,
                           ExecutorService executorService,
                           BackupManager backupManager,
-                          BiConsumer<String, Throwable> onPeerDisconnected) {
+                          BiConsumer<String, Throwable> onPeerUnreachable) {
         this.id = id;
         this.chats = chats;
         this.ips = ips;
@@ -50,7 +50,7 @@ public class PeerController {
         this.roomsPropertyChangeSupport = roomsPropertyChangeSupport;
         this.executorService = executorService;
         this.backupManager = backupManager;
-        this.onPeerDisconnected = onPeerDisconnected;
+        this.onPeerUnreachable = onPeerUnreachable;
     }
 
     /**
@@ -135,7 +135,7 @@ public class PeerController {
      * @param packet packet to be sent
      * @param ids    ids of peers to send to
      */
-    private void sendPacket(P2PPacket packet, Set<String> ids) {
+    void sendPacket(P2PPacket packet, Set<String> ids) {
         ids.forEach(id -> {
             if (!id.equals(this.id)) {
                 if (connectedPeers.contains(id)) {
@@ -168,7 +168,7 @@ public class PeerController {
         } catch (IOException e) {
             LOGGER.warn(STR."[\{this.id}] Error sending message to \{id}. Enqueuing it...", e);
             disconnectMsgs.computeIfAbsent(id, _ -> new ConcurrentLinkedQueue<>()).add(packet);
-            onPeerDisconnected.accept(id, e);
+            onPeerUnreachable.accept(id, e);
         }
         return false;
     }
