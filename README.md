@@ -31,11 +31,11 @@ The jars can be found in the
 The discovery server needs to be run from terminal using the following command:
 
 ```shell
-java --enable-preview -jar HACOGroupChat-1.0-discovery.jar
+java --enable-preview -jar HACOGroupChat-discovery-1.0
 ```
 
 The distributed application needs to be run from terminal using the following command:
 
 ```shell
-java --enable-preview -jar HACOGroupChat-1.0-peer.jar
+java --enable-preview -jar HACOGroupChat-peer-1.0.jar
 ```
