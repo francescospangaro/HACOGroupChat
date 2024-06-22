@@ -130,7 +130,11 @@ public abstract class SocketManager implements Closeable {
                 switch (p) {
                     case AckPacket ack -> {
                         LOGGER.trace(STR."[\{this.myId}] Received ack \{ack}");
-                        waitingAcks.remove(ack.seqNum()).complete(null);
+                        var ackPromise = waitingAcks.remove(ack.seqNum());
+                        if (ackPromise != null)
+                            ackPromise.complete(null);
+                        else
+                            LOGGER.warn(STR."Received unexpected ack \{ack}. Ignored.");
                     }
                     case SeqPacketImpl seqPacket -> {
                         LOGGER.info(STR."[\{this.myId}] Received packet: \{seqPacket}");

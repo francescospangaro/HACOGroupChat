@@ -432,6 +432,7 @@ class ChatTest {
 
         CompletableFuture<String> disc1Promise = new CompletableFuture<>();
         CompletableFuture<String> disc2Promise = new CompletableFuture<>();
+        CompletableFuture<String> disc3Promise = new CompletableFuture<>();
         try (
                 PeerNetManager p1 = new PeerNetManager(ID1, 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
                         e -> {
@@ -478,7 +479,7 @@ class ChatTest {
                                 else
                                     users3.countDown();
                             else
-                                disc2Promise.complete((String) e.getOldValue());
+                                disc3Promise.complete((String) e.getOldValue());
                         },
                         e -> msg3Promise.complete(((MessageGUI) e.getNewValue()).message()))
         ) {
@@ -519,27 +520,31 @@ class ChatTest {
             assertEquals("TEST2", m1_1.msg());
             assertEquals(ID3, m1_1.sender());
 
-            assertTrue(msg2.await(500, TimeUnit.MILLISECONDS));
-            assertEquals(2, msg2List.size());
+            assertFalse(msg2.await(500, TimeUnit.MILLISECONDS));
+            assertEquals(1, msg2.getCount());
+            assertEquals(1, msg2List.size());
             var m2_0 = msg2List.get(0);
             assertEquals("TEST", m2_0.msg());
             assertEquals(ID1, m2_0.sender());
 
-            var m2_1 = msg2List.get(1);
-            assertEquals("TEST2", m2_1.msg());
-            assertEquals(ID3, m2_1.sender());
+            disc3Promise.get(2, TimeUnit.SECONDS);
 
             socket_p2.get().unlock();
 
             assertEquals(ID2, p1_userReconnect.get(3, TimeUnit.SECONDS));
             assertEquals(ID2, p3_userReconnect.get(3, TimeUnit.SECONDS));
 
-            //Peer c1 still has to resend msg1 to c2,
-            // peer c3 still ha to resend msg2 to c2
-            // because their acks got lost.
-            //Waits for 1 seconds and checks that the duplicated packets were discarded.
+            //Peer p1 still has to resend msg1 to p2 because the ack got lost,
+            // p2 will ignore the packet
+            // Peer p3 still ha to resend msg2 to p2, because the packet got lost
+            //Waits for 1 seconds and check.
             Thread.sleep(1000);
+            assertTrue(msg2.await(500, TimeUnit.MILLISECONDS));
+
             assertEquals(2, msg2List.size());
+            var m2_1 = msg2List.get(1);
+            assertEquals("TEST2", m2_1.msg());
+            assertEquals(ID3, m2_1.sender());
         }
     }
 
