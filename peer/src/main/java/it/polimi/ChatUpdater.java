@@ -21,7 +21,6 @@ public class ChatUpdater implements Runnable {
     private final Set<ChatRoom> chats;
     private final PropertyChangeSupport propertyChangeSupport;
     private final PropertyChangeListener msgChangeListener;
-
     private final BiConsumer<String, SocketAddress> onPeerConnected;
     private final Consumer<String> onPeerDisconnected;
 
@@ -43,8 +42,8 @@ public class ChatUpdater implements Runnable {
         //Message handler
         try {
             while (true) {
-                P2PPacket p = socketManager.receiveFromPeer();
-                switch (p) {
+                var packetPacketAndSender = socketManager.receiveFromPeer();
+                switch (packetPacketAndSender.packet()) {
                     case MessagePacket m -> {
                         ChatRoom chat = chats
                                 .stream()
@@ -88,10 +87,9 @@ public class ChatUpdater implements Runnable {
                         chats.remove(toDelete);
                         propertyChangeSupport.firePropertyChange("DEL_ROOM", toDelete, null);
                     }
-                    case NewPeer helloPacket -> onPeerConnected.accept(helloPacket.id(), helloPacket.addr());
-                    case ByePacket byePacket -> onPeerDisconnected.accept(byePacket.id());
                     case HelloPacket helloPacket ->
-                            throw new IllegalStateException(STR."SocketManager should have replaced this packet \{helloPacket}");
+                            onPeerConnected.accept(helloPacket.id(), packetPacketAndSender.sender());
+                    case ByePacket byePacket -> onPeerDisconnected.accept(byePacket.id());
                 }
             }
         } catch (IOException ex) {

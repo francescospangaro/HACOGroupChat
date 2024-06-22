@@ -45,7 +45,7 @@ class SocketManagerTest {
              PeerSocketManager s2 = new PeerSocketManager("test2", executorService, discAddr, 8889)) {
 
             s1.send(new ByePacket("test"), new InetSocketAddress("localhost", 8889));
-            ByePacket p = (ByePacket) s2.receiveFromPeer();
+            ByePacket p = (ByePacket) s2.receiveFromPeer().packet();
 
             assertEquals("test", p.id());
         }
@@ -75,7 +75,7 @@ class SocketManagerTest {
             Future<?> recTask = executorService.submit(() -> {
                 try {
                     for (int i = 0; i < 1000; i++) {
-                        ByePacket p = (ByePacket) s2.receiveFromPeer();
+                        ByePacket p = (ByePacket) s2.receiveFromPeer().packet();
                         assertTrue(ids.remove(p.id()));
                     }
                 } catch (IOException e) {

@@ -53,8 +53,8 @@ public class DiscoveryServer implements Closeable {
         LOGGER.info("Running discovery server...");
         while (!socketManager.isClosed()) {
             try {
-                DiscoverySocketManager.PacketAndSender p = socketManager.receive();
-                switch (p.p()) {
+                var p = socketManager.receive();
+                switch (p.packet()) {
                     case UpdateIpPacket ipPacket -> {
                         LOGGER.info(STR."[discovery] Sending info of all peers to \{ipPacket.id()}");
                         socketManager.send(new IPsPacket(ips

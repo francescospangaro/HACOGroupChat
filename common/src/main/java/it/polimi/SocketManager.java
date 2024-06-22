@@ -26,6 +26,9 @@ public abstract class SocketManager implements Closeable {
     private record QueuedOutput(SeqPacket packet, CompletableFuture<Void> sent, SocketAddress address) {
     }
 
+    public record PacketAndSender<T extends Packet>(T packet, SocketAddress sender) {
+    }
+
     private final BlockingQueue<QueuedOutput> outPacketQueue;
     private final Map<Long, CompletableFuture<Void>> waitingAcks;
     static final int DEFAULT_TIMEOUT = 5000;
@@ -119,7 +122,7 @@ public abstract class SocketManager implements Closeable {
                     try {
                         resetFlushObj = ois.readUnshared();
                         if (resetFlushObj != null)
-                            throw new IOException("Received unexpected resetFlushObj " + resetFlushObj);
+                            throw new IOException(STR."Received unexpected resetFlushObj \{resetFlushObj}");
                     } catch (ClassNotFoundException | ClassCastException ex) {
                         throw new IOException("Received unexpected resetFlushObj", ex);
                     }
@@ -134,7 +137,7 @@ public abstract class SocketManager implements Closeable {
                         if (ackPromise != null)
                             ackPromise.complete(null);
                         else
-                            LOGGER.warn(STR."Received unexpected ack \{ack}. Ignored.");
+                            LOGGER.warn(STR."[\{myId}]: Received unexpected ack \{ack}. Ignored.");
                     }
                     case SeqPacketImpl seqPacket -> {
                         LOGGER.info(STR."[\{this.myId}] Received packet: \{seqPacket}");
@@ -198,7 +201,7 @@ public abstract class SocketManager implements Closeable {
             if (Thread.currentThread().isInterrupted())
                 return;
 
-            LOGGER.error("Failed to write packet {}, closing...", p, e);
+            LOGGER.error(STR."[\{myId}]: Failed to write packet {}, closing...", p, e);
             close();
         } finally {
             this.isSendTaskRunning = false;

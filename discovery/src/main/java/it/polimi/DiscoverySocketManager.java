@@ -16,10 +16,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 public class DiscoverySocketManager extends SocketManager {
 
-    private final BlockingQueue<PacketAndSender> inPacketQueue;
+    private final BlockingQueue<PacketAndSender<Peer2DiscoveryPacket>> inPacketQueue;
 
-    public record PacketAndSender(Peer2DiscoveryPacket p, SocketAddress sender) {
-    }
 
     /**
      * Create a socketManager without the recipient id: will receive an {@link HelloPacket} with it and the serverPort.
@@ -57,7 +55,7 @@ public class DiscoverySocketManager extends SocketManager {
     @Override
     protected void handlePacket(SeqPacketImpl seqPacket, SocketAddress sender) throws IOException {
         switch (seqPacket.p()) {
-            case Peer2DiscoveryPacket p2d -> inPacketQueue.add(new PacketAndSender(p2d, sender));
+            case Peer2DiscoveryPacket p2d -> inPacketQueue.add(new PacketAndSender<>(p2d, sender));
             default -> throw new IOException("Unexpected packet");
         }
     }
@@ -76,7 +74,7 @@ public class DiscoverySocketManager extends SocketManager {
         doSendAndWaitAck(packet, address);
     }
 
-    public PacketAndSender receive() throws IOException {
+    public PacketAndSender<Peer2DiscoveryPacket> receive() throws IOException {
         try {
             return inPacketQueue.take();
         } catch (InterruptedException e) {

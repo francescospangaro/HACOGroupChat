@@ -4,7 +4,6 @@ import it.polimi.packets.SeqPacketImpl;
 import it.polimi.packets.discovery.Discovery2PeerPacket;
 import it.polimi.packets.discovery.Peer2DiscoveryPacket;
 import it.polimi.packets.p2p.HelloPacket;
-import it.polimi.packets.p2p.NewPeer;
 import it.polimi.packets.p2p.P2PPacket;
 import org.jetbrains.annotations.VisibleForTesting;
 
@@ -20,7 +19,7 @@ public class PeerSocketManager extends SocketManager {
 
     private final SocketAddress discoveryAddress;
 
-    private final BlockingQueue<P2PPacket> inPacketQueue_peer;
+    private final BlockingQueue<PacketAndSender<P2PPacket>> inPacketQueue_peer;
     private final BlockingQueue<Discovery2PeerPacket> inPacketQueue_discovery;
 
     /**
@@ -64,17 +63,7 @@ public class PeerSocketManager extends SocketManager {
     @Override
     protected void handlePacket(SeqPacketImpl seqPacket, SocketAddress sender) throws IOException {
         switch (seqPacket.p()) {
-            case P2PPacket p2p -> {
-                if (p2p instanceof HelloPacket helloPacket)
-                    inPacketQueue_peer.add(new NewPeer(helloPacket.id(), sender));
-                else {
-                    try {
-                        inPacketQueue_peer.put(p2p);
-                    } catch (InterruptedException e) {
-                        throw new RuntimeException(e);
-                    }
-                }
-            }
+            case P2PPacket p2p -> inPacketQueue_peer.add(new PacketAndSender<>(p2p, sender));
             case Discovery2PeerPacket d2p -> inPacketQueue_discovery.add(d2p);
             default -> throw new IOException("Unexpected packet");
         }
@@ -107,7 +96,7 @@ public class PeerSocketManager extends SocketManager {
         doSendAndWaitAck(packet, discoveryAddress);
     }
 
-    public P2PPacket receiveFromPeer() throws IOException {
+    public PacketAndSender<P2PPacket> receiveFromPeer() throws IOException {
         try {
             return inPacketQueue_peer.take();
         } catch (InterruptedException e) {
