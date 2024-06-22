@@ -10,8 +10,8 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
 public class ImproperShutdownSocket extends DatagramSocket {
-    private final Semaphore readSemaphore = new Semaphore(Integer.MAX_VALUE);
-    private volatile boolean discardOutput;
+    private final Semaphore readSemaphore = new Semaphore(1);
+    private volatile boolean locked;
 
     public ImproperShutdownSocket(int port) throws SocketException {
         super(port);
@@ -19,25 +19,25 @@ public class ImproperShutdownSocket extends DatagramSocket {
 
     @Override
     public void send(DatagramPacket p) throws IOException {
-        if (!discardOutput)
+        if (!locked)
             super.send(p);
     }
 
     public void lock() {
         System.out.println("locking...");
-        if (discardOutput) //Already closed
+        if (locked) //Already closed
             return;
         readSemaphore.drainPermits();
         System.out.println("locked");
-        discardOutput = true;
+        locked = true;
     }
 
     public void unlock() {
-        if (!discardOutput) //Already unlocked
+        if (!locked) //Already unlocked
             return;
 
-        readSemaphore.release(Integer.MAX_VALUE - 100);
-        discardOutput = false;
+        locked = false;
+        readSemaphore.release();
         System.out.println("unlocked");
     }
 
@@ -57,11 +57,9 @@ public class ImproperShutdownSocket extends DatagramSocket {
 
     @Override
     public void receive(DatagramPacket p) throws IOException {
-        acquireSemaphore();
-        try {
-            super.receive(p);
-        } finally {
-            readSemaphore.release();
+        if (locked) {
+            acquireSemaphore();
         }
+        super.receive(p);
     }
 }
