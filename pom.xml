@@ -19,7 +19,7 @@
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <intellij.version>233.14808.21</intellij.version>
+        <intellij.version>241.18034.62</intellij.version>
         <slf4j.version>2.0.13</slf4j.version>
         <log4j.version>2.23.1</log4j.version>
     </properties>
@@ -38,6 +38,21 @@
     <dependencyManagement>
         <dependencies>
             <dependency>
+                <groupId>it.polimi</groupId>
+                <artifactId>common</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>it.polimi</groupId>
+                <artifactId>discovery</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>it.polimi</groupId>
+                <artifactId>peer</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
                 <groupId>org.junit</groupId>
                 <artifactId>junit-bom</artifactId>
                 <version>5.10.2</version>
@@ -55,8 +70,50 @@
         </dependency>
     </dependencies>
 
-
     <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-shade-plugin</artifactId>
+                    <version>3.6.0</version>
+                    <configuration>
+                        <filters>
+                            <filter>
+                                <artifact>*:*</artifact>
+                                <excludes>
+                                    <exclude>module-info.class</exclude>
+                                    <exclude>META-INF/versions/**/module-info.class</exclude>
+                                    <exclude>META-INF/MANIFEST.MF</exclude>
+                                </excludes>
+                            </filter>
+                            <!-- Force the inclusion on logger class used in xml config files
+                             see https://stackoverflow.com/questions/58329170/how-do-i-include-classes-from-log4j-xml-when-maven-shade-plugin-minimizes-the-ja -->
+                            <filter>
+                                <artifact>org.apache.logging.log4j:log4j-core</artifact>
+                                <includes>
+                                    <include>**</include>
+                                </includes>
+                            </filter>
+                            <filter>
+                                <artifact>org.slf4j:slf4j-jdk-platform-logging</artifact>
+                                <includes>
+                                    <include>**</include>
+                                </includes>
+                            </filter>
+                        </filters>
+                        <transformers>
+                            <transformer
+                                    implementation="org.apache.maven.plugins.shade.resource.ApacheLicenseResourceTransformer"/>
+                            <transformer
+                                    implementation="org.apache.maven.plugins.shade.resource.ApacheNoticeResourceTransformer"/>
+                        </transformers>
+                        <minimizeJar>true</minimizeJar>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -71,47 +128,9 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.2.5</version>
+                <version>3.3.0</version>
                 <configuration>
                     <argLine>--enable-preview</argLine>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-shade-plugin</artifactId>
-                <version>3.6.0</version>
-                <configuration>
-                    <filters>
-                        <filter>
-                            <artifact>*:*</artifact>
-                            <excludes>
-                                <exclude>module-info.class</exclude>
-                                <exclude>META-INF/versions/**/module-info.class</exclude>
-                                <exclude>META-INF/MANIFEST.MF</exclude>
-                            </excludes>
-                        </filter>
-                        <!-- Force the inclusion on logger class used in xml config files
-                         see https://stackoverflow.com/questions/58329170/how-do-i-include-classes-from-log4j-xml-when-maven-shade-plugin-minimizes-the-ja -->
-                        <filter>
-                            <artifact>org.apache.logging.log4j:log4j-core</artifact>
-                            <includes>
-                                <include>**</include>
-                            </includes>
-                        </filter>
-                        <filter>
-                            <artifact>org.slf4j:slf4j-jdk-platform-logging</artifact>
-                            <includes>
-                                <include>**</include>
-                            </includes>
-                        </filter>
-                    </filters>
-                    <transformers>
-                        <transformer
-                                implementation="org.apache.maven.plugins.shade.resource.ApacheLicenseResourceTransformer"/>
-                        <transformer
-                                implementation="org.apache.maven.plugins.shade.resource.ApacheNoticeResourceTransformer"/>
-                    </transformers>
-                    <minimizeJar>true</minimizeJar>
                 </configuration>
             </plugin>
         </plugins>

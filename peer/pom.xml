@@ -11,17 +11,10 @@
 
     <artifactId>peer</artifactId>
 
-    <properties>
-        <maven.compiler.source>21</maven.compiler.source>
-        <maven.compiler.target>21</maven.compiler.target>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>it.polimi</groupId>
             <artifactId>common</artifactId>
-            <version>1.0</version>
         </dependency>
         <dependency>
             <groupId>com.jetbrains.intellij.java</groupId>
@@ -49,7 +42,6 @@
             <version>${log4j.version}</version>
             <scope>runtime</scope>
         </dependency>
-
     </dependencies>
 
     <build>

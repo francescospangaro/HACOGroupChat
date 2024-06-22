@@ -11,22 +11,21 @@
 
     <artifactId>integration-tests</artifactId>
 
-    <properties>
-        <maven.compiler.source>21</maven.compiler.source>
-        <maven.compiler.target>21</maven.compiler.target>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>it.polimi</groupId>
             <artifactId>discovery</artifactId>
-            <version>1.0</version>
         </dependency>
         <dependency>
             <groupId>it.polimi</groupId>
             <artifactId>peer</artifactId>
-            <version>1.0</version>
+        </dependency>
+        <dependency>
+            <groupId>it.polimi</groupId>
+            <artifactId>common</artifactId>
+            <version>${project.version}</version>
+            <type>test-jar</type>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 </project>
