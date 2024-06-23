@@ -1,5 +1,6 @@
-package it.polimi;
+package it.polimi.peer;
 
+import it.polimi.Message;
 import it.polimi.packets.p2p.*;
 import org.jetbrains.annotations.VisibleForTesting;
 import org.slf4j.Logger;
@@ -190,7 +191,7 @@ public class PeerController {
     }
 
     @VisibleForTesting
-    Collection<P2PPacket> getDiscMsg(String id) {
+    public Collection<P2PPacket> getDiscMsg(String id) {
         if (disconnectMsgs.containsKey(id))
             return Collections.unmodifiableCollection(disconnectMsgs.get(id));
         return null;

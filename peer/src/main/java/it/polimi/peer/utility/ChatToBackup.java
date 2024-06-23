@@ -1,6 +1,6 @@
-package it.polimi.utility;
+package it.polimi.peer.utility;
 
-import it.polimi.ChatRoom;
+import it.polimi.peer.ChatRoom;
 import it.polimi.Message;
 
 import java.io.Serializable;

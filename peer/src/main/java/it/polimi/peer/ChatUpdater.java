@@ -1,4 +1,4 @@
-package it.polimi;
+package it.polimi.peer;
 
 import it.polimi.packets.ByePacket;
 import it.polimi.packets.p2p.*;

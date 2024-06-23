@@ -1,5 +1,6 @@
-package it.polimi;
+package it.polimi.discovery;
 
+import it.polimi.SocketManager;
 import it.polimi.packets.SeqPacketImpl;
 import it.polimi.packets.discovery.Discovery2PeerPacket;
 import it.polimi.packets.discovery.Peer2DiscoveryPacket;

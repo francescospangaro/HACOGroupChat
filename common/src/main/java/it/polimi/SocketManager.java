@@ -31,7 +31,7 @@ public abstract class SocketManager implements Closeable {
 
     private final BlockingQueue<QueuedOutput> outPacketQueue;
     private final Map<Long, CompletableFuture<Void>> waitingAcks;
-    static final int DEFAULT_TIMEOUT = 5000;
+    protected static final int DEFAULT_TIMEOUT = 5000;
     private final int timeout;
     private final DatagramSocket socket;
     private ObjectOutputStream oos;
@@ -74,7 +74,7 @@ public abstract class SocketManager implements Closeable {
     }
 
     @VisibleForTesting
-    SocketManager(String myId,
+    protected SocketManager(String myId,
                   ExecutorService executor,
                   int timeout,
                   DatagramSocket socket) {
@@ -91,7 +91,7 @@ public abstract class SocketManager implements Closeable {
         this.executor = executor;
     }
 
-    void start() {
+    protected void start() {
         recvTask = executor.submit(this::readLoop);
         sendTask = executor.submit(this::writeLoop);
         isSendTaskRunning = true;

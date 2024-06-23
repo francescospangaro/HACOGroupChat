@@ -1,6 +1,6 @@
-package it.polimi;
+package it.polimi.peer;
 
-import it.polimi.utility.ChatToBackup;
+import it.polimi.peer.utility.ChatToBackup;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -13,7 +13,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class BackupManager {
     private static final Logger LOGGER = LoggerFactory.getLogger(BackupManager.class);
-    static final String SAVE_DIR = STR."\{System.getProperty("user.home")}\{File.separator}HACOBackup\{File.separator}";
+    public static final String SAVE_DIR = STR."\{System.getProperty("user.home")}\{File.separator}HACOBackup\{File.separator}";
     private final String saveDirectory;
     private final String id;
     private final PropertyChangeListener msgChangeListener;

@@ -1,9 +1,9 @@
-package it.polimi.gui;
+package it.polimi.peer.gui;
 
-import it.polimi.ChatRoom;
-import it.polimi.PeerController;
-import it.polimi.PeerNetManager;
-import it.polimi.utility.MessageGUI;
+import it.polimi.peer.utility.MessageGUI;
+import it.polimi.peer.ChatRoom;
+import it.polimi.peer.PeerController;
+import it.polimi.peer.PeerNetManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

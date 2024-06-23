@@ -1,4 +1,4 @@
-package it.polimi.Exceptions;
+package it.polimi.peer.Exceptions;
 
 /**
  * Thrown if a connection request is received from an already connected peer

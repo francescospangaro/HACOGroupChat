@@ -1,6 +1,6 @@
-package it.polimi;
+package it.polimi.peer;
 
-import it.polimi.Exceptions.PeerAlreadyConnectedException;
+import it.polimi.peer.Exceptions.PeerAlreadyConnectedException;
 import it.polimi.packets.ByePacket;
 import it.polimi.packets.p2p.HelloPacket;
 import org.jetbrains.annotations.VisibleForTesting;
@@ -25,13 +25,13 @@ public class PeerNetManager implements Closeable {
     private static final Logger LOGGER = LoggerFactory.getLogger(PeerNetManager.class);
 
     private final String id;
-    final SocketAddress discoveryAddr;
-    final int port;
+    protected final SocketAddress discoveryAddr;
+    protected final int port;
     private final Set<ChatRoom> chats;
     private final PropertyChangeSupport roomsPropertyChangeSupport;
     private final PropertyChangeSupport usersPropertyChangeSupport;
 
-    final ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor();
+    protected final ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor();
     private final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
     private volatile ScheduledFuture<?> reconnectTask;
     private final Map<String, SocketAddress> ips;
@@ -50,7 +50,7 @@ public class PeerNetManager implements Closeable {
     private Future<?> updaterFuture;
 
     @VisibleForTesting
-    PeerNetManager(String id, int port,
+    public PeerNetManager(String id, int port,
                    PropertyChangeListener chatRoomsChangeListener,
                    PropertyChangeListener usersChangeListener,
                    PropertyChangeListener msgChangeListener) throws IOException {
@@ -115,7 +115,7 @@ public class PeerNetManager implements Closeable {
     }
 
     @VisibleForTesting
-    PeerSocketManager createSocketManager() throws IOException {
+    protected PeerSocketManager createSocketManager() throws IOException {
         return new PeerSocketManager(id, executorService, discoveryAddr, port, networkTimeoutSeconds * 1000);
     }
 

@@ -1,5 +1,6 @@
-package it.polimi;
+package it.polimi.peer;
 
+import it.polimi.SocketManager;
 import it.polimi.packets.SeqPacketImpl;
 import it.polimi.packets.discovery.Discovery2PeerPacket;
 import it.polimi.packets.discovery.Peer2DiscoveryPacket;
@@ -48,7 +49,7 @@ public class PeerSocketManager extends SocketManager {
     }
 
     @VisibleForTesting
-    PeerSocketManager(String myId,
+    public PeerSocketManager(String myId,
                       ExecutorService executor,
                       SocketAddress discoveryAddress,
                       int timeout,

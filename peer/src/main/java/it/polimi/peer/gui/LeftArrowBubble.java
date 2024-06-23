@@ -1,4 +1,4 @@
-package it.polimi.gui;
+package it.polimi.peer.gui;
 
 import javax.swing.*;
 import java.awt.*;

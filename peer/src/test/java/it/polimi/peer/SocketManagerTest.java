@@ -1,5 +1,6 @@
-package it.polimi;
+package it.polimi.peer;
 
+import it.polimi.ImproperShutdownSocket;
 import it.polimi.packets.ByePacket;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;

@@ -1,7 +1,9 @@
 package it.polimi;
 
+import it.polimi.discovery.DiscoveryServer;
 import it.polimi.packets.p2p.MessagePacket;
-import it.polimi.utility.MessageGUI;
+import it.polimi.peer.*;
+import it.polimi.peer.utility.MessageGUI;
 import org.junit.jupiter.api.*;
 
 import java.io.File;
@@ -353,7 +355,7 @@ class ChatTest {
                         },
                         e -> msg2Promise.complete(((MessageGUI) e.getNewValue()).message())) {
                     @Override
-                    PeerSocketManager createSocketManager() throws IOException {
+                    protected PeerSocketManager createSocketManager() throws IOException {
                         if (socketRef.get() == null) {
                             ImproperShutdownSocket s = new ImproperShutdownSocket(port);
                             socketRef.set(s);
@@ -461,7 +463,7 @@ class ChatTest {
                             msg2.countDown();
                         }) {
                     @Override
-                    PeerSocketManager createSocketManager() throws IOException {
+                    protected PeerSocketManager createSocketManager() throws IOException {
                         if (socket_p2.get() == null) {
                             ImproperShutdownSocket s = new ImproperShutdownSocket(port);
                             socket_p2.set(s);
@@ -601,7 +603,7 @@ class ChatTest {
                             msg2.countDown();
                         }) {
                     @Override
-                    PeerSocketManager createSocketManager() throws IOException {
+                    protected PeerSocketManager createSocketManager() throws IOException {
                         if (socket_p2_ref.get() == null) {
                             ImproperShutdownSocket s = new ImproperShutdownSocket(port);
                             socket_p2_ref.set(s);

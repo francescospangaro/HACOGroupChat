@@ -1,22 +1,17 @@
-package it.polimi;
+package it.polimi.discovery;
 
 import it.polimi.packets.ByePacket;
 import it.polimi.packets.discovery.IPsPacket;
-import it.polimi.packets.discovery.Peer2DiscoveryPacket;
 import it.polimi.packets.discovery.UpdateIpPacket;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
-import java.net.InetSocketAddress;
-import java.net.Socket;
 import java.net.SocketAddress;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Discovery server class: Serves the purpose of being a first point of connection

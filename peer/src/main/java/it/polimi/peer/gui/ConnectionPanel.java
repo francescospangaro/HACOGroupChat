@@ -1,6 +1,6 @@
-package it.polimi.gui;
+package it.polimi.peer.gui;
 
-import it.polimi.utility.Randomize;
+import it.polimi.peer.utility.Randomize;
 
 import javax.swing.*;
 

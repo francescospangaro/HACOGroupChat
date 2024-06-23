@@ -1,6 +1,7 @@
-package it.polimi;
+package it.polimi.peer;
 
-import it.polimi.utility.MessageGUI;
+import it.polimi.peer.utility.MessageGUI;
+import it.polimi.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
