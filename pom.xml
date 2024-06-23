@@ -13,6 +13,7 @@
         <module>peer</module>
         <module>discovery</module>
         <module>integration-tests</module>
+        <module>jlink</module>
     </modules>
 
     <properties>
@@ -22,6 +23,7 @@
         <intellij.version>241.18034.62</intellij.version>
         <slf4j.version>2.0.13</slf4j.version>
         <log4j.version>2.23.1</log4j.version>
+        <skipTests>false</skipTests>
     </properties>
 
     <repositories>
@@ -131,9 +133,55 @@
                 <version>3.3.0</version>
                 <configuration>
                     <argLine>--enable-preview</argLine>
+                    <skipTests>${skipTests}</skipTests>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jlink-plugin</artifactId>
+                <version>3.2.0</version>
+                <extensions>true</extensions>
+                <configuration>
+                    <!-- configuration elements goes here -->
+                    <verbose>true</verbose>
+                    <addOptions>
+                        <addOption>--enable-preview</addOption>
+                    </addOptions>
+                    <addModules>
+                        <addModule>java.base</addModule>
+                        <addModule>java.compiler</addModule>
+                        <addModule>java.desktop</addModule>
+                        <addModule>java.logging</addModule>
+                        <addModule>java.management</addModule>
+                        <addModule>java.naming</addModule>
+                        <addModule>java.rmi</addModule>
+                        <addModule>java.scripting</addModule>
+                        <addModule>java.sql</addModule>
+                        <addModule>java.xml</addModule>
+                        <addModule>jdk.unsupported</addModule>
+                    </addModules>
+                </configuration>
+                <!-- Kill the default execution -->
+                <executions>
+                    <execution>
+                        <id>default-jlink</id>
+                        <phase>none</phase>
+                    </execution>
+                </executions>
+
             </plugin>
         </plugins>
     </build>
 
+    <profiles>
+        <profile>
+            <id>Skip tests</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
+            <properties>
+                <skipTests>true</skipTests>
+            </properties>
+        </profile>
+    </profiles>
 </project>

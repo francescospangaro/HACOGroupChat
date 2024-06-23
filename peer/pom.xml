@@ -93,11 +93,11 @@
                             <transformers>
                                 <transformer
                                         implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>it.polimi.AppMain</mainClass>
+                                    <mainClass>it.polimi.peer.AppMain</mainClass>
                                 </transformer>
                             </transformers>
                             <entryPoints>
-                                <entryPoint>it.polimi.AppMain</entryPoint>
+                                <entryPoint>it.polimi.peer.AppMain</entryPoint>
                             </entryPoints>
                         </configuration>
                     </execution>
