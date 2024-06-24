@@ -3,7 +3,7 @@ package it.polimi;
 import it.polimi.discovery.DiscoveryServer;
 import it.polimi.packets.p2p.MessagePacket;
 import it.polimi.peer.*;
-import it.polimi.peer.Exceptions.DiscoveryUnreachableException;
+import it.polimi.peer.exceptions.DiscoveryUnreachableException;
 import it.polimi.peer.utility.MessageGUI;
 import org.junit.jupiter.api.*;
 

@@ -3,7 +3,7 @@ package it.polimi.peer;
 import it.polimi.packets.ByePacket;
 import it.polimi.packets.p2p.HelloPacket;
 import it.polimi.packets.p2p.P2PPacket;
-import it.polimi.peer.Exceptions.DiscoveryUnreachableException;
+import it.polimi.peer.exceptions.DiscoveryUnreachableException;
 import org.jetbrains.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

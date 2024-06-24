@@ -1,7 +1,7 @@
 package it.polimi.peer.gui;
 
 import it.polimi.peer.ChatRoom;
-import it.polimi.peer.Exceptions.DiscoveryUnreachableException;
+import it.polimi.peer.exceptions.DiscoveryUnreachableException;
 import it.polimi.peer.PeerController;
 import it.polimi.peer.PeerNetManager;
 import it.polimi.peer.utility.MessageGUI;
