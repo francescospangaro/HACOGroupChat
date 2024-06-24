@@ -177,11 +177,10 @@ public class PeerNetManager implements AutoCloseable {
         reconnectTask = scheduledExecutorService.scheduleAtFixedRate(() -> unreachablePeers.forEach(id -> {
             var addr = ips.get(id);
             LOGGER.info(STR."[\{this.id}] Trying to reconnect to \{id}: \{addr}");
-            if (controller.resendQueued(id)) {
-                LOGGER.info(STR."[\{this.id}] Messages enqueued for \{id} succesfully sent");
-                onPeerConnected(id, addr);
-            } else {
-                LOGGER.warn(STR."[\{this.id}] Failed to reconnect to \{id}");
+            try {
+                connectToSinglePeer(id, addr);
+            } catch (IOException e) {
+                LOGGER.warn(STR."[\{this.id}] Failed to reconnect to \{id}", e);
             }
         }), reconnectTimeoutSeconds, reconnectTimeoutSeconds, TimeUnit.SECONDS);
     }
@@ -221,6 +220,8 @@ public class PeerNetManager implements AutoCloseable {
      * Closes connection with all peers {@link #onPeerUnreachable(String, Throwable)}
      */
     public void disconnect() throws DiscoveryUnreachableException {
+        if (!connected)
+            return;
         LOGGER.info(STR."[\{this.id}] Disconnecting...", new Exception());
 
         try {
@@ -233,6 +234,7 @@ public class PeerNetManager implements AutoCloseable {
                     enqueued.remove(id);
                 }
             }
+            LOGGER.info(STR."[\{this.id}] Queue forwarded");
             discovery.disconnect();
         } catch (IOException e) {
             LOGGER.error(STR."[\{this.id}] Can't contact the discovery", e);
