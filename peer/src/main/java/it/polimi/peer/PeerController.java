@@ -11,9 +11,7 @@ import java.beans.PropertyChangeSupport;
 import java.io.IOException;
 import java.net.SocketAddress;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.*;
 import java.util.function.BiConsumer;
 
 public class PeerController {
@@ -137,17 +135,25 @@ public class PeerController {
      * @param ids    ids of peers to send to
      */
     void sendPacket(P2PPacket packet, Set<String> ids) {
+        Set<Future<?>> sendTasks = new HashSet<>();
         ids.forEach(id -> {
             if (!id.equals(this.id)) {
                 if (connectedPeers.contains(id)) {
-                    executorService.execute(() -> {
+                    sendTasks.add(executorService.submit(() -> {
                         LOGGER.trace(STR."[\{this.id}] sending \{packet} to \{id}");
                         sendSinglePeer(packet, id);
-                    });
+                    }));
                 } else {
                     LOGGER.warn(STR."[\{this.id}] Peer \{id} currently disconnected, enqueuing packet only for him...");
                     disconnectMsgs.computeIfAbsent(id, _ -> new ConcurrentLinkedQueue<>()).add(packet);
                 }
+            }
+        });
+        sendTasks.forEach(t -> {
+            try {
+                t.get();
+            } catch (InterruptedException | ExecutionException e) {
+                LOGGER.error(STR."[\{this.id}]: Error sending packet \{packet}", e);
             }
         });
     }
