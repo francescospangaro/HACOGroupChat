@@ -117,6 +117,9 @@ class SocketManagerTest {
 
             recTask.get(500, TimeUnit.MILLISECONDS);
             assertTrue(ex.isEmpty());
+
+            //Wait that all threads have called receive()
+            Thread.sleep(50);
             socket.lock();
 
 
