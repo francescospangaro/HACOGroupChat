@@ -1,10 +1,8 @@
 package it.polimi.peer;
 
 import it.polimi.packets.ByePacket;
-import it.polimi.packets.discovery.ForwardPacket;
-import it.polimi.packets.discovery.IPsPacket;
-import it.polimi.packets.discovery.Peer2DiscoveryPacket;
-import it.polimi.packets.discovery.UpdateIpPacket;
+import it.polimi.packets.discovery.*;
+import it.polimi.packets.p2p.HelloPacket;
 import it.polimi.packets.p2p.P2PPacket;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,22 +12,35 @@ import java.io.InterruptedIOException;
 import java.net.SocketAddress;
 import java.util.Map;
 import java.util.Queue;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
-public class DiscoveryConnector {
+public class DiscoveryConnector implements Runnable {
     private static final Logger LOGGER = LoggerFactory.getLogger(DiscoveryConnector.class);
+
+    private final CompletableFuture<IPsPacket> ipsPromise;
 
     private final PeerSocketManager socketManager;
     private final String id;
+    private final ChatUpdater updater;
     private static final int DELAY = 1000, RETRIES = 5;
 
-    public DiscoveryConnector(PeerSocketManager socketManager, String id) {
+    public DiscoveryConnector(PeerSocketManager socketManager, String id, ChatUpdater updater) {
         this.socketManager = socketManager;
         this.id = id;
+        this.updater = updater;
+        this.ipsPromise = new CompletableFuture<>();
     }
 
     public Map<String, SocketAddress> register() throws IOException {
         sendToDiscovery(new UpdateIpPacket(id));
-        return ((IPsPacket) socketManager.receiveFromDiscovery()).ips();
+        try {
+            return ipsPromise.get().ips();
+        } catch (InterruptedException e) {
+            throw (IOException) new InterruptedIOException().initCause(e);
+        } catch (ExecutionException e) {
+            throw new IOException(e.getCause());
+        }
     }
 
     public void disconnect() throws IOException {
@@ -59,6 +70,25 @@ public class DiscoveryConnector {
                     throw new InterruptedIOException("Interrupted while contacting the discovery");
                 }
             }
+        }
+    }
+
+    @Override
+    public void run() {
+        try {
+            do {
+                Discovery2PeerPacket p = socketManager.receiveFromDiscovery();
+                switch (p) {
+                    case IPsPacket ips -> ipsPromise.complete(ips);
+                    case PacketQueue packetQueue -> {
+                        updater.handlePacket(new HelloPacket(packetQueue.id()), packetQueue.addr());
+                        packetQueue.packets().forEach(p2p -> updater.handlePacket(p2p, packetQueue.addr()));
+                    }
+                }
+
+            } while (!Thread.currentThread().isInterrupted());
+        } catch (IOException e) {
+            LOGGER.error("Failed to receive from discovery", e);
         }
     }
 }

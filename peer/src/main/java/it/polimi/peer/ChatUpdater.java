@@ -41,59 +41,62 @@ public class ChatUpdater implements Runnable {
     public void run() {
         //Message handler
         try {
-            while (true) {
+            do {
                 var packetPacketAndSender = socketManager.receiveFromPeer();
-                switch (packetPacketAndSender.packet()) {
-                    case MessagePacket m -> {
-                        ChatRoom chat = chats
-                                .stream()
-                                .filter(c -> Objects.equals(c.getId(), m.chatId()))
-                                .findFirst()
-                                .orElseThrow(() -> new IllegalStateException("This chat does not exists"));
-                        chat.push(m.msg());
-                    }
-                    //Sends a message with a delay of 7 seconds, in order to test the vector clocks ordering
-                    case DelayedMessagePacket dm -> {
-                        LOGGER.warn(STR."Message delayed! \{dm}");
-                        new Thread(() -> {
-                            try {
-                                Thread.sleep(dm.delayedTime() * 1000L);
-                            } catch (InterruptedException e) {
-                                throw new RuntimeException(e);
-                            }
-                            ChatRoom chat = chats
-                                    .stream()
-                                    .filter(c -> Objects.equals(c.getId(), dm.chatId()))
-                                    .findFirst()
-                                    .orElseThrow(() -> new IllegalStateException("This chat does not exists"));
-                            chat.push(dm.msg());
-                        }).start();
-                    }
-
-                    case CreateRoomPacket crp -> {
-                        LOGGER.info(STR."Adding new room \{crp.name()} \{crp.id()}");
-                        ChatRoom newChat = new ChatRoom(crp.name(), crp.ids(), crp.id(), msgChangeListener);
-                        chats.add(newChat);
-                        propertyChangeSupport.firePropertyChange("ADD_ROOM", null, newChat);
-                    }
-
-                    case DeleteRoomPacket drp -> {
-                        ChatRoom toDelete = chats
-                                .stream()
-                                .filter(c -> Objects.equals(c.getId(), drp.id()))
-                                .findFirst()
-                                .orElseThrow(() -> new IllegalStateException("This chat does not exists"));
-                        LOGGER.info(STR."Deleting room \{toDelete.getName()} \{drp.id()}");
-                        chats.remove(toDelete);
-                        propertyChangeSupport.firePropertyChange("DEL_ROOM", toDelete, null);
-                    }
-                    case HelloPacket helloPacket ->
-                            onPeerConnected.accept(helloPacket.id(), packetPacketAndSender.sender());
-                    case ByePacket byePacket -> onPeerDisconnected.accept(byePacket.id());
-                }
-            }
+                handlePacket(packetPacketAndSender.packet(), packetPacketAndSender.sender());
+            } while (!Thread.currentThread().isInterrupted());
         } catch (IOException ex) {
             LOGGER.error("Failed to update chat", ex);
+        }
+    }
+
+    void handlePacket(P2PPacket packet, SocketAddress sender) {
+        switch (packet) {
+            case MessagePacket m -> {
+                ChatRoom chat = chats
+                        .stream()
+                        .filter(c -> Objects.equals(c.getId(), m.chatId()))
+                        .findFirst()
+                        .orElseThrow(() -> new IllegalStateException("This chat does not exists"));
+                chat.push(m.msg());
+            }
+            //Sends a message with a delay of 7 seconds, in order to test the vector clocks ordering
+            case DelayedMessagePacket dm -> {
+                LOGGER.warn(STR."Message delayed! \{dm}");
+                new Thread(() -> {
+                    try {
+                        Thread.sleep(dm.delayedTime() * 1000L);
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+                    ChatRoom chat = chats
+                            .stream()
+                            .filter(c -> Objects.equals(c.getId(), dm.chatId()))
+                            .findFirst()
+                            .orElseThrow(() -> new IllegalStateException("This chat does not exists"));
+                    chat.push(dm.msg());
+                }).start();
+            }
+
+            case CreateRoomPacket crp -> {
+                LOGGER.info(STR."Adding new room \{crp.name()} \{crp.id()}");
+                ChatRoom newChat = new ChatRoom(crp.name(), crp.ids(), crp.id(), msgChangeListener);
+                chats.add(newChat);
+                propertyChangeSupport.firePropertyChange("ADD_ROOM", null, newChat);
+            }
+
+            case DeleteRoomPacket drp -> {
+                ChatRoom toDelete = chats
+                        .stream()
+                        .filter(c -> Objects.equals(c.getId(), drp.id()))
+                        .findFirst()
+                        .orElseThrow(() -> new IllegalStateException("This chat does not exists"));
+                LOGGER.info(STR."Deleting room \{toDelete.getName()} \{drp.id()}");
+                chats.remove(toDelete);
+                propertyChangeSupport.firePropertyChange("DEL_ROOM", toDelete, null);
+            }
+            case HelloPacket helloPacket -> onPeerConnected.accept(helloPacket.id(), sender);
+            case ByePacket byePacket -> onPeerDisconnected.accept(byePacket.id());
         }
     }
 }

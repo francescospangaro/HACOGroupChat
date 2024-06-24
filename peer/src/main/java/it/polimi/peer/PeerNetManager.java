@@ -49,6 +49,7 @@ public class PeerNetManager implements AutoCloseable {
     private PeerController controller;
     private final BackupManager backupManager;
     private Future<?> updaterFuture;
+    private Future<?> discoveryFuture;
 
     @VisibleForTesting
     public PeerNetManager(String id, int port,
@@ -134,8 +135,10 @@ public class PeerNetManager implements AutoCloseable {
         LOGGER.info(STR."[\{id}] STARTING");
 
         socketManager = createSocketManager();
-        discovery = new DiscoveryConnector(socketManager, id);
-        updaterFuture = executorService.submit(new ChatUpdater(socketManager, chats, roomsPropertyChangeSupport, msgChangeListener, this::onPeerConnected, this::onPeerDisconnected));
+        var updater = new ChatUpdater(socketManager, chats, roomsPropertyChangeSupport, msgChangeListener, this::onPeerConnected, this::onPeerDisconnected);
+        discovery = new DiscoveryConnector(socketManager, id, updater);
+        discoveryFuture = executorService.submit(discovery);
+        updaterFuture = executorService.submit(updater);
         controller = new PeerController(id, chats, ips, connectedPeers, socketManager, msgChangeListener, roomsPropertyChangeSupport, executorService, backupManager, this::onPeerUnreachable);
 
         //We are (re-)connecting from scratch, so delete all crashed peer and get a new list from the discovery
@@ -251,6 +254,7 @@ public class PeerNetManager implements AutoCloseable {
         connected = false;
 
         updaterFuture.cancel(true);
+        discoveryFuture.cancel(true);
         socketManager.close();
 
         ips.clear();
