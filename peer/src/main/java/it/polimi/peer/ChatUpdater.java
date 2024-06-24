@@ -18,7 +18,7 @@ public class ChatUpdater implements Runnable {
     private static final Logger LOGGER = LoggerFactory.getLogger(ChatUpdater.class);
 
     private final PeerSocketManager socketManager;
-    private final Map<ChatRoom, Boolean> chats;
+    private final Set<ChatRoom> chats;
     private final PropertyChangeSupport propertyChangeSupport;
     private final PropertyChangeListener msgChangeListener;
     private final BiConsumer<String, SocketAddress> onPeerConnected;
@@ -27,7 +27,7 @@ public class ChatUpdater implements Runnable {
     private final Set<DeleteRoomPacket> waitingDeletes;
 
     public ChatUpdater(PeerSocketManager socketManager,
-                       Map<ChatRoom, Boolean> chats,
+                       Set<ChatRoom> chats,
                        PropertyChangeSupport propertyChangeSupport,
                        PropertyChangeListener msgChangeListener, BiConsumer<String, SocketAddress> onPeerConnected, Consumer<String> onPeerDisconnected) {
         this.socketManager = socketManager;
@@ -78,7 +78,7 @@ public class ChatUpdater implements Runnable {
                 LOGGER.info(STR."Adding new room \{crp.name()} \{crp.id()}");
                 ChatRoom newChat = new ChatRoom(crp.name(), crp.ids(), crp.id(), msgChangeListener);
                 // If we used a normal put and the newChat was already present and closed, it would have reopened it, we don't want that
-                chats.putIfAbsent(newChat, true);
+                chats.add(newChat);
                 // Once we create a new chatroom, check for all waiting messages if they can be popped.
                 // By blocking the messages here, it mimics the arrival of the messages, postponing it for the user until
                 // the chatroom has been created
@@ -86,9 +86,7 @@ public class ChatUpdater implements Runnable {
                 propertyChangeSupport.firePropertyChange("ADD_ROOM", null, newChat);
             }
 
-            case DeleteRoomPacket drp -> {
-                deleteHandler(drp);
-            }
+            case DeleteRoomPacket drp -> deleteHandler(drp);
 
             case HelloPacket helloPacket -> onPeerConnected.accept(helloPacket.id(), sender);
 
@@ -105,7 +103,7 @@ public class ChatUpdater implements Runnable {
      * 1 if the message was passed to it's chatroom
      */
     private int messageHandler(MessagePacket m) {
-        Iterator<ChatRoom> chatIterator = chats.keySet().iterator();
+        Iterator<ChatRoom> chatIterator = chats.iterator();
         ChatRoom chat = chatIterator.next();
         boolean found = false;
         while (chatIterator.hasNext()) {
@@ -126,14 +124,13 @@ public class ChatUpdater implements Runnable {
 
     private int deleteHandler(DeleteRoomPacket drp) {
         ChatRoom toDelete = chats
-                .keySet()
                 .stream()
                 .filter(c -> Objects.equals(c.getId(), drp.id()))
                 .findFirst()
                 .orElse(null);
         if (toDelete != null) {
             LOGGER.info(STR."Deleting room \{toDelete.getName()} \{drp.id()}");
-            chats.replace(toDelete, true, false);
+            toDelete.close();
             propertyChangeSupport.firePropertyChange("DEL_ROOM", toDelete, null);
             return 1;
         } else {

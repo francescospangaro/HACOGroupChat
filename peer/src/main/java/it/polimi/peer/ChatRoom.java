@@ -23,6 +23,7 @@ public class ChatRoom {
     private final String name;
     private final UUID id;
     private final Lock pushLock;
+    private Boolean closed;
 
     public ChatRoom(String name, Set<String> users, PropertyChangeListener msgChangeListener) {
         this(name, users, UUID.randomUUID(), msgChangeListener);
@@ -34,6 +35,7 @@ public class ChatRoom {
         this.id = id;
         this.pushLock = new ReentrantLock();
         this.waiting = new LinkedHashSet<>();
+        this.closed = false;
 
         vectorClocks = new HashMap<>();
         for (String user : users) {
@@ -51,6 +53,7 @@ public class ChatRoom {
         this.id = id;
         this.pushLock = new ReentrantLock();
         this.waiting = new LinkedHashSet<>(waiting);
+        this.closed = false;
 
         this.vectorClocks = new HashMap<>(vectorClocks);
         this.receivedMsgs = new ConcurrentLinkedQueue<>(messages);
@@ -65,6 +68,10 @@ public class ChatRoom {
 
     public String getName() {
         return name;
+    }
+
+    public Boolean isClosed() {
+        return closed;
     }
 
     public Message send(String msg, String sender) {
@@ -188,5 +195,9 @@ public class ChatRoom {
 
     public Collection<Message> getReceivedMsgs() {
         return Collections.unmodifiableCollection(receivedMsgs);
+    }
+
+    public void close() {
+        this.closed = true;
     }
 }

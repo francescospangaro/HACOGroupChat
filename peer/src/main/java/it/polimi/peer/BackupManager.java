@@ -8,8 +8,8 @@ import java.beans.PropertyChangeListener;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class BackupManager {
     private static final Logger LOGGER = LoggerFactory.getLogger(BackupManager.class);
@@ -24,10 +24,10 @@ public class BackupManager {
         this.msgChangeListener = msgChangeListener;
     }
 
-    public Map<ChatRoom, Boolean> getFromBackup() {
+    public Set<ChatRoom> getFromBackup() {
         var saveDir = new File(saveDirectory);
         var files = saveDir.listFiles();
-        Map<ChatRoom, Boolean> tempChats = new HashMap<>();
+        Set<ChatRoom> tempChats = ConcurrentHashMap.newKeySet();
 
         if (files == null)
             return tempChats;
@@ -36,8 +36,8 @@ public class BackupManager {
             try (FileInputStream fileInputStream = new FileInputStream(f);
                  ObjectInputStream objectInputStream = new ObjectInputStream(fileInputStream)) {
                 ChatToBackup tempChat = (ChatToBackup) objectInputStream.readObject();
-                tempChats.put(new ChatRoom(tempChat.name(), tempChat.users(), tempChat.id(), msgChangeListener,
-                        tempChat.vectorClocks(), tempChat.waiting(), tempChat.received()), true);
+                tempChats.add(new ChatRoom(tempChat.name(), tempChat.users(), tempChat.id(), msgChangeListener,
+                        tempChat.vectorClocks(), tempChat.waiting(), tempChat.received()));
             } catch (IOException | ClassNotFoundException e) {
                 LOGGER.error(STR."[\{this.id}] Error reading file \{f} from backup", e);
             }
@@ -45,14 +45,14 @@ public class BackupManager {
         return tempChats;
     }
 
-    public void backupChats(Map<ChatRoom, Boolean> chats) {
+    public void backupChats(Set<ChatRoom> chats) {
         //Create all save directories
         try {
             Files.createDirectories(Paths.get(saveDirectory));
         } catch (IOException e) {
             LOGGER.error(STR."[\{this.id}] Error creating backup folder", e);
         }
-        for (ChatRoom c : chats.keySet()) {
+        for (ChatRoom c : chats) {
             File backupFile = new File(STR."\{saveDirectory}\{c.getId()}.dat");
             try (FileOutputStream fileOutputStream = new FileOutputStream(backupFile);
                  ObjectOutputStream objectOutputStream = new ObjectOutputStream(fileOutputStream)) {

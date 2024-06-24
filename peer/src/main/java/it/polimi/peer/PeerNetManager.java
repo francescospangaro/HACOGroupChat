@@ -28,7 +28,7 @@ public class PeerNetManager implements AutoCloseable {
     private final String id;
     protected final SocketAddress discoveryAddr;
     protected final int port;
-    private final Map<ChatRoom, Boolean> chats;
+    private final Set<ChatRoom> chats;
     private final PropertyChangeSupport roomsPropertyChangeSupport;
     private final PropertyChangeSupport usersPropertyChangeSupport;
 
@@ -108,7 +108,7 @@ public class PeerNetManager implements AutoCloseable {
         usersPropertyChangeSupport = new PropertyChangeSupport(this);
         usersPropertyChangeSupport.addPropertyChangeListener(usersChangeListener);
 
-        for (ChatRoom c : chats.keySet()) {
+        for (ChatRoom c : chats) {
             roomsPropertyChangeSupport.firePropertyChange("ADD_ROOM", null, c);
         }
 
@@ -319,6 +319,6 @@ public class PeerNetManager implements AutoCloseable {
         disconnect();
         scheduledExecutorService.shutdownNow();
         executorService.shutdownNow();
-        backupManager.backupChats(Collections.unmodifiableMap(chats));
+        backupManager.backupChats(Collections.unmodifiableSet(chats));
     }
 }

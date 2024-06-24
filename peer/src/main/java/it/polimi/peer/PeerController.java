@@ -19,7 +19,7 @@ public class PeerController {
     private final Map<String, Integer> degradedConnections = new ConcurrentHashMap<>();
     private final Map<String, Queue<P2PPacket>> disconnectMsgs = new ConcurrentHashMap<>();
     private final String id;
-    private final Map<ChatRoom, Boolean> chats;
+    private final Set<ChatRoom> chats;
     private final Map<String, SocketAddress> ips;
     private final Set<String> connectedPeers;
     private final PeerSocketManager socketManager;
@@ -31,7 +31,7 @@ public class PeerController {
     private final BiConsumer<String, Throwable> onPeerUnreachable;
 
     public PeerController(String id,
-                          Map<ChatRoom, Boolean> chats,
+                          Set<ChatRoom> chats,
                           Map<String, SocketAddress> ips,
                           Set<String> connectedPeers,
                           PeerSocketManager socketManager,
@@ -88,7 +88,7 @@ public class PeerController {
      * @param chat chat where the message is sent
      */
     public void sendMessage(String msg, ChatRoom chat) {
-        if (chats.get(chats.keySet().stream().filter(c -> c.getId().equals(chat.getId())).findFirst().orElseThrow(() -> new IllegalStateException("This chat does not exists")))) {
+        if (!chat.isClosed()) {
 
             Message m = chat.send(msg, id);
 
@@ -112,7 +112,7 @@ public class PeerController {
 
         //Add the ChatRoom to the list of available ChatRooms
         ChatRoom newRoom = new ChatRoom(name, users, msgChangeListener);
-        chats.put(newRoom, true);
+        chats.add(newRoom);
 
         //Inform all the users about the creation of the new chat room by sending to them a CreateRoomPacket
         sendPacket(new CreateRoomPacket(newRoom.getId(), name, users), users);
@@ -123,7 +123,7 @@ public class PeerController {
 
     public void deleteRoom(ChatRoom toDelete) {
         LOGGER.info(STR."[\{this.id}] Deleting room \{toDelete.getName()} \{toDelete.getId()}");
-        chats.replace(toDelete, true, false);
+        toDelete.close();
 
         sendPacket(new DeleteRoomPacket(toDelete.getId()), toDelete.getUsers());
         backupManager.removeChatBackup(toDelete);
