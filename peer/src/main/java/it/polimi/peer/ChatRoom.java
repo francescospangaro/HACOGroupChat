@@ -91,7 +91,7 @@ public class ChatRoom {
         try {
             pushLock.lock();
             //Checks if the user can accept the message arrived, or if he has to put it in a queue
-            switch(checkVC(m.vectorClocks())){
+            switch (checkVC(m.vectorClocks())) {
                 //Accept message
                 case 1:
                     //Increase the PID of the message sender
@@ -180,11 +180,6 @@ public class ChatRoom {
         return 1;
     }
 
-    public Map<String, Integer> increaseVectorClocks(String sender) {
-        vectorClocks.replace(sender, vectorClocks.get(sender), vectorClocks.get(sender)+1);
-        return vectorClocks;
-    }
-
     public Set<Message> getWaiting() {
         return Set.copyOf(waiting);
     }
@@ -202,12 +197,15 @@ public class ChatRoom {
         return Collections.unmodifiableCollection(receivedMsgs);
     }
 
-    public void close(Map<String, Integer> vc) {
+    // As soon as the drp is received, the chatroom is closed.
+    // This is because, if the messages arrive in mixed order and a peer receives first the drp, the communication that
+    // incurred in the now closed chatroom is not causally ordered with him.
+    // Closing the chatroom on arrival or after all messages arrived doesn't change the fact that the chatroom is closed
+    // for everyone else, thus no one can respond to the late user's messages
+    public void close() {
+        // Close the chatroom
+        closed = true;
 
-        this.closed = true;
-    }
-
-    public void closeLocal(){
-        this.closed = true;
     }
 }
+

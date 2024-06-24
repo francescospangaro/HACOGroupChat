@@ -128,7 +128,7 @@ public class ChatUpdater implements Runnable {
                 .orElse(null);
         if (toDelete != null) {
             LOGGER.info(STR."Deleting room \{toDelete.getName()} \{drp.id()}");
-            toDelete.close(drp.vectorClocks());
+            toDelete.close();
             propertyChangeSupport.firePropertyChange("DEL_ROOM", toDelete, null);
             return 1;
         } else {

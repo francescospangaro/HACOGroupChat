@@ -102,7 +102,7 @@ public class PeerController {
             degradedConnections.forEach((u, d) -> sendPacket(new DelayedMessagePacket(chat.getId(), m, d), Set.of(u)));
 
         } else {
-            LOGGER.info(STR."Can't send messages on closed chatrooms!");
+            LOGGER.info("Can't send messages on closed chatrooms!");
         }
     }
 
@@ -123,9 +123,9 @@ public class PeerController {
 
     public void deleteRoom(ChatRoom toDelete) {
         LOGGER.info(STR."[\{this.id}] Deleting room \{toDelete.getName()} \{toDelete.getId()}");
-        DeleteRoomPacket drp = new DeleteRoomPacket(toDelete.getId(), toDelete.increaseVectorClocks(this.id));
+        DeleteRoomPacket drp = new DeleteRoomPacket(this.id, toDelete.getId());
         sendPacket(drp, toDelete.getUsers());
-        toDelete.close(drp.vectorClocks());
+        toDelete.close();
         backupManager.removeChatBackup(toDelete);
         roomsPropertyChangeSupport.firePropertyChange("DEL_ROOM", toDelete, null);
     }
@@ -133,7 +133,7 @@ public class PeerController {
     /**
      * Sends the packet to the given peers
      * <p>
-     * For each connected peer (peer in the {@link #connectedPeers} set, calls {@link #sendSinglePeer(P2PPacket, String)}.
+     * For each connected peer in the {@link #connectedPeers} set, calls {@link #sendSinglePeer(P2PPacket, String)}.
      * For disconnected peers, adds the message to the {@link #disconnectMsgs} queue
      *
      * @param packet packet to be sent

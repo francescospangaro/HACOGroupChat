@@ -39,11 +39,11 @@ public class ChatPanel {
     private volatile PeerController peerController;
     private final ExecutorService executorService = Executors.newCachedThreadPool();
 
-    private DefaultListModel<MessageBubble> msgListModel = new DefaultListModel<>();
+    private final DefaultListModel<MessageBubble> msgListModel = new DefaultListModel<>();
 
     public ChatPanel(JFrame frame, String discovery, String user, int port) {
         //Want to create a new Group for chatting
-        newChatButton.addActionListener(e -> executorService.execute(() -> {
+        newChatButton.addActionListener(_ -> executorService.execute(() -> {
             CreateRoomDialog dialog = new CreateRoomDialog(peerNetManager.getIps().keySet());
 
             if (dialog.isConfirmed()) {
@@ -57,27 +57,28 @@ public class ChatPanel {
         }));
 
         //Want to send a message to a ChatRoom
-        sendButton.addActionListener(e -> executorService.execute(this::send));
+        sendButton.addActionListener(_ -> executorService.execute(this::send));
 
-        msgArea.registerKeyboardAction(e -> {
+        msgArea.registerKeyboardAction(_ -> {
             if (sendButton.isEnabled()) {
                 executorService.execute(this::send);
             }
         }, KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, KeyEvent.CTRL_DOWN_MASK), JComponent.WHEN_FOCUSED);
 
-        deleteButton.addActionListener(e -> executorService.execute(() -> {
+        deleteButton.addActionListener(_ -> executorService.execute(() -> {
             ChatRoom toDelete = (ChatRoom) chatRooms.getSelectedItem();
+            assert toDelete != null;
             peerController.deleteRoom(toDelete);
         }));
 
-        disconnectReconnectButton.addActionListener(e ->
+        disconnectReconnectButton.addActionListener(_ ->
                 setConnected(!peerNetManager.isConnected())
         );
 
         chatRooms.addItemListener(e -> {
             if (e.getID() == ItemEvent.ITEM_STATE_CHANGED) {
                 if (chatRooms.getItemCount() > 0 && chatRooms.getSelectedItem() != null) {
-                    chatLabel.setText("Chat: " + ((ChatRoom) chatRooms.getSelectedItem()).getName());
+                    chatLabel.setText(STR."Chat: \{((ChatRoom) chatRooms.getSelectedItem()).getName()}");
                     msgListModel.clear();
                     msgListModel.addAll(((ChatRoom) chatRooms.getSelectedItem()).getReceivedMsgs().stream().map(m -> {
                         if (m.sender().equals(user))
@@ -148,7 +149,9 @@ public class ChatPanel {
         Thread.setDefaultUncaughtExceptionHandler((t, e) -> {
             LOGGER.error(STR."Unexpected error in thread \{t}. The application will terminate", e);
             JOptionPane.showMessageDialog(JOptionPane.getRootFrame(),
-                    "Unexpected error. The application will terminate.\n" + e,
+                    STR."""
+                        Unexpected error. The application will terminate.
+                        \{e}""",
                     "Fatal error",
                     JOptionPane.ERROR_MESSAGE);
 
@@ -207,7 +210,9 @@ public class ChatPanel {
                 });
             } catch (IOException e) {
                 JOptionPane.showMessageDialog(JOptionPane.getRootFrame(),
-                        "Can't establish cthe connection. The application will terminate.\n" + e,
+                        STR."""
+                            Can't establish the connection. The application will terminate.
+                            \{e}""",
                         "Error",
                         JOptionPane.ERROR_MESSAGE);
                 System.exit(-1);
@@ -221,7 +226,7 @@ public class ChatPanel {
                 newChatButton.setEnabled(true);
             });
         });
-        detailedViewCheckBox.addActionListener(e -> {
+        detailedViewCheckBox.addActionListener(_ -> {
             msgListModel.clear();
             msgListModel.addAll(((ChatRoom) chatRooms.getSelectedItem()).getReceivedMsgs().stream().map(m -> {
                 if (m.sender().equals(user))
@@ -231,7 +236,7 @@ public class ChatPanel {
             }).toList());
         });
 
-        delaysButton.addActionListener(e -> {
+        delaysButton.addActionListener(_ -> {
             DegradeConnectionsDialog dialog = new DegradeConnectionsDialog(peerNetManager.getIps().keySet(), peerController.getDegradedConnections());
 
             if (dialog.isConfirmed()) {
@@ -252,6 +257,7 @@ public class ChatPanel {
         //Get the ChatRoom selected by the user in which he wants to send the msg
         ChatRoom chat = (ChatRoom) chatRooms.getSelectedItem();
 
+        assert chat != null;
         peerController.sendMessage(msg, chat);
         try {
             Thread.sleep(500);
@@ -278,7 +284,9 @@ public class ChatPanel {
                     });
                 } catch (IOException e) {
                     JOptionPane.showMessageDialog(JOptionPane.getRootFrame(),
-                            "Can't establish cthe connection.\n" + e,
+                            STR."""
+                                Can't establish the connection.
+                                \{e}""",
                             "Error",
                             JOptionPane.ERROR_MESSAGE);
                     SwingUtilities.invokeLater(() -> {
