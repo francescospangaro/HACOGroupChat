@@ -47,7 +47,7 @@ public abstract class SocketManager implements Closeable {
     private Future<?> recvTask;
     private volatile boolean isRecvTaskRunning;
     private Future<?> sendTask;
-    private volatile boolean isSendTaskRunning;
+    private volatile boolean canSendNewPackets;
     private final ExecutorService executor;
 
     /**
@@ -92,9 +92,9 @@ public abstract class SocketManager implements Closeable {
     }
 
     protected void start() {
+        canSendNewPackets = true;
         recvTask = executor.submit(this::readLoop);
         sendTask = executor.submit(this::writeLoop);
-        isSendTaskRunning = true;
         isRecvTaskRunning = true;
     }
 
@@ -148,11 +148,19 @@ public abstract class SocketManager implements Closeable {
             } while (!socket.isClosed() && !Thread.currentThread().isInterrupted());
 
         } catch (IOException e) {
-//            if (!closed)
-//                onClose.accept(otherId.resultNow(), e);
+            // If it's an interrupted exception or the interruption flag was set
+            if (e instanceof InterruptedIOException
+                    || e instanceof ClosedByInterruptException
+                    || Thread.currentThread().isInterrupted())
+                return;
+
+            LOGGER.error(STR."[\{myId}]: Failed to read packet, closing...", e);
+            close();
         } catch (Throwable t) {
             LOGGER.error(STR."[\{myId}]: Unexpected exception in read loop", t);
             throw t;
+        } finally {
+            this.isRecvTaskRunning = false;
         }
     }
 
@@ -194,9 +202,6 @@ public abstract class SocketManager implements Closeable {
         } catch (InterruptedIOException | ClosedByInterruptException | InterruptedException e) {
             // Go on, interruption is expected
         } catch (IOException e) {
-            // Set it here (other than in the finally-block) as we need it set before the close call
-            this.isSendTaskRunning = false;
-
             // If the interruption flag was set, we got interrupted by close, so it's expected
             if (Thread.currentThread().isInterrupted())
                 return;
@@ -204,8 +209,6 @@ public abstract class SocketManager implements Closeable {
             LOGGER.error(STR."[\{myId}]: Failed to write packet {}, closing...", p, e);
             close();
         } finally {
-            this.isSendTaskRunning = false;
-
             // Signal to everybody who is waiting that the socket got closed
             var toCancel = new ArrayList<>(outPacketQueue);
             outPacketQueue.removeAll(toCancel);
@@ -231,7 +234,7 @@ public abstract class SocketManager implements Closeable {
     }
 
     private void doSend(SeqPacket packet, SocketAddress address) throws IOException {
-        if (!isSendTaskRunning)
+        if (!canSendNewPackets)
             throw new IOException(CLOSE_EX_MSG);
 
         CompletableFuture<Void> sentPromise = new CompletableFuture<>();
@@ -263,6 +266,15 @@ public abstract class SocketManager implements Closeable {
     @Override
     public void close() {
         closed = true;
+        canSendNewPackets = false;
+
+        outPacketQueue.forEach(p -> {
+            try {
+                p.sent.get(timeout, TimeUnit.MILLISECONDS);
+            } catch (InterruptedException | ExecutionException | TimeoutException e) {
+                LOGGER.error("Socket closed with enqueued packets", e);
+            }
+        });
         recvTask.cancel(true);
         sendTask.cancel(true);
         socket.close();
