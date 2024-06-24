@@ -24,7 +24,7 @@ public class ChatUpdater implements Runnable {
     private final BiConsumer<String, SocketAddress> onPeerConnected;
     private final Consumer<String> onPeerDisconnected;
     private final Set<MessagePacket> waitingMessages;
-
+    private final Set<DeleteRoomPacket> waitingDeletes;
 
     public ChatUpdater(PeerSocketManager socketManager,
                        Map<ChatRoom, Boolean> chats,
@@ -37,6 +37,7 @@ public class ChatUpdater implements Runnable {
         this.onPeerConnected = onPeerConnected;
         this.onPeerDisconnected = onPeerDisconnected;
         this.waitingMessages = new HashSet<>();
+        this.waitingDeletes = new HashSet<>();
 
     }
 
@@ -58,6 +59,7 @@ public class ChatUpdater implements Runnable {
     void handlePacket(P2PPacket packet, SocketAddress sender) {
         switch (packet) {
             case MessagePacket m -> messageHandler(m);
+
             //Sends a message with a delay of 7 seconds, in order to test the vector clocks ordering
             case DelayedMessagePacket dm -> {
                 LOGGER.warn(STR."Message delayed! \{dm}");
@@ -75,7 +77,8 @@ public class ChatUpdater implements Runnable {
             case CreateRoomPacket crp -> {
                 LOGGER.info(STR."Adding new room \{crp.name()} \{crp.id()}");
                 ChatRoom newChat = new ChatRoom(crp.name(), crp.ids(), crp.id(), msgChangeListener);
-                chats.put(newChat, true);
+                // If we used a normal put and the newChat was already present and closed, it would have reopened it, we don't want that
+                chats.putIfAbsent(newChat, true);
                 // Once we create a new chatroom, check for all waiting messages if they can be popped.
                 // By blocking the messages here, it mimics the arrival of the messages, postponing it for the user until
                 // the chatroom has been created
@@ -84,17 +87,11 @@ public class ChatUpdater implements Runnable {
             }
 
             case DeleteRoomPacket drp -> {
-                ChatRoom toDelete = chats
-                        .keySet()
-                        .stream()
-                        .filter(c -> Objects.equals(c.getId(), drp.id()))
-                        .findFirst()
-                        .orElseThrow(() -> new IllegalStateException("This chat does not exists"));
-                LOGGER.info(STR."Deleting room \{toDelete.getName()} \{drp.id()}");
-                chats.replace(toDelete, true, false);
-                propertyChangeSupport.firePropertyChange("DEL_ROOM", toDelete, null);
+                deleteHandler(drp);
             }
+
             case HelloPacket helloPacket -> onPeerConnected.accept(helloPacket.id(), sender);
+
             case ByePacket byePacket -> onPeerDisconnected.accept(byePacket.id());
         }
     }
@@ -127,7 +124,26 @@ public class ChatUpdater implements Runnable {
         return 1;
     }
 
+    private int deleteHandler(DeleteRoomPacket drp) {
+        ChatRoom toDelete = chats
+                .keySet()
+                .stream()
+                .filter(c -> Objects.equals(c.getId(), drp.id()))
+                .findFirst()
+                .orElse(null);
+        if (toDelete != null) {
+            LOGGER.info(STR."Deleting room \{toDelete.getName()} \{drp.id()}");
+            chats.replace(toDelete, true, false);
+            propertyChangeSupport.firePropertyChange("DEL_ROOM", toDelete, null);
+            return 1;
+        } else {
+            waitingDeletes.add(drp);
+            return 0;
+        }
+    }
+
     private void popQueue() {
         waitingMessages.removeIf(m -> messageHandler(m) == 1);
+        waitingDeletes.removeIf(drp -> deleteHandler(drp) == 1);
     }
 }
