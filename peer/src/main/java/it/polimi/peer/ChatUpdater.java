@@ -104,15 +104,13 @@ public class ChatUpdater implements Runnable {
      */
     private int messageHandler(MessagePacket m) {
         Iterator<ChatRoom> chatIterator = chats.iterator();
-        ChatRoom chat = chatIterator.next();
         boolean found = false;
         while (chatIterator.hasNext()) {
-            if (chat.getId() == m.chatId()) {
+            ChatRoom chat = chatIterator.next();
+            if (chat.getId().equals(m.chatId())) {
                 chat.push(m.msg());
                 found = true;
                 break;
-            } else {
-                chat = chatIterator.next();
             }
         }
         if (!found) {
