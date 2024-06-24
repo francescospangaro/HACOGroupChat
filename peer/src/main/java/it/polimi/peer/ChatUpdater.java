@@ -14,6 +14,11 @@ import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
+/**
+ * ChatUpdater is the class in charge of parsing each incoming message, and update the chat
+ * accordingly.
+ * All messages put in waiting lists here are because the chatroom has not yet been created.
+ */
 public class ChatUpdater implements Runnable {
     private static final Logger LOGGER = LoggerFactory.getLogger(ChatUpdater.class);
 
