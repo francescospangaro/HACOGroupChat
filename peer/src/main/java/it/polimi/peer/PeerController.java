@@ -88,17 +88,22 @@ public class PeerController {
      * @param chat chat where the message is sent
      */
     public void sendMessage(String msg, ChatRoom chat) {
+        if (chats.get(chats.keySet().stream().filter(c -> c.getId().equals(chat.getId())).findFirst().orElseThrow(() -> new IllegalStateException("This chat does not exists")))) {
 
-        Message m = chat.send(msg, id);
+            Message m = chat.send(msg, id);
 
-        //Send a MessagePacket containing the Message just created to each User of the ChatRoom
-        Set<String> normalPeers = new HashSet<>(chat.getUsers());
+            //Send a MessagePacket containing the Message just created to each User of the ChatRoom
+            Set<String> normalPeers = new HashSet<>(chat.getUsers());
 
-        //For testing purposes
-        normalPeers.removeAll(degradedConnections.keySet());
-        sendPacket(new MessagePacket(chat.getId(), m), normalPeers);
+            //For testing purposes
+            normalPeers.removeAll(degradedConnections.keySet());
+            sendPacket(new MessagePacket(chat.getId(), m), normalPeers);
 
-        degradedConnections.forEach((u, d) -> sendPacket(new DelayedMessagePacket(chat.getId(), m, d), Set.of(u)));
+            degradedConnections.forEach((u, d) -> sendPacket(new DelayedMessagePacket(chat.getId(), m, d), Set.of(u)));
+
+        } else {
+            LOGGER.info(STR."Can't send messages on closed chatrooms!");
+        }
     }
 
 
@@ -118,7 +123,7 @@ public class PeerController {
 
     public void deleteRoom(ChatRoom toDelete) {
         LOGGER.info(STR."[\{this.id}] Deleting room \{toDelete.getName()} \{toDelete.getId()}");
-        chats.remove(toDelete);
+        chats.replace(toDelete, true, false);
 
         sendPacket(new DeleteRoomPacket(toDelete.getId()), toDelete.getUsers());
         backupManager.removeChatBackup(toDelete);
