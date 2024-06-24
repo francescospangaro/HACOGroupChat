@@ -123,9 +123,9 @@ public class PeerController {
 
     public void deleteRoom(ChatRoom toDelete) {
         LOGGER.info(STR."[\{this.id}] Deleting room \{toDelete.getName()} \{toDelete.getId()}");
-        toDelete.close();
-
-        sendPacket(new DeleteRoomPacket(toDelete.getId()), toDelete.getUsers());
+        DeleteRoomPacket drp = new DeleteRoomPacket(toDelete.getId(), toDelete.increaseVectorClocks(this.id));
+        sendPacket(drp, toDelete.getUsers());
+        toDelete.close(drp.vectorClocks());
         backupManager.removeChatBackup(toDelete);
         roomsPropertyChangeSupport.firePropertyChange("DEL_ROOM", toDelete, null);
     }

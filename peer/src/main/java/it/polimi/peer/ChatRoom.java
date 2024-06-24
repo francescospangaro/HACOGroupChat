@@ -91,7 +91,7 @@ public class ChatRoom {
         try {
             pushLock.lock();
             //Checks if the user can accept the message arrived, or if he has to put it in a queue
-            switch(checkVC(m)){
+            switch(checkVC(m.vectorClocks())){
                 //Accept message
                 case 1:
                     //Increase the PID of the message sender
@@ -131,7 +131,7 @@ public class ChatRoom {
             var iter = waiting.iterator();
             while (iter.hasNext()) {
                 Message m = iter.next();
-                if (checkVC(m) == 1) {
+                if (checkVC(m.vectorClocks()) == 1) {
                     //Increase the PID of the message sender
                     vectorClocks.put(m.sender(), m.vectorClocks().get(m.sender()));
 
@@ -152,7 +152,7 @@ public class ChatRoom {
     }
 
     /**
-     * @param m Is the message to check
+     * @param vc Are the vector clocks to check
      * @return 1 if the message is in order
      * E.G. I have 2.0.1 and receive packet 2.1.1
      * -1 if the message is not in order
@@ -162,8 +162,8 @@ public class ChatRoom {
      * returns 0 if I already have received the message
      * E.G. I have 2.0.1 and receive packet 1.0.1
      */
-    private int checkVC(Message m) {
-        Map<String, Integer> newClocks = Map.copyOf(m.vectorClocks());
+    private int checkVC(Map<String, Integer> vc) {
+        Map<String, Integer> newClocks = Map.copyOf(vc);
         boolean senderFound = false;
         //Cycle through all users
         for (String u : users) {
@@ -178,6 +178,11 @@ public class ChatRoom {
         //If all VCs are <= then mine do nothing
         if (!senderFound) return 0;
         return 1;
+    }
+
+    public Map<String, Integer> increaseVectorClocks(String sender) {
+        vectorClocks.replace(sender, vectorClocks.get(sender), vectorClocks.get(sender)+1);
+        return vectorClocks;
     }
 
     public Set<Message> getWaiting() {
@@ -197,7 +202,12 @@ public class ChatRoom {
         return Collections.unmodifiableCollection(receivedMsgs);
     }
 
-    public void close() {
+    public void close(Map<String, Integer> vc) {
+
+        this.closed = true;
+    }
+
+    public void closeLocal(){
         this.closed = true;
     }
 }
