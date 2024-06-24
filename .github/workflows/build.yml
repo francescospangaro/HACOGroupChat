@@ -20,7 +20,7 @@ jobs:
           cache: maven
       - name: Build with Maven
         timeout-minutes: 5
-        run: mvn --batch-mode --update-snapshots verify -f main/pom.xml
+        run: mvn --batch-mode --update-snapshots verify
       - name: Publish Test Report
         uses: EnricoMi/publish-unit-test-result-action@v2
         if: always()
