@@ -1,9 +1,5 @@
-name: 'Tests'
-on:
-  push:
-    branches-ignore:
-      - main
-  pull_request:
+name: 'Test and build'
+on: [ push, pull_request ]
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -24,7 +20,7 @@ jobs:
           cache: maven
       - name: Build with Maven
         timeout-minutes: 5
-        run: mvn --batch-mode --update-snapshots verify
+        run: mvn --batch-mode --update-snapshots verify -f main/pom.xml
       - name: Publish Test Report
         uses: EnricoMi/publish-unit-test-result-action@v2
         if: always()
@@ -40,3 +36,14 @@ jobs:
         with:
           name: Peer
           path: ./**/HACOGroupChat-peer-*.jar
+      - name: Create prerelease
+        uses: "marvinpinto/action-automatic-releases@latest"
+        if: github.ref == 'refs/heads/main'
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: "nightly"
+          prerelease: true
+          title: "Nightly Release"
+          files: |
+            ./**/HACOGroupChat-peer-*.jar
+            ./**/HACOGroupChat-discovery-*.jar
