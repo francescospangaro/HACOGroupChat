@@ -9,16 +9,7 @@ public class Randomize {
     private static final String CHARACTERS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
     public static String generateRandomString(int length) {
-        return generateRandomString(length, CHARACTERS);
-    }
-
-    public static int generateRandomPort() {
-        // Port range is 12345-65535
-        return generateRandomNumberInRange();
-    }
-
-    private static String generateRandomString(int length, String chars) {
-        if (length <= 0 || chars == null || chars.isEmpty()) {
+        if (length <= 0) {
             throw new IllegalArgumentException("Invalid input parameters");
         }
 
@@ -26,15 +17,16 @@ public class Randomize {
         SecureRandom random = new SecureRandom();
 
         for (int i = 0; i < length; i++) {
-            int randomIndex = random.nextInt(chars.length());
-            char randomChar = chars.charAt(randomIndex);
+            int randomIndex = random.nextInt(CHARACTERS.length());
+            char randomChar = CHARACTERS.charAt(randomIndex);
             randomString.append(randomChar);
         }
 
         return randomString.toString();
     }
 
-    private static int generateRandomNumberInRange() {
+    public static int generateRandomPort() {
+        // Port range is 12345-65535
         SecureRandom random = new SecureRandom();
         return random.nextInt(65535 - 12345 + 1) + 12345;
     }
