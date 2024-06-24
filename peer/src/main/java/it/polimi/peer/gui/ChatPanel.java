@@ -1,9 +1,10 @@
 package it.polimi.peer.gui;
 
-import it.polimi.peer.utility.MessageGUI;
 import it.polimi.peer.ChatRoom;
+import it.polimi.peer.Exceptions.DiscoveryUnreachableException;
 import it.polimi.peer.PeerController;
 import it.polimi.peer.PeerNetManager;
+import it.polimi.peer.utility.MessageGUI;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -99,12 +100,22 @@ public class ChatPanel {
         panel.revalidate();
         panel.repaint();
 
+        frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
         frame.addWindowListener(new WindowAdapter() {
             @Override
-            public void windowClosed(WindowEvent windowEvent) {
-                if (peerNetManager != null)
-                    peerNetManager.close();
-                executorService.shutdownNow();
+            public void windowClosing(WindowEvent windowEvent) {
+                if (peerNetManager != null) {
+                    try {
+                        peerNetManager.close();
+                        executorService.shutdownNow();
+                        System.exit(0);
+                    } catch (DiscoveryUnreachableException e) {
+                        JOptionPane.showMessageDialog(JOptionPane.getRootFrame(),
+                                "Failed to disconnect: discovery unreachable",
+                                "Error",
+                                JOptionPane.ERROR_MESSAGE);
+                    }
+                }
             }
         });
         panel.addComponentListener(new ComponentAdapter() {
@@ -143,7 +154,11 @@ public class ChatPanel {
 
             //Try to disconnect before killing
             if (peerNetManager != null && peerNetManager.isConnected()) {
-                peerNetManager.close();
+                try {
+                    peerNetManager.close();
+                } catch (DiscoveryUnreachableException ex) {
+                    LOGGER.error("Can't reach the discovery server", ex);
+                }
             }
 
             System.exit(-1);
@@ -278,14 +293,24 @@ public class ChatPanel {
         } else {
             disconnectReconnectButton.setEnabled(false);
             executorService.execute(() -> {
-                peerNetManager.disconnect();
-                SwingUtilities.invokeLater(() -> {
-                    connectedLabel.setText("Disconnected");
-                    connectedLabel.setForeground(Color.red);
+                try {
+                    peerNetManager.disconnect();
+                    SwingUtilities.invokeLater(() -> {
+                        connectedLabel.setText("Disconnected");
+                        connectedLabel.setForeground(Color.red);
 
-                    disconnectReconnectButton.setText("Reconnect");
-                    disconnectReconnectButton.setEnabled(true);
-                });
+                        disconnectReconnectButton.setText("Reconnect");
+                        disconnectReconnectButton.setEnabled(true);
+                    });
+                } catch (DiscoveryUnreachableException e) {
+                    SwingUtilities.invokeLater(() -> {
+                        JOptionPane.showMessageDialog(JOptionPane.getRootFrame(),
+                                "Failed to disconnect: discovery unreachable",
+                                "Error",
+                                JOptionPane.ERROR_MESSAGE);
+                        disconnectReconnectButton.setEnabled(true);
+                    });
+                }
             });
         }
     }

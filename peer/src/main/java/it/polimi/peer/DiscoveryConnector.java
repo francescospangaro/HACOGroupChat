@@ -63,7 +63,7 @@ public class DiscoveryConnector implements Runnable {
                     throw e;
                 }
 
-                LOGGER.warn(STR."Failed contacting the discovery. Retrying in \{DELAY} seconds");
+                LOGGER.warn(STR."Failed contacting the discovery. Retrying in \{DELAY / 1000} seconds");
                 try {
                     Thread.sleep(DELAY);
                 } catch (InterruptedException ex) {
