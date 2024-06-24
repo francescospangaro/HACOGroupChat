@@ -191,9 +191,13 @@ public class PeerController {
     }
 
     @VisibleForTesting
-    public Collection<P2PPacket> getDiscMsg(String id) {
+    public Collection<P2PPacket> getDisconnectMsgs(String id) {
         if (disconnectMsgs.containsKey(id))
             return Collections.unmodifiableCollection(disconnectMsgs.get(id));
         return null;
+    }
+
+    Map<String, Queue<P2PPacket>> getDisconnectMsgs() {
+        return disconnectMsgs;
     }
 }

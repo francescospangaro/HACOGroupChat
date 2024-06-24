@@ -75,9 +75,9 @@ public abstract class SocketManager implements Closeable {
 
     @VisibleForTesting
     protected SocketManager(String myId,
-                  ExecutorService executor,
-                  int timeout,
-                  DatagramSocket socket) {
+                            ExecutorService executor,
+                            int timeout,
+                            DatagramSocket socket) {
         this.timeout = timeout;
         this.socket = socket;
         this.myId = myId;

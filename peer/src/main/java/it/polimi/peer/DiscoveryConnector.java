@@ -1,7 +1,11 @@
 package it.polimi.peer;
 
 import it.polimi.packets.ByePacket;
-import it.polimi.packets.discovery.*;
+import it.polimi.packets.discovery.ForwardPacket;
+import it.polimi.packets.discovery.IPsPacket;
+import it.polimi.packets.discovery.Peer2DiscoveryPacket;
+import it.polimi.packets.discovery.UpdateIpPacket;
+import it.polimi.packets.p2p.P2PPacket;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -9,6 +13,7 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.net.SocketAddress;
 import java.util.Map;
+import java.util.Queue;
 
 public class DiscoveryConnector {
     private static final Logger LOGGER = LoggerFactory.getLogger(DiscoveryConnector.class);
@@ -29,6 +34,10 @@ public class DiscoveryConnector {
 
     public void disconnect() throws IOException {
         sendToDiscovery(new ByePacket(id));
+    }
+
+    public void forwardQueue(String id, Queue<P2PPacket> queue) throws IOException {
+        sendToDiscovery(new ForwardPacket(queue, id));
     }
 
     private void sendToDiscovery(Peer2DiscoveryPacket packet) throws IOException {

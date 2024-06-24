@@ -1,25 +1,26 @@
 package it.polimi.peer;
 
-import it.polimi.peer.Exceptions.PeerAlreadyConnectedException;
 import it.polimi.packets.ByePacket;
 import it.polimi.packets.p2p.HelloPacket;
+import it.polimi.packets.p2p.P2PPacket;
+import it.polimi.peer.Exceptions.DiscoveryUnreachableException;
 import org.jetbrains.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
-import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.Collections;
 import java.util.Map;
+import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.*;
 
 
-public class PeerNetManager implements Closeable {
+public class PeerNetManager implements AutoCloseable {
     private static final int DEFAULT_RECONNECT_TIMEOUT_SECONDS = 5;
     private static final int DEFAULT_NETWORK_TIMEOUT_SECONDS = 5;
     private static final Logger LOGGER = LoggerFactory.getLogger(PeerNetManager.class);
@@ -51,9 +52,9 @@ public class PeerNetManager implements Closeable {
 
     @VisibleForTesting
     public PeerNetManager(String id, int port,
-                   PropertyChangeListener chatRoomsChangeListener,
-                   PropertyChangeListener usersChangeListener,
-                   PropertyChangeListener msgChangeListener) throws IOException {
+                          PropertyChangeListener chatRoomsChangeListener,
+                          PropertyChangeListener usersChangeListener,
+                          PropertyChangeListener msgChangeListener) throws IOException {
         this("localhost", id, port, chatRoomsChangeListener, usersChangeListener, msgChangeListener, 1, 1);
     }
 
@@ -158,8 +159,6 @@ public class PeerNetManager implements Closeable {
                 connectToSinglePeer(id, addr);
             } catch (IOException e) {
                 onPeerUnreachable(id, e);
-            } catch (PeerAlreadyConnectedException e) {
-                LOGGER.info(STR."[\{this.id}] Peer \{id} already connected");
             }
         });
         connected = true;
@@ -195,20 +194,15 @@ public class PeerNetManager implements Closeable {
      *
      * @param id   id of the other peer
      * @param addr address of the other peer
-     * @throws PeerAlreadyConnectedException if this peer was connected before the lock is acquired
-     * @throws IOException                   in case of communication problems
+     * @throws IOException in case of communication problems
      * @see PeerController#resendQueued(String)
      */
-    private void connectToSinglePeer(String id, SocketAddress addr) throws PeerAlreadyConnectedException, IOException {
-        LOGGER.info(STR."[\{this.id}] connected to \{id}: \{addr}");
+    private void connectToSinglePeer(String id, SocketAddress addr) throws IOException {
+        LOGGER.info(STR."[\{this.id}] connecting to \{id}: \{addr}");
 
         socketManager.send(new HelloPacket(this.id), addr);
-        unreachablePeers.remove(id);
-        connectedPeers.add(id);
 
-        usersPropertyChangeSupport.firePropertyChange("USER_CONNECTED", null, id);
-
-        controller.resendQueued(id);
+        onPeerConnected(id, addr);
     }
 
     public Map<String, SocketAddress> getIps() {
@@ -226,26 +220,30 @@ public class PeerNetManager implements Closeable {
      * Sends a disconnection packet to the discovery server {@link DiscoveryConnector#disconnect()}.
      * Closes connection with all peers {@link #onPeerUnreachable(String, Throwable)}
      */
-    public void disconnect() {
+    public void disconnect() throws DiscoveryUnreachableException {
         LOGGER.info(STR."[\{this.id}] Disconnecting...", new Exception());
+
+        try {
+            Map<String, Queue<P2PPacket>> enqueued = controller.getDisconnectMsgs();
+            for (var entry : enqueued.entrySet()) {
+                String id = entry.getKey();
+                Queue<P2PPacket> queue = entry.getValue();
+                if (!queue.isEmpty()) {
+                    discovery.forwardQueue(id, queue);
+                    enqueued.remove(id);
+                }
+            }
+            discovery.disconnect();
+        } catch (IOException e) {
+            LOGGER.error(STR."[\{this.id}] Can't contact the discovery", e);
+            throw new DiscoveryUnreachableException(e);
+        }
 
         reconnectTask.cancel(true);
 
         //Send ByePacket to all peer, also unreachable ones. They will be enqueued and forwarded to the discovery
         controller.sendPacket(new ByePacket(this.id), ips.keySet());
         connectedPeers.forEach(id -> usersPropertyChangeSupport.firePropertyChange("USER_DISCONNECTED", id, null));
-
-        try {
-            //TODO: Send enqueued stuff to discovery
-            ips.forEach((id, addr) -> {
-                var enqueued = controller.getDiscMsg(id);
-                //...
-            });
-            discovery.disconnect();
-        } catch (IOException e) {
-            LOGGER.error(STR."[\{this.id}] Can't contact the discovery", e);
-            //TODO: rethrow
-        }
 
         connectedPeers.clear();
         connected = false;
@@ -311,7 +309,7 @@ public class PeerNetManager implements Closeable {
      * @see BackupManager#backupChats(Set)
      */
     @Override
-    public void close() {
+    public void close() throws DiscoveryUnreachableException {
         disconnect();
         scheduledExecutorService.shutdownNow();
         executorService.shutdownNow();

@@ -3,6 +3,7 @@ package it.polimi;
 import it.polimi.discovery.DiscoveryServer;
 import it.polimi.packets.p2p.MessagePacket;
 import it.polimi.peer.*;
+import it.polimi.peer.Exceptions.DiscoveryUnreachableException;
 import it.polimi.peer.utility.MessageGUI;
 import org.junit.jupiter.api.*;
 
@@ -60,7 +61,7 @@ class ChatTest {
     }
 
     @Test
-    void connect() throws ExecutionException, InterruptedException, TimeoutException, IOException {
+    void connect() throws ExecutionException, InterruptedException, TimeoutException, IOException, DiscoveryUnreachableException {
         CompletableFuture<String> c1Promise = new CompletableFuture<>();
         CompletableFuture<String> c2Promise = new CompletableFuture<>();
         try (
@@ -80,7 +81,7 @@ class ChatTest {
     }
 
     @Test
-    void createRoom() throws ExecutionException, InterruptedException, TimeoutException, IOException {
+    void createRoom() throws ExecutionException, InterruptedException, TimeoutException, IOException, DiscoveryUnreachableException {
         System.out.println("-------CREATE ROOM----------------");
         CompletableFuture<String> c1Promise = new CompletableFuture<>();
         CompletableFuture<String> c2Promise = new CompletableFuture<>();
@@ -112,7 +113,7 @@ class ChatTest {
     }
 
     @Test
-    void sendMsg() throws ExecutionException, InterruptedException, TimeoutException, IOException {
+    void sendMsg() throws ExecutionException, InterruptedException, TimeoutException, IOException, DiscoveryUnreachableException {
         System.out.println("-------sendMsg----------------");
         CompletableFuture<String> c1Promise = new CompletableFuture<>();
         CompletableFuture<String> c2Promise = new CompletableFuture<>();
@@ -154,7 +155,7 @@ class ChatTest {
     }
 
     @Test
-    void vcTest() throws ExecutionException, InterruptedException, TimeoutException, IOException {
+    void vcTest() throws ExecutionException, InterruptedException, TimeoutException, IOException, DiscoveryUnreachableException {
         System.out.println("-------vcTest----------------");
         CompletableFuture<ChatRoom> chat1Promise = new CompletableFuture<>();
         CompletableFuture<ChatRoom> chat2Promise = new CompletableFuture<>();
@@ -230,7 +231,7 @@ class ChatTest {
     }
 
     @Test
-    void disconnectTest() throws ExecutionException, InterruptedException, TimeoutException, IOException {
+    void disconnectTest() throws ExecutionException, InterruptedException, TimeoutException, IOException, DiscoveryUnreachableException {
         System.out.println("-------disconnectTest----------------");
         CompletableFuture<ChatRoom> chat1Promise = new CompletableFuture<>();
         CompletableFuture<ChatRoom> chat2Promise = new CompletableFuture<>();
@@ -302,9 +303,9 @@ class ChatTest {
             assertEquals("TEST", m3.msg());
             assertEquals(ID1, m3.sender());
 
-            assertNotNull(c1.getDiscMsg(ID2));
-            assertEquals(1, c1.getDiscMsg(ID2).size());
-            var msg = ((MessagePacket) c1.getDiscMsg(ID2).stream().findFirst().orElseThrow()).msg();
+            assertNotNull(c1.getDisconnectMsgs(ID2));
+            assertEquals(1, c1.getDisconnectMsgs(ID2).size());
+            var msg = ((MessagePacket) c1.getDisconnectMsgs(ID2).stream().findFirst().orElseThrow()).msg();
             assertEquals("TEST", msg.msg());
             assertEquals(ID1, msg.sender());
 
@@ -315,16 +316,16 @@ class ChatTest {
             assertEquals(ID1, m2.sender());
 
             for (int i = 0; i < 50; i++) {
-                if (c1.getDiscMsg(ID2) == null || c1.getDiscMsg(ID2).isEmpty())
+                if (c1.getDisconnectMsgs(ID2) == null || c1.getDisconnectMsgs(ID2).isEmpty())
                     break;
                 Thread.sleep(10);
             }
-            assertTrue(c1.getDiscMsg(ID2) == null || c1.getDiscMsg(ID2).isEmpty());
+            assertTrue(c1.getDisconnectMsgs(ID2) == null || c1.getDisconnectMsgs(ID2).isEmpty());
         }
     }
 
     @Test
-    void netFailTest() throws ExecutionException, InterruptedException, TimeoutException, IOException {
+    void netFailTest() throws ExecutionException, InterruptedException, TimeoutException, IOException, DiscoveryUnreachableException {
         System.out.println("-------netFailTest----------------");
         CompletableFuture<ChatRoom> chat1Promise = new CompletableFuture<>();
         CompletableFuture<ChatRoom> chat2Promise = new CompletableFuture<>();
@@ -386,7 +387,7 @@ class ChatTest {
             assertEquals(ID2, m2.sender());
 
             assertEquals(ID1, disc2Promise.get(2, TimeUnit.SECONDS));
-            var disc = c2.getDiscMsg(ID1);
+            var disc = c2.getDisconnectMsgs(ID1);
             assertEquals(1, disc.size());
             var msg = ((MessagePacket) disc.stream().findFirst().orElseThrow()).msg();
             assertEquals("TEST", msg.msg());
@@ -402,17 +403,17 @@ class ChatTest {
             assertEquals(ID2, m1.sender());
 
             for (int i = 0; i < 50; i++) {
-                if (c1.getDiscMsg(ID2) == null || c1.getDiscMsg(ID2).isEmpty())
+                if (c1.getDisconnectMsgs(ID2) == null || c1.getDisconnectMsgs(ID2).isEmpty())
                     break;
                 Thread.sleep(10);
             }
-            assertTrue(c1.getDiscMsg(ID2) == null || c1.getDiscMsg(ID2).isEmpty());
+            assertTrue(c1.getDisconnectMsgs(ID2) == null || c1.getDisconnectMsgs(ID2).isEmpty());
 
         }
     }
 
     @Test
-    void ackLost_duplicatedMessage_test() throws ExecutionException, InterruptedException, TimeoutException, IOException {
+    void ackLost_duplicatedMessage_test() throws ExecutionException, InterruptedException, TimeoutException, IOException, DiscoveryUnreachableException {
         System.out.println("-------ackLost_duplicatedMessage_test----------------");
         CompletableFuture<ChatRoom> chat1Promise = new CompletableFuture<>();
         CompletableFuture<ChatRoom> chat2Promise = new CompletableFuture<>();
@@ -553,7 +554,7 @@ class ChatTest {
 
     @Test
     @Disabled
-    void messageLostTest() throws ExecutionException, InterruptedException, TimeoutException, IOException {
+    void messageLostTest() throws ExecutionException, InterruptedException, TimeoutException, IOException, DiscoveryUnreachableException {
         System.out.println("-------messageLostTest----------------");
         CompletableFuture<ChatRoom> chat1Promise = new CompletableFuture<>();
         CompletableFuture<ChatRoom> chat2Promise = new CompletableFuture<>();
@@ -681,7 +682,7 @@ class ChatTest {
     }
 
     @Test
-    void backupTest() throws ExecutionException, InterruptedException, TimeoutException, IOException {
+    void backupTest() throws ExecutionException, InterruptedException, TimeoutException, IOException, DiscoveryUnreachableException {
         System.out.println("-------backupTest----------------");
         CompletableFuture<ChatRoom> chat1Promise = new CompletableFuture<>();
         CompletableFuture<ChatRoom> chat2Promise = new CompletableFuture<>();
