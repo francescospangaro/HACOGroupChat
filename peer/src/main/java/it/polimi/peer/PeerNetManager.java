@@ -28,7 +28,7 @@ public class PeerNetManager implements AutoCloseable {
     private final String id;
     protected final SocketAddress discoveryAddr;
     protected final int port;
-    private final Set<ChatRoom> chats;
+    private final Map<ChatRoom, Boolean> chats;
     private final PropertyChangeSupport roomsPropertyChangeSupport;
     private final PropertyChangeSupport usersPropertyChangeSupport;
 
@@ -108,7 +108,7 @@ public class PeerNetManager implements AutoCloseable {
         usersPropertyChangeSupport = new PropertyChangeSupport(this);
         usersPropertyChangeSupport.addPropertyChangeListener(usersChangeListener);
 
-        for (ChatRoom c : chats) {
+        for (ChatRoom c : chats.keySet()) {
             roomsPropertyChangeSupport.firePropertyChange("ADD_ROOM", null, c);
         }
 
@@ -312,13 +312,13 @@ public class PeerNetManager implements AutoCloseable {
      * Disconnect from the network, shutdown tasks and backup chats
      *
      * @see #disconnect()
-     * @see BackupManager#backupChats(Set)
+     * @see BackupManager#backupChats(Map)
      */
     @Override
     public void close() throws DiscoveryUnreachableException {
         disconnect();
         scheduledExecutorService.shutdownNow();
         executorService.shutdownNow();
-        backupManager.backupChats(Collections.unmodifiableSet(chats));
+        backupManager.backupChats(Collections.unmodifiableMap(chats));
     }
 }

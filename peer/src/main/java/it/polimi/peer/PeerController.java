@@ -19,7 +19,7 @@ public class PeerController {
     private final Map<String, Integer> degradedConnections = new ConcurrentHashMap<>();
     private final Map<String, Queue<P2PPacket>> disconnectMsgs = new ConcurrentHashMap<>();
     private final String id;
-    private final Set<ChatRoom> chats;
+    private final Map<ChatRoom, Boolean> chats;
     private final Map<String, SocketAddress> ips;
     private final Set<String> connectedPeers;
     private final PeerSocketManager socketManager;
@@ -31,7 +31,7 @@ public class PeerController {
     private final BiConsumer<String, Throwable> onPeerUnreachable;
 
     public PeerController(String id,
-                          Set<ChatRoom> chats,
+                          Map<ChatRoom, Boolean> chats,
                           Map<String, SocketAddress> ips,
                           Set<String> connectedPeers,
                           PeerSocketManager socketManager,
@@ -107,7 +107,7 @@ public class PeerController {
 
         //Add the ChatRoom to the list of available ChatRooms
         ChatRoom newRoom = new ChatRoom(name, users, msgChangeListener);
-        chats.add(newRoom);
+        chats.put(newRoom, true);
 
         //Inform all the users about the creation of the new chat room by sending to them a CreateRoomPacket
         sendPacket(new CreateRoomPacket(newRoom.getId(), name, users), users);

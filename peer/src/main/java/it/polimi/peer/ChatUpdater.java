@@ -10,10 +10,7 @@ import java.beans.PropertyChangeSupport;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.net.SocketAddress;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
@@ -21,7 +18,7 @@ public class ChatUpdater implements Runnable {
     private static final Logger LOGGER = LoggerFactory.getLogger(ChatUpdater.class);
 
     private final PeerSocketManager socketManager;
-    private final Set<ChatRoom> chats;
+    private final Map<ChatRoom, Boolean> chats;
     private final PropertyChangeSupport propertyChangeSupport;
     private final PropertyChangeListener msgChangeListener;
     private final BiConsumer<String, SocketAddress> onPeerConnected;
@@ -30,7 +27,7 @@ public class ChatUpdater implements Runnable {
 
 
     public ChatUpdater(PeerSocketManager socketManager,
-                       Set<ChatRoom> chats,
+                       Map<ChatRoom, Boolean> chats,
                        PropertyChangeSupport propertyChangeSupport,
                        PropertyChangeListener msgChangeListener, BiConsumer<String, SocketAddress> onPeerConnected, Consumer<String> onPeerDisconnected) {
         this.socketManager = socketManager;
@@ -40,6 +37,7 @@ public class ChatUpdater implements Runnable {
         this.onPeerConnected = onPeerConnected;
         this.onPeerDisconnected = onPeerDisconnected;
         this.waitingMessages = new HashSet<>();
+
     }
 
     @Override
@@ -77,7 +75,7 @@ public class ChatUpdater implements Runnable {
             case CreateRoomPacket crp -> {
                 LOGGER.info(STR."Adding new room \{crp.name()} \{crp.id()}");
                 ChatRoom newChat = new ChatRoom(crp.name(), crp.ids(), crp.id(), msgChangeListener);
-                chats.add(newChat);
+                chats.put(newChat, true);
                 // Once we create a new chatroom, check for all waiting messages if they can be popped.
                 // By blocking the messages here, it mimics the arrival of the messages, postponing it for the user until
                 // the chatroom has been created
@@ -87,12 +85,13 @@ public class ChatUpdater implements Runnable {
 
             case DeleteRoomPacket drp -> {
                 ChatRoom toDelete = chats
+                        .keySet()
                         .stream()
                         .filter(c -> Objects.equals(c.getId(), drp.id()))
                         .findFirst()
                         .orElseThrow(() -> new IllegalStateException("This chat does not exists"));
                 LOGGER.info(STR."Deleting room \{toDelete.getName()} \{drp.id()}");
-                chats.remove(toDelete);
+                chats.replace(toDelete, true, false);
                 propertyChangeSupport.firePropertyChange("DEL_ROOM", toDelete, null);
             }
             case HelloPacket helloPacket -> onPeerConnected.accept(helloPacket.id(), sender);
@@ -109,7 +108,7 @@ public class ChatUpdater implements Runnable {
      * 1 if the message was passed to it's chatroom
      */
     private int messageHandler(MessagePacket m) {
-        Iterator<ChatRoom> chatIterator = chats.iterator();
+        Iterator<ChatRoom> chatIterator = chats.keySet().iterator();
         ChatRoom chat = chatIterator.next();
         boolean found = false;
         while (chatIterator.hasNext()) {
