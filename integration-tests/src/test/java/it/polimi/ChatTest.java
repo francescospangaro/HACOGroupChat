@@ -216,12 +216,12 @@ class ChatTest {
 
             for (int i = 0; i < 50; i++) {
                 Thread.sleep(10);
-                if (1 == chat3.getWaiting().size())
+                if (1 == chat3.getWaitingMessages().size())
                     break;
             }
             assertTrue(msg3List.isEmpty());
-            assertEquals(1, chat3.getWaiting().size());
-            assertEquals("TEST2", chat3.getWaiting().stream().findFirst().orElseThrow().msg());
+            assertEquals(1, chat3.getWaitingMessages().size());
+            assertEquals("TEST2", chat3.getWaitingMessages().stream().findFirst().orElseThrow().msg());
 
             assertTrue(msg3.await(2000, TimeUnit.MILLISECONDS));
 

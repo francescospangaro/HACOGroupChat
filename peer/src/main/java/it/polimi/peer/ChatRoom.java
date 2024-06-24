@@ -1,5 +1,6 @@
 package it.polimi.peer;
 
+import it.polimi.packets.p2p.DeleteRoomPacket;
 import it.polimi.peer.utility.MessageGUI;
 import it.polimi.Message;
 import org.slf4j.Logger;
@@ -16,7 +17,8 @@ public class ChatRoom {
     private static final Logger LOGGER = LoggerFactory.getLogger(ChatRoom.class);
 
     private final Set<String> users;
-    private final Set<Message> waiting;
+    private final Set<Message> waitingMessages;
+    private final Set<DeleteRoomPacket> waitingDeleteRoomPackets;
     private final Queue<Message> receivedMsgs;
     private final Map<String, Integer> vectorClocks;
     private final PropertyChangeSupport propertyChangeSupport;
@@ -34,7 +36,8 @@ public class ChatRoom {
         this.users = Set.copyOf(users);
         this.id = id;
         this.pushLock = new ReentrantLock();
-        this.waiting = new LinkedHashSet<>();
+        this.waitingMessages = new LinkedHashSet<>();
+        this.waitingDeleteRoomPackets = new LinkedHashSet<>();
         this.closed = false;
 
         vectorClocks = new HashMap<>();
@@ -47,12 +50,13 @@ public class ChatRoom {
     }
 
     public ChatRoom(String name, Set<String> users, UUID id, PropertyChangeListener msgChangeListener,
-                    Map<String, Integer> vectorClocks, Set<Message> waiting, Collection<Message> messages) {
+                    Map<String, Integer> vectorClocks, Set<Message> waiting, Collection<Message> messages, Set<DeleteRoomPacket> waitingDeleteRoomPackets) {
         this.name = name;
         this.users = Set.copyOf(users);
         this.id = id;
         this.pushLock = new ReentrantLock();
-        this.waiting = new LinkedHashSet<>(waiting);
+        this.waitingMessages = new LinkedHashSet<>(waiting);
+        this.waitingDeleteRoomPackets = new LinkedHashSet<>(waitingDeleteRoomPackets);
         this.closed = false;
 
         this.vectorClocks = new HashMap<>(vectorClocks);
@@ -113,7 +117,7 @@ public class ChatRoom {
                 case -1:
                     //puts the message in a queue
                     LOGGER.info(STR."[\{id}] Message \{m.vectorClocks()} added in waiting list");
-                    waiting.add(m);
+                    waitingMessages.add(m);
             }
         } finally {
             pushLock.unlock();
@@ -128,7 +132,7 @@ public class ChatRoom {
         boolean added;
         do {
             added = false;
-            var iter = waiting.iterator();
+            var iter = waitingMessages.iterator();
             while (iter.hasNext()) {
                 Message m = iter.next();
                 if (checkVC(m.vectorClocks()) == 1) {
@@ -145,6 +149,9 @@ public class ChatRoom {
                 }
             }
         } while (added);
+        for(DeleteRoomPacket drp : waitingDeleteRoomPackets) {
+            close(drp);
+        }
     }
 
     public Set<String> getUsers() {
@@ -180,8 +187,8 @@ public class ChatRoom {
         return 1;
     }
 
-    public Set<Message> getWaiting() {
-        return Set.copyOf(waiting);
+    public Set<Message> getWaitingMessages() {
+        return Set.copyOf(waitingMessages);
     }
 
     public Map<String, Integer> getVectorClocks() {
@@ -197,15 +204,32 @@ public class ChatRoom {
         return Collections.unmodifiableCollection(receivedMsgs);
     }
 
-    // As soon as the drp is received, the chatroom is closed.
-    // This is because, if the messages arrive in mixed order and a peer receives first the drp, the communication that
-    // incurred in the now closed chatroom is not causally ordered with him.
-    // Closing the chatroom on arrival or after all messages arrived doesn't change the fact that the chatroom is closed
-    // for everyone else, thus no one can respond to the late user's messages
-    public void close() {
+    public void close(DeleteRoomPacket drp) {
+        switch (checkVC(drp.vectorClocks())) {
+            // Can be accepted
+            case 1:
+                vectorClocks.put(drp.sender(), drp.vectorClocks().get(drp.sender()));
+                closed = true;
+                break;
+            case -1:
+                waitingDeleteRoomPackets.add(drp);
+                break;
+        }
+    }
+
+    public void localClose() {
         // Close the chatroom
         closed = true;
 
+    }
+
+    public Map<String, Integer> increaseVC(String sender) {
+        vectorClocks.replace(sender, vectorClocks.get(sender) + 1);
+        return Map.copyOf(vectorClocks);
+    }
+
+    public Set<DeleteRoomPacket> getWaitingDeleteRoomPackets() {
+        return waitingDeleteRoomPackets;
     }
 }
 
