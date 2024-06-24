@@ -87,6 +87,8 @@ public class DiscoveryConnector implements Runnable {
                 }
 
             } while (!Thread.currentThread().isInterrupted());
+        } catch (InterruptedIOException ex) {
+            LOGGER.info("Discovery connector stopped");
         } catch (IOException e) {
             LOGGER.error("Failed to receive from discovery", e);
         }

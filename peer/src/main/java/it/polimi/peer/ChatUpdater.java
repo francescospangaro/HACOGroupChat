@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.net.SocketAddress;
 import java.util.Objects;
 import java.util.Set;
@@ -45,6 +46,8 @@ public class ChatUpdater implements Runnable {
                 var packetPacketAndSender = socketManager.receiveFromPeer();
                 handlePacket(packetPacketAndSender.packet(), packetPacketAndSender.sender());
             } while (!Thread.currentThread().isInterrupted());
+        } catch (InterruptedIOException ex) {
+            LOGGER.info("Chat updater stopped");
         } catch (IOException ex) {
             LOGGER.error("Failed to update chat", ex);
         }
