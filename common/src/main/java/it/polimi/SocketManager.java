@@ -278,6 +278,7 @@ public abstract class SocketManager implements Closeable {
         recvTask.cancel(true);
         sendTask.cancel(true);
         socket.close();
+        LOGGER.info(STR."[\{myId}]: SocketManager closed.");
     }
 
 }
