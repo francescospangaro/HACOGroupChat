@@ -1,12 +1,16 @@
 package it.polimi.discovery;
 
 import it.polimi.packets.ByePacket;
+import it.polimi.packets.discovery.ForwardPacket;
 import it.polimi.packets.discovery.IPsPacket;
+import it.polimi.packets.discovery.PacketQueue;
 import it.polimi.packets.discovery.UpdateIpPacket;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.*;
+import java.io.Closeable;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.SocketAddress;
 import java.util.HashMap;
 import java.util.Map;
@@ -62,6 +66,13 @@ public class DiscoveryServer implements Closeable {
                     case ByePacket byePacket -> {
                         ips.remove(byePacket.id());
                         LOGGER.info(STR."[discovery] Client disconnected id: \{byePacket.id()}");
+                    }
+                    case ForwardPacket forwardPacket -> {
+                        SocketAddress addr = ips.get(forwardPacket.id());
+                        if (addr != null)
+                            socketManager.send(new PacketQueue(forwardPacket.id(), addr, forwardPacket.packets()), addr);
+                        else
+                            LOGGER.warn(STR."[discovery] Can't forward packet: unknown peer \{forwardPacket.id()}");
                     }
                 }
             } catch (IOException e) {
