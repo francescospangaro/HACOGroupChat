@@ -49,6 +49,7 @@ public abstract class SocketManager implements Closeable {
     private Future<?> sendTask;
     private volatile boolean canSendNewPackets;
     private final ExecutorService executor;
+    private final CompletableFuture<Void> sendTaskFinish, recvTaskFinish;
 
     /**
      * Create a socketManager without the recipient id: will receive an {@link HelloPacket} with it and the serverPort.
@@ -81,6 +82,8 @@ public abstract class SocketManager implements Closeable {
         this.timeout = timeout;
         this.socket = socket;
         this.myId = myId;
+        sendTaskFinish = new CompletableFuture<>();
+        recvTaskFinish = new CompletableFuture<>();
 
         buff = new byte[6400];
 
@@ -161,6 +164,7 @@ public abstract class SocketManager implements Closeable {
             throw t;
         } finally {
             this.isRecvTaskRunning = false;
+            recvTaskFinish.complete(null);
         }
     }
 
@@ -190,7 +194,7 @@ public abstract class SocketManager implements Closeable {
                     oos.flush();
 
                     socket.send(new DatagramPacket(baos.toByteArray(), baos.size(), p.address));
-//                    log("Sent " + p);
+                    LOGGER.trace(STR."[\{myId}]: Sent " + p);
                     p.sent.complete(null);
                 } catch (InvalidClassException | NotSerializableException ex) {
                     p.sent.completeExceptionally(ex);
@@ -214,6 +218,7 @@ public abstract class SocketManager implements Closeable {
             outPacketQueue.removeAll(toCancel);
             final IOException closeEx = new IOException(CLOSE_EX_MSG);
             toCancel.forEach(q -> q.sent.completeExceptionally(closeEx));
+            sendTaskFinish.complete(null);
         }
     }
 
@@ -270,13 +275,27 @@ public abstract class SocketManager implements Closeable {
 
         outPacketQueue.forEach(p -> {
             try {
+                LOGGER.trace(STR."[\{myId}]: Waiting for \{p} before closing the socket");
                 p.sent.get(timeout, TimeUnit.MILLISECONDS);
             } catch (InterruptedException | ExecutionException | TimeoutException e) {
                 LOGGER.error("Socket closed with enqueued packets", e);
             }
         });
+
         recvTask.cancel(true);
         sendTask.cancel(true);
+
+        try {
+            recvTaskFinish.get(500, TimeUnit.MILLISECONDS);
+            sendTaskFinish.get(500, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            throw new UncheckedIOException((IOException) new InterruptedIOException().initCause(e));
+        } catch (ExecutionException e) {
+            throw new UncheckedIOException(new IOException(e.getCause()));
+        } catch (TimeoutException e) {
+            throw new UncheckedIOException(new IOException(e));
+        }
+
         socket.close();
         LOGGER.info(STR."[\{myId}]: SocketManager closed.");
     }

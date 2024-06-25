@@ -225,7 +225,7 @@ public class PeerNetManager implements AutoCloseable {
     public void disconnect() throws DiscoveryUnreachableException {
         if (!connected)
             return;
-        LOGGER.info(STR."[\{this.id}] Disconnecting...", new Exception());
+        LOGGER.info(STR."[\{this.id}] Disconnecting...");
 
         try {
             Map<String, Queue<P2PPacket>> enqueued = controller.getDisconnectMsgs();
