@@ -53,14 +53,14 @@ class SocketManagerTest {
     }
 
     @Test
-    void sendMultipleP2PTest() throws IOException, ExecutionException, InterruptedException {
+    void sendMultipleP2PTest() throws IOException, ExecutionException, InterruptedException, TimeoutException {
         try (PeerSocketManager s1 = new PeerSocketManager("test", executorService, discAddr, 8888);
              PeerSocketManager s2 = new PeerSocketManager("test2", executorService, discAddr, 8889)) {
             AtomicReference<Throwable> ex = new AtomicReference<>();
 
             Set<String> ids = ConcurrentHashMap.newKeySet();
 
-            executorService.execute(() -> {
+            Future<?> sendTask = executorService.submit(() -> {
                 try {
                     int c = 0;
                     for (int i = 0; i < 1000; i++) {
@@ -84,7 +84,8 @@ class SocketManagerTest {
                 }
             });
 
-            recTask.get();
+            sendTask.get(1, TimeUnit.SECONDS);
+            recTask.get(1, TimeUnit.SECONDS);
             assertNull(ex.get());
             assertTrue(ids.isEmpty());
         }
@@ -99,7 +100,7 @@ class SocketManagerTest {
         try (ImproperShutdownSocket socket = new ImproperShutdownSocket(8889);
              PeerSocketManager socketManager1 = new PeerSocketManager("test", executorService, discAddr, 8888, 500);
              PeerSocketManager socketManager2 = new PeerSocketManager("test2", executorService, discAddr, 500, socket)) {
-            executorService.execute(() -> {
+            Future<?> sendTask = executorService.submit(() -> {
                 try {
                     socketManager1.send(new ByePacket(""), a2);
                 } catch (IOException e) {
@@ -115,6 +116,7 @@ class SocketManagerTest {
                 }
             });
 
+            sendTask.get(500, TimeUnit.MILLISECONDS);
             recTask.get(500, TimeUnit.MILLISECONDS);
             assertTrue(ex.isEmpty());
 
@@ -123,7 +125,7 @@ class SocketManagerTest {
             socket.lock();
 
 
-            executorService.execute(() -> {
+            Future<?> sendTask2 = executorService.submit(() -> {
                 try {
                     socketManager2.send(new ByePacket(""), a1);
                 } catch (IOException e) {
@@ -140,12 +142,12 @@ class SocketManagerTest {
             });
 
             assertThrows(TimeoutException.class, () -> recTask2.get(500, TimeUnit.MILLISECONDS));
-            Thread.sleep(200);
+            sendTask2.get(600, TimeUnit.MILLISECONDS);
             assertEquals(1, ex.size());
             assertInstanceOf(IOException.class, ex.getLast());
 
 
-            executorService.execute(() -> {
+            Future<?> sendTask3 = executorService.submit(() -> {
                 try {
                     socketManager1.send(new ByePacket(""), a2);
                 } catch (IOException e) {
@@ -162,11 +164,11 @@ class SocketManagerTest {
             });
 
             recTask3.get(500, TimeUnit.MILLISECONDS);
-            Thread.sleep(700);
+            sendTask3.get(700, TimeUnit.MILLISECONDS);
             assertEquals(2, ex.size());
             assertInstanceOf(IOException.class, ex.getLast());
 
-            executorService.execute(() -> {
+            Future<?> sendTask4 = executorService.submit(() -> {
                 try {
                     socketManager1.send(new ByePacket(""), a2);
                 } catch (IOException e) {
@@ -183,13 +185,13 @@ class SocketManagerTest {
             });
 
             assertThrows(TimeoutException.class, () -> recTask4.get(500, TimeUnit.MILLISECONDS));
-            Thread.sleep(200);
+            sendTask4.get(600, TimeUnit.MILLISECONDS);
             assertEquals(3, ex.size());
             assertInstanceOf(IOException.class, ex.getLast());
 
             socket.unlock();
 
-            executorService.execute(() -> {
+            Future<?> sendTask5 = executorService.submit(() -> {
                 try {
                     socketManager1.send(new ByePacket(""), a2);
                 } catch (IOException e) {
@@ -198,8 +200,9 @@ class SocketManagerTest {
             });
 
             recTask4.get(500, TimeUnit.MILLISECONDS);
+            sendTask5.get(100, TimeUnit.MILLISECONDS);
 
-            executorService.execute(() -> {
+            Future<?> sendTask6 = executorService.submit(() -> {
                 try {
                     socketManager2.send(new ByePacket(""), a1);
                 } catch (IOException e) {
@@ -208,6 +211,7 @@ class SocketManagerTest {
             });
 
             recTask2.get(500, TimeUnit.MILLISECONDS);
+            sendTask6.get(100, TimeUnit.MILLISECONDS);
             assertEquals(3, ex.size());
         }
     }
