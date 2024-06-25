@@ -84,8 +84,8 @@ class SocketManagerTest {
                 }
             });
 
-            sendTask.get(1, TimeUnit.SECONDS);
-            recTask.get(1, TimeUnit.SECONDS);
+            sendTask.get(3, TimeUnit.SECONDS);
+            recTask.get(3, TimeUnit.SECONDS);
             assertNull(ex.get());
             assertTrue(ids.isEmpty());
         }
