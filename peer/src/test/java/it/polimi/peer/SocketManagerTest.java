@@ -32,9 +32,9 @@ class SocketManagerTest {
     }
 
     @Test
-    @SuppressWarnings("EmptyTryBlock")
-    void createTest() throws IOException {
+    void createTest() throws IOException, InterruptedException {
         try (var _ = new PeerSocketManager("test", executorService, discAddr, 8888)) {
+            Thread.sleep(5);
         }
     }
 
