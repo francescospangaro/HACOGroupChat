@@ -21,7 +21,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public abstract class SocketManager implements Closeable {
     static final Logger LOGGER = LoggerFactory.getLogger(SocketManager.class);
-    static final String CLOSE_EX_MSG = "Socket was closed";
+    protected static final String CLOSE_EX_MSG = "Socket was closed";
 
     private record QueuedOutput(SeqPacket packet, CompletableFuture<Void> sent, SocketAddress address) {
     }
@@ -45,7 +45,7 @@ public abstract class SocketManager implements Closeable {
     private volatile boolean closed;
 
     private Future<?> recvTask;
-    private volatile boolean isRecvTaskRunning;
+    protected volatile boolean isRecvTaskRunning;
     private Future<?> sendTask;
     private volatile boolean canSendNewPackets;
     private final ExecutorService executor;

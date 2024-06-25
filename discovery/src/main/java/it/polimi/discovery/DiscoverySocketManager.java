@@ -76,6 +76,8 @@ public class DiscoverySocketManager extends SocketManager {
     }
 
     public PacketAndSender<Peer2DiscoveryPacket> receive() throws IOException {
+        if (!isRecvTaskRunning)
+            throw new IOException(CLOSE_EX_MSG);
         try {
             return inPacketQueue.take();
         } catch (InterruptedException e) {

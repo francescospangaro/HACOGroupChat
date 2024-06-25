@@ -50,10 +50,10 @@ public class PeerSocketManager extends SocketManager {
 
     @VisibleForTesting
     public PeerSocketManager(String myId,
-                      ExecutorService executor,
-                      SocketAddress discoveryAddress,
-                      int timeout,
-                      DatagramSocket socket) {
+                             ExecutorService executor,
+                             SocketAddress discoveryAddress,
+                             int timeout,
+                             DatagramSocket socket) {
         super(myId, executor, timeout, socket);
         this.discoveryAddress = discoveryAddress;
         this.inPacketQueue_discovery = new LinkedBlockingQueue<>();
@@ -98,6 +98,8 @@ public class PeerSocketManager extends SocketManager {
     }
 
     public PacketAndSender<P2PPacket> receiveFromPeer() throws IOException {
+        if (!isRecvTaskRunning)
+            throw new IOException(CLOSE_EX_MSG);
         try {
             return inPacketQueue_peer.take();
         } catch (InterruptedException e) {
@@ -106,6 +108,8 @@ public class PeerSocketManager extends SocketManager {
     }
 
     public Discovery2PeerPacket receiveFromDiscovery() throws IOException {
+        if (!isRecvTaskRunning)
+            throw new IOException(CLOSE_EX_MSG);
         try {
             return inPacketQueue_discovery.take();
         } catch (InterruptedException e) {
