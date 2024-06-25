@@ -149,9 +149,12 @@ public class ChatRoom {
                 }
             }
         } while (added);
-        for(DeleteRoomPacket drp : waitingDeleteRoomPackets) {
-            close(drp);
-        }
+        // Checks for waiting DeleteRoomPackets after having checked for normal messages
+        do {
+            for (DeleteRoomPacket drp : waitingDeleteRoomPackets)
+                added = close(drp);
+        } while (added);
+
     }
 
     public Set<String> getUsers() {
@@ -187,6 +190,23 @@ public class ChatRoom {
         return 1;
     }
 
+    public boolean close(DeleteRoomPacket drp) {
+        switch (checkVC(drp.vectorClocks())) {
+            // Can be accepted
+            case 1:
+                vectorClocks.put(drp.sender(), drp.vectorClocks().get(drp.sender()));
+                waitingDeleteRoomPackets.remove(drp);
+                closed = true;
+                return true;
+            case -1:
+                waitingDeleteRoomPackets.add(drp);
+                return false;
+            default:
+                // The default case is 0, so the packet has already been accepted and parsed
+                return false;
+        }
+    }
+
     public Set<Message> getWaitingMessages() {
         return Set.copyOf(waitingMessages);
     }
@@ -202,19 +222,6 @@ public class ChatRoom {
 
     public Collection<Message> getReceivedMsgs() {
         return Collections.unmodifiableCollection(receivedMsgs);
-    }
-
-    public void close(DeleteRoomPacket drp) {
-        switch (checkVC(drp.vectorClocks())) {
-            // Can be accepted
-            case 1:
-                vectorClocks.put(drp.sender(), drp.vectorClocks().get(drp.sender()));
-                closed = true;
-                break;
-            case -1:
-                waitingDeleteRoomPackets.add(drp);
-                break;
-        }
     }
 
     public void localClose() {
