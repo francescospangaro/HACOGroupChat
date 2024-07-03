@@ -1,7 +1,6 @@
 package it.polimi;
 
 import it.polimi.discovery.DiscoveryServer;
-import it.polimi.messages.DeleteMessage;
 import it.polimi.messages.StringMessage;
 import it.polimi.packets.p2p.MessagePacket;
 import it.polimi.peer.*;
@@ -126,11 +125,11 @@ class ChatTest {
         try (
                 PeerNetManager p1 = new PeerNetManager(ID1, 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
                         e -> c1Promise.complete((String) e.getNewValue()),
-                        e -> msg1Promise.complete(((MessageGUI) e.getNewValue()).message()));
+                        e -> msg1Promise.complete((StringMessage) ((MessageGUI) e.getNewValue()).message()));
 
                 PeerNetManager p2 = new PeerNetManager(ID2, 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
                         e -> c2Promise.complete((String) e.getNewValue()),
-                        e -> msg2Promise.complete(((MessageGUI) e.getNewValue()).message()))
+                        e -> msg2Promise.complete((StringMessage) ((MessageGUI) e.getNewValue()).message()))
         ) {
             PeerController c1 = p1.getController();
             System.out.println(c1Promise.get(500, TimeUnit.MILLISECONDS));
@@ -172,16 +171,16 @@ class ChatTest {
         try (
                 PeerNetManager p1 = new PeerNetManager(ID1, 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
                         e -> users1.countDown(),
-                        e -> msg1Promise.complete(((MessageGUI) e.getNewValue()).message()));
+                        e -> msg1Promise.complete((StringMessage) ((MessageGUI) e.getNewValue()).message()));
 
                 PeerNetManager p2 = new PeerNetManager(ID2, 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
                         e -> users2.countDown(),
-                        e -> msg2Promise.complete(((MessageGUI) e.getNewValue()).message()));
+                        e -> msg2Promise.complete((StringMessage) ((MessageGUI) e.getNewValue()).message()));
 
                 PeerNetManager p3 = new PeerNetManager(ID3, 12347, e -> chat3Promise.complete((ChatRoom) e.getNewValue()),
                         e -> users3.countDown(),
                         e -> {
-                            msg3List.add(((MessageGUI) e.getNewValue()).message());
+                            msg3List.add((StringMessage) ((MessageGUI) e.getNewValue()).message());
                             msg3.countDown();
                         })
         ) {
@@ -255,7 +254,7 @@ class ChatTest {
                             else
                                 disc1Promise.complete((String) e.getOldValue());
                         },
-                        e -> msg1Promise.complete(((MessageGUI) e.getNewValue()).message()));
+                        e -> msg1Promise.complete((StringMessage) ((MessageGUI) e.getNewValue()).message()));
 
                 PeerNetManager p2 = new PeerNetManager(ID2, 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
                         e -> {
@@ -264,7 +263,7 @@ class ChatTest {
                             else
                                 disc2.countDown();
                         },
-                        e -> msg2Promise.complete(((MessageGUI) e.getNewValue()).message()));
+                        e -> msg2Promise.complete((StringMessage) ((MessageGUI) e.getNewValue()).message()));
 
                 PeerNetManager p3 = new PeerNetManager(ID3, 12347, e -> chat3Promise.complete((ChatRoom) e.getNewValue()),
                         e -> {
@@ -273,7 +272,7 @@ class ChatTest {
                             else
                                 disc3Promise.complete((String) e.getOldValue());
                         },
-                        e -> msg3Promise.complete(((MessageGUI) e.getNewValue()).message()))
+                        e -> msg3Promise.complete((StringMessage) ((MessageGUI) e.getNewValue()).message()))
         ) {
             PeerController c1 = p1.getController();
             assertTrue(users1.await(500, TimeUnit.MILLISECONDS));
@@ -347,7 +346,7 @@ class ChatTest {
                             else
                                 disc1Promise.complete((String) e.getOldValue());
                         },
-                        e -> msg1Promise.complete(((MessageGUI) e.getNewValue()).message()));
+                        e -> msg1Promise.complete((StringMessage) ((MessageGUI) e.getNewValue()).message()));
 
                 PeerNetManager p2 = new PeerNetManager(ID2, 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
                         e -> {
@@ -356,7 +355,7 @@ class ChatTest {
                             else
                                 disc2Promise.complete((String) e.getOldValue());
                         },
-                        e -> msg2Promise.complete(((MessageGUI) e.getNewValue()).message())) {
+                        e -> msg2Promise.complete((StringMessage) ((MessageGUI) e.getNewValue()).message())) {
                     @Override
                     protected PeerSocketManager createSocketManager() throws IOException {
                         if (socketRef.get() == null) {
@@ -450,7 +449,7 @@ class ChatTest {
                                 disc1Promise.complete((String) e.getOldValue());
                         },
                         e -> {
-                            msg1List.add(((MessageGUI) e.getNewValue()).message());
+                            msg1List.add((StringMessage) ((MessageGUI) e.getNewValue()).message());
                             msg1.countDown();
                         });
 
@@ -462,7 +461,7 @@ class ChatTest {
                                 disc2Promise.complete((String) e.getOldValue());
                         },
                         e -> {
-                            msg2List.add(((MessageGUI) e.getNewValue()).message());
+                            msg2List.add((StringMessage) ((MessageGUI) e.getNewValue()).message());
                             msg2.countDown();
                         }) {
                     @Override
@@ -486,7 +485,7 @@ class ChatTest {
                             else
                                 disc3Promise.complete((String) e.getOldValue());
                         },
-                        e -> msg3Promise.complete(((MessageGUI) e.getNewValue()).message()))
+                        e -> msg3Promise.complete((StringMessage) ((MessageGUI) e.getNewValue()).message()))
         ) {
             PeerController c1 = p1.getController();
             PeerController c3 = p3.getController();
@@ -587,7 +586,7 @@ class ChatTest {
                                 disc1Promise.complete((String) e.getOldValue());
                         },
                         e -> {
-                            msg1List.add(((MessageGUI) e.getNewValue()).message());
+                            msg1List.add((StringMessage) ((MessageGUI) e.getNewValue()).message());
                             msg1.countDown();
                         });
 
@@ -602,7 +601,7 @@ class ChatTest {
                                 disc2Promise.complete((String) e.getOldValue());
                         },
                         e -> {
-                            msg2List.add(((MessageGUI) e.getNewValue()).message());
+                            msg2List.add((StringMessage) ((MessageGUI) e.getNewValue()).message());
                             msg2.countDown();
                         }) {
                     @Override
@@ -624,7 +623,7 @@ class ChatTest {
                             else
                                 disc2Promise.complete((String) e.getOldValue());
                         },
-                        e -> msg3Promise.complete(((MessageGUI) e.getNewValue()).message()))
+                        e -> msg3Promise.complete((StringMessage) ((MessageGUI) e.getNewValue()).message()))
         ) {
             PeerController c1 = p1.getController();
             PeerController c2 = p2.getController();
@@ -750,14 +749,14 @@ class ChatTest {
                             if (e.getPropertyName().equals("USER_CONNECTED"))
                                 users1Promise_new.complete((String) e.getNewValue());
                         },
-                        e -> msg1Promise.complete(((MessageGUI) e.getNewValue()).message()));
+                        e -> msg1Promise.complete((StringMessage) ((MessageGUI) e.getNewValue()).message()));
 
                 PeerNetManager p2 = new PeerNetManager(ID2, 12346, e -> chat2Promise_new.complete((ChatRoom) e.getNewValue()),
                         e -> {
                             if (e.getPropertyName().equals("USER_CONNECTED"))
                                 users2Promise_new.complete((String) e.getNewValue());
                         },
-                        e -> msg2Promise.complete(((MessageGUI) e.getNewValue()).message()))
+                        e -> msg2Promise.complete((StringMessage) ((MessageGUI) e.getNewValue()).message()))
         ) {
             PeerController c1 = p1.getController();
             PeerController c2 = p2.getController();

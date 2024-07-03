@@ -19,7 +19,7 @@ public class ChatRoom {
 
     private final Set<String> users;
     private final Set<Message> waitingMessages;
-    private final Queue<StringMessage> receivedMsgs;
+    private final Queue<Message> receivedMsgs;
     private final Map<String, Integer> vectorClocks;
     private final PropertyChangeSupport msgChangeSupport;
     private final String name;
@@ -59,7 +59,7 @@ public class ChatRoom {
                     PropertyChangeListener msgChangeListener,
                     Map<String, Integer> vectorClocks,
                     Set<Message> waiting,
-                    Collection<StringMessage> messages) {
+                    Collection<Message> messages) {
         this.name = name;
         this.users = Set.copyOf(users);
         this.id = id;
@@ -164,17 +164,9 @@ public class ChatRoom {
 
                     LOGGER.info(STR."[\{this.id}] Removing message \{m.vectorClocks()} from waiting list");
 
-                    switch (m) {
-                        case StringMessage sm -> {
-                            receivedMsgs.add(sm);
-                            msgChangeSupport.firePropertyChange("ADD_MSG", null, new MessageGUI(sm, this));
-                        }
-                        case DeleteMessage dm -> {
-                            closed = true;
-                            LOGGER.info(STR."Deleting room \{name} \{id}");
-                            msgChangeSupport.firePropertyChange("DEL_ROOM", this, null);
-                        }
-                    }
+                    receivedMsgs.add(m);
+                    msgChangeSupport.firePropertyChange("ADD_MSG", null, new MessageGUI(m, this));
+
                     added = true;
 
                     //Remove the message from the queue
@@ -263,7 +255,7 @@ public class ChatRoom {
         return name;
     }
 
-    public Collection<StringMessage> getReceivedMsgs() {
+    public Collection<Message> getReceivedMsgs() {
         return Collections.unmodifiableCollection(receivedMsgs);
     }
 

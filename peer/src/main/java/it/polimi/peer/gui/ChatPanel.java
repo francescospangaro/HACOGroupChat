@@ -198,14 +198,6 @@ public class ChatPanel {
                                 msgList.ensureIndexIsVisible(msgListModel.size() - 1);
                             });
                         }
-                    } else if (evt.getPropertyName().equals("DEL_ROOM")) {
-                        ChatRoom chat = (ChatRoom) evt.getOldValue();
-                        LOGGER.trace(STR."Room \{chat} removed from gui");
-                        chatRooms.removeItem(chat);
-                        if (chatRooms.getItemCount() == 0) {
-                            sendButton.setEnabled(false);
-                            deleteButton.setEnabled(false);
-                        }
                     }
                 });
             } catch (IOException e) {
@@ -263,6 +255,15 @@ public class ChatPanel {
             Thread.sleep(500);
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    private void deleteRoom(ChatRoom chat){
+        LOGGER.trace(STR."Room \{chat} removed from gui");
+        chatRooms.removeItem(chat);
+        if (chatRooms.getItemCount() == 0) {
+            sendButton.setEnabled(false);
+            deleteButton.setEnabled(false);
         }
     }
 

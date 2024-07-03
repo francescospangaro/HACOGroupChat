@@ -1,7 +1,7 @@
 package it.polimi.peer.utility;
 
+import it.polimi.messages.Message;
 import it.polimi.peer.ChatRoom;
-import it.polimi.messages.StringMessage;
 
-public record MessageGUI(StringMessage message, ChatRoom chatRoom) {
+public record MessageGUI(Message message, ChatRoom chatRoom) {
 }

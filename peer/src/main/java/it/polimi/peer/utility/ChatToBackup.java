@@ -21,7 +21,7 @@ import java.util.UUID;
  * @param vectorClocks
  */
 public record ChatToBackup(UUID id, String name, Set<String> users, Set<Message> waiting,
-                           Collection<StringMessage> received,
+                           Collection<Message> received,
                            Map<String, Integer> vectorClocks) implements Serializable {
 
     public ChatToBackup(ChatRoom chat) {
