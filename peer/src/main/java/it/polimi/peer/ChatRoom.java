@@ -1,6 +1,7 @@
 package it.polimi.peer;
 
 import it.polimi.messages.DeleteMessage;
+import it.polimi.messages.Message;
 import it.polimi.messages.StringMessage;
 import it.polimi.peer.utility.MessageGUI;
 import org.slf4j.Logger;
@@ -17,8 +18,7 @@ public class ChatRoom {
     private static final Logger LOGGER = LoggerFactory.getLogger(ChatRoom.class);
 
     private final Set<String> users;
-    private final Set<StringMessage> waitingMessages;
-    private final Set<DeleteMessage> waitingDeleteRoomMessages;
+    private final Set<Message> waitingMessages;
     private final Queue<StringMessage> receivedMsgs;
     private final Map<String, Integer> vectorClocks;
     private final PropertyChangeSupport msgChangeSupport;
@@ -42,7 +42,6 @@ public class ChatRoom {
         this.id = id;
         this.pushLock = new ReentrantLock();
         this.waitingMessages = new LinkedHashSet<>();
-        this.waitingDeleteRoomMessages = new LinkedHashSet<>();
         this.closed = false;
 
         vectorClocks = new HashMap<>();
@@ -59,15 +58,13 @@ public class ChatRoom {
                     UUID id,
                     PropertyChangeListener msgChangeListener,
                     Map<String, Integer> vectorClocks,
-                    Set<StringMessage> waiting,
-                    Collection<StringMessage> messages,
-                    Set<DeleteMessage> waitingDeleteRoomMessages) {
+                    Set<Message> waiting,
+                    Collection<StringMessage> messages) {
         this.name = name;
         this.users = Set.copyOf(users);
         this.id = id;
         this.pushLock = new ReentrantLock();
         this.waitingMessages = new LinkedHashSet<>(waiting);
-        this.waitingDeleteRoomMessages = new LinkedHashSet<>(waitingDeleteRoomMessages);
         this.closed = false;
 
         this.vectorClocks = new HashMap<>(vectorClocks);
@@ -160,27 +157,31 @@ public class ChatRoom {
             added = false;
             var iter = waitingMessages.iterator();
             while (iter.hasNext()) {
-                StringMessage m = iter.next();
+                Message m = iter.next();
                 if (checkVC(m.vectorClocks()) == 1) {
                     //Increase the PID of the message sender
                     vectorClocks.put(m.sender(), m.vectorClocks().get(m.sender()));
 
                     LOGGER.info(STR."[\{this.id}] Removing message \{m.vectorClocks()} from waiting list");
-                    receivedMsgs.add(m);
+
+                    switch (m) {
+                        case StringMessage sm -> {
+                            receivedMsgs.add(sm);
+                            msgChangeSupport.firePropertyChange("ADD_MSG", null, new MessageGUI(sm, this));
+                        }
+                        case DeleteMessage dm -> {
+                            closed = true;
+                            LOGGER.info(STR."Deleting room \{name} \{id}");
+                            msgChangeSupport.firePropertyChange("DEL_ROOM", this, null);
+                        }
+                    }
                     added = true;
 
                     //Remove the message from the queue
                     iter.remove();
-                    msgChangeSupport.firePropertyChange("ADD_MSG", null, new MessageGUI(m, this));
                 }
             }
         } while (added);
-        // Checks for waiting DeleteRoomPackets after having checked for normal messages
-        do {
-            for (DeleteMessage dm : waitingDeleteRoomMessages)
-                added = close(dm);
-        } while (added);
-
     }
 
     public Set<String> getUsers() {
@@ -231,13 +232,12 @@ public class ChatRoom {
                 // Can be accepted
                 case 1:
                     vectorClocks.put(dm.sender(), dm.vectorClocks().get(dm.sender()));
-                    waitingDeleteRoomMessages.remove(dm);
                     closed = true;
                     LOGGER.info(STR."Deleting room \{name} \{id}");
-                    msgChangeSupport.firePropertyChange("DEL_ROOM", this, null);
+                    localClose(dm);
                     return true;
                 case -1:
-                    waitingDeleteRoomMessages.add(dm);
+                    waitingMessages.add(dm);
                     LOGGER.info(STR."[\{id}] Delete message \{dm.vectorClocks()} added in waiting list");
                     return false;
                 default:
@@ -250,7 +250,7 @@ public class ChatRoom {
         }
     }
 
-    public Set<StringMessage> getWaitingMessages() {
+    public Set<Message> getWaitingMessages() {
         return Set.copyOf(waitingMessages);
     }
 
@@ -267,22 +267,21 @@ public class ChatRoom {
         return Collections.unmodifiableCollection(receivedMsgs);
     }
 
-    public void localClose() {
+    private void localClose(DeleteMessage dm) {
         // Close the chatroom
         closed = true;
+        msgChangeSupport.firePropertyChange("DEL_ROOM", this, dm);
     }
 
     public DeleteMessage createDeleteMessage(String senderId) {
         increaseVC(senderId);
-        return new DeleteMessage(Map.copyOf(vectorClocks), senderId);
+        var dm = new DeleteMessage(Map.copyOf(vectorClocks), senderId);
+        localClose(dm);
+        return dm;
     }
 
     private void increaseVC(String sender) {
         vectorClocks.replace(sender, vectorClocks.get(sender) + 1);
-    }
-
-    public Set<DeleteMessage> getWaitingDeleteRoomMessages() {
-        return waitingDeleteRoomMessages;
     }
 }
 

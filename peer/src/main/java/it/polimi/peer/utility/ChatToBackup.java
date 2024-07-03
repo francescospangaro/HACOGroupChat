@@ -1,9 +1,8 @@
 package it.polimi.peer.utility;
 
-import it.polimi.messages.DeleteMessage;
-import it.polimi.packets.p2p.DeleteRoomPacket;
-import it.polimi.peer.ChatRoom;
+import it.polimi.messages.Message;
 import it.polimi.messages.StringMessage;
+import it.polimi.peer.ChatRoom;
 
 import java.io.Serializable;
 import java.util.Collection;
@@ -21,10 +20,11 @@ import java.util.UUID;
  * @param received
  * @param vectorClocks
  */
-public record ChatToBackup(UUID id, String name, Set<String> users, Set<StringMessage> waiting, Collection<StringMessage> received,
-                           Map<String, Integer> vectorClocks, Set<DeleteMessage> waitingDeleteRoomMessages) implements Serializable {
+public record ChatToBackup(UUID id, String name, Set<String> users, Set<Message> waiting,
+                           Collection<StringMessage> received,
+                           Map<String, Integer> vectorClocks) implements Serializable {
 
     public ChatToBackup(ChatRoom chat) {
-        this(chat.getId(), chat.getName(), chat.getUsers(), chat.getWaitingMessages(), chat.getReceivedMsgs(), chat.getVectorClocks(), chat.getWaitingDeleteRoomMessages());
+        this(chat.getId(), chat.getName(), chat.getUsers(), chat.getWaitingMessages(), chat.getReceivedMsgs(), chat.getVectorClocks());
     }
 }

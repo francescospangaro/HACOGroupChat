@@ -1,6 +1,7 @@
 package it.polimi;
 
 import it.polimi.discovery.DiscoveryServer;
+import it.polimi.messages.DeleteMessage;
 import it.polimi.messages.StringMessage;
 import it.polimi.packets.p2p.MessagePacket;
 import it.polimi.peer.*;
@@ -222,7 +223,7 @@ class ChatTest {
             }
             assertTrue(msg3List.isEmpty());
             assertEquals(1, chat3.getWaitingMessages().size());
-            assertEquals("TEST2", chat3.getWaitingMessages().stream().findFirst().orElseThrow().msg());
+            assertEquals("TEST2", ((StringMessage) chat3.getWaitingMessages().stream().findFirst().orElseThrow()).msg());
 
             assertTrue(msg3.await(2000, TimeUnit.MILLISECONDS));
 
