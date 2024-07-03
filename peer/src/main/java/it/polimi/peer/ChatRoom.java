@@ -21,17 +21,22 @@ public class ChatRoom {
     private final Set<DeleteMessage> waitingDeleteRoomMessages;
     private final Queue<StringMessage> receivedMsgs;
     private final Map<String, Integer> vectorClocks;
-    private final PropertyChangeSupport propertyChangeSupport;
+    private final PropertyChangeSupport msgChangeSupport;
     private final String name;
     private final UUID id;
     private final Lock pushLock;
     private Boolean closed;
 
-    public ChatRoom(String name, Set<String> users, PropertyChangeListener msgChangeListener) {
+    public ChatRoom(String name,
+                    Set<String> users,
+                    PropertyChangeListener msgChangeListener) {
         this(name, users, UUID.randomUUID(), msgChangeListener);
     }
 
-    public ChatRoom(String name, Set<String> users, UUID id, PropertyChangeListener msgChangeListener) {
+    public ChatRoom(String name,
+                    Set<String> users,
+                    UUID id,
+                    PropertyChangeListener msgChangeListener) {
         this.name = name;
         this.users = Set.copyOf(users);
         this.id = id;
@@ -45,12 +50,18 @@ public class ChatRoom {
             vectorClocks.put(user, 0);
         }
         receivedMsgs = new ConcurrentLinkedQueue<>();
-        propertyChangeSupport = new PropertyChangeSupport(receivedMsgs);
-        propertyChangeSupport.addPropertyChangeListener(msgChangeListener);
+        msgChangeSupport = new PropertyChangeSupport(receivedMsgs);
+        msgChangeSupport.addPropertyChangeListener(msgChangeListener);
     }
 
-    public ChatRoom(String name, Set<String> users, UUID id, PropertyChangeListener msgChangeListener,
-                    Map<String, Integer> vectorClocks, Set<StringMessage> waiting, Collection<StringMessage> messages, Set<DeleteMessage> waitingDeleteRoomMessages) {
+    public ChatRoom(String name,
+                    Set<String> users,
+                    UUID id,
+                    PropertyChangeListener msgChangeListener,
+                    Map<String, Integer> vectorClocks,
+                    Set<StringMessage> waiting,
+                    Collection<StringMessage> messages,
+                    Set<DeleteMessage> waitingDeleteRoomMessages) {
         this.name = name;
         this.users = Set.copyOf(users);
         this.id = id;
@@ -61,8 +72,9 @@ public class ChatRoom {
 
         this.vectorClocks = new HashMap<>(vectorClocks);
         this.receivedMsgs = new ConcurrentLinkedQueue<>(messages);
-        propertyChangeSupport = new PropertyChangeSupport(receivedMsgs);
-        propertyChangeSupport.addPropertyChangeListener(msgChangeListener);
+
+        msgChangeSupport = new PropertyChangeSupport(receivedMsgs);
+        msgChangeSupport.addPropertyChangeListener(msgChangeListener);
     }
 
 
@@ -92,7 +104,7 @@ public class ChatRoom {
             increaseVC(sender);
             StringMessage m = new StringMessage(msg, Map.copyOf(vectorClocks), sender);
             receivedMsgs.add(m);
-            propertyChangeSupport.firePropertyChange("ADD_MSG", null, new MessageGUI(m, this));
+            msgChangeSupport.firePropertyChange("ADD_MSG", null, new MessageGUI(m, this));
             return m;
         } finally {
             pushLock.unlock();
@@ -117,7 +129,7 @@ public class ChatRoom {
 
                     receivedMsgs.add(m);
 
-                    propertyChangeSupport.firePropertyChange("ADD_MSG", null, new MessageGUI(m, this));
+                    msgChangeSupport.firePropertyChange("ADD_MSG", null, new MessageGUI(m, this));
 
                     //Check the message queue to see if we can accept any other message
                     checkWaiting();
@@ -159,7 +171,7 @@ public class ChatRoom {
 
                     //Remove the message from the queue
                     iter.remove();
-                    propertyChangeSupport.firePropertyChange("ADD_MSG", null, new MessageGUI(m, this));
+                    msgChangeSupport.firePropertyChange("ADD_MSG", null, new MessageGUI(m, this));
                 }
             }
         } while (added);
@@ -214,18 +226,23 @@ public class ChatRoom {
     public boolean close(DeleteMessage dm) {
         try {
             pushLock.lock();
-            switch (checkVC(dm.vectorClocks())) {
+            int c = checkVC(dm.vectorClocks());
+            switch (c) {
                 // Can be accepted
                 case 1:
                     vectorClocks.put(dm.sender(), dm.vectorClocks().get(dm.sender()));
                     waitingDeleteRoomMessages.remove(dm);
                     closed = true;
+                    LOGGER.info(STR."Deleting room \{name} \{id}");
+                    msgChangeSupport.firePropertyChange("DEL_ROOM", this, null);
                     return true;
                 case -1:
                     waitingDeleteRoomMessages.add(dm);
+                    LOGGER.info(STR."[\{id}] Delete message \{dm.vectorClocks()} added in waiting list");
                     return false;
                 default:
                     // The default case is 0, so the packet has already been accepted and parsed
+                    LOGGER.info(STR."[\{id}] Ignoring duplicated delete message \{dm.vectorClocks()}");
                     return false;
             }
         } finally {
@@ -257,7 +274,7 @@ public class ChatRoom {
 
     public DeleteMessage createDeleteMessage(String senderId) {
         increaseVC(senderId);
-        return new DeleteMessage(id, Map.copyOf(vectorClocks), senderId);
+        return new DeleteMessage(Map.copyOf(vectorClocks), senderId);
     }
 
     private void increaseVC(String sender) {

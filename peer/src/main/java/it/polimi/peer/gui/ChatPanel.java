@@ -1,9 +1,9 @@
 package it.polimi.peer.gui;
 
 import it.polimi.peer.ChatRoom;
-import it.polimi.peer.exceptions.DiscoveryUnreachableException;
 import it.polimi.peer.PeerController;
 import it.polimi.peer.PeerNetManager;
+import it.polimi.peer.exceptions.DiscoveryUnreachableException;
 import it.polimi.peer.utility.MessageGUI;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -176,14 +176,6 @@ public class ChatPanel {
                         chatRooms.addItem(chat);
                         sendButton.setEnabled(true);
                         deleteButton.setEnabled(true);
-                    } else if (evt.getPropertyName().equals("DEL_ROOM")) {
-                        ChatRoom chat = (ChatRoom) evt.getOldValue();
-                        LOGGER.trace(STR."Room \{chat} removed from gui");
-                        chatRooms.removeItem(chat);
-                        if (chatRooms.getItemCount() == 0) {
-                            sendButton.setEnabled(false);
-                            deleteButton.setEnabled(false);
-                        }
                     }
                 }), evt -> SwingUtilities.invokeLater(() -> {
                     if (evt.getPropertyName().equals("USER_CONNECTED")) {
@@ -205,6 +197,14 @@ public class ChatPanel {
                                     msgListModel.addElement(new LeftArrowBubble(mgui.message().sender(), detailedViewCheckBox.isSelected() ? mgui.message().toDetailedString() : mgui.message().toString()));
                                 msgList.ensureIndexIsVisible(msgListModel.size() - 1);
                             });
+                        }
+                    } else if (evt.getPropertyName().equals("DEL_ROOM")) {
+                        ChatRoom chat = (ChatRoom) evt.getOldValue();
+                        LOGGER.trace(STR."Room \{chat} removed from gui");
+                        chatRooms.removeItem(chat);
+                        if (chatRooms.getItemCount() == 0) {
+                            sendButton.setEnabled(false);
+                            deleteButton.setEnabled(false);
                         }
                     }
                 });

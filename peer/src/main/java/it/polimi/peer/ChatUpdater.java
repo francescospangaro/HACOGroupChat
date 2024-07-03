@@ -24,7 +24,7 @@ public class ChatUpdater implements Runnable {
 
     private final PeerSocketManager socketManager;
     private final Set<ChatRoom> chats;
-    private final PropertyChangeSupport propertyChangeSupport;
+    private final PropertyChangeSupport roomChangeSupport;
     private final PropertyChangeListener msgChangeListener;
     private final BiConsumer<String, SocketAddress> onPeerConnected;
     private final Consumer<String> onPeerDisconnected;
@@ -33,11 +33,13 @@ public class ChatUpdater implements Runnable {
 
     public ChatUpdater(PeerSocketManager socketManager,
                        Set<ChatRoom> chats,
-                       PropertyChangeSupport propertyChangeSupport,
-                       PropertyChangeListener msgChangeListener, BiConsumer<String, SocketAddress> onPeerConnected, Consumer<String> onPeerDisconnected) {
+                       PropertyChangeSupport roomChangeSupport,
+                       PropertyChangeListener msgChangeListener,
+                       BiConsumer<String, SocketAddress> onPeerConnected,
+                       Consumer<String> onPeerDisconnected) {
         this.socketManager = socketManager;
         this.chats = chats;
-        this.propertyChangeSupport = propertyChangeSupport;
+        this.roomChangeSupport = roomChangeSupport;
         this.msgChangeListener = msgChangeListener;
         this.onPeerConnected = onPeerConnected;
         this.onPeerDisconnected = onPeerDisconnected;
@@ -88,7 +90,7 @@ public class ChatUpdater implements Runnable {
                 // By blocking the messages here, it mimics the arrival of the messages, postponing it for the user until
                 // the chatroom has been created
                 popQueue();
-                propertyChangeSupport.firePropertyChange("ADD_ROOM", null, newChat);
+                roomChangeSupport.firePropertyChange("ADD_ROOM", null, newChat);
             }
 
             case DeleteRoomPacket drp -> deleteHandler(drp);
@@ -132,9 +134,7 @@ public class ChatUpdater implements Runnable {
                 .findFirst()
                 .orElse(null);
         if (toDelete != null) {
-            LOGGER.info(STR."Deleting room \{toDelete.getName()} \{drp.deleteMessage().chatId()}");
             toDelete.close(drp.deleteMessage());
-            propertyChangeSupport.firePropertyChange("DEL_ROOM", toDelete, null);
             return 1;
         } else {
             waitingDeletes.add(drp);
