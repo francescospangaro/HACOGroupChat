@@ -214,9 +214,8 @@ public class ChatRoom {
      * otherwise enqueue the delete message
      *
      * @param dm delete message
-     * @return true if the chat has been closed
      */
-    public boolean close(DeleteMessage dm) {
+    public void close(DeleteMessage dm) {
         try {
             pushLock.lock();
             int c = checkVC(dm.vectorClocks());
@@ -227,15 +226,12 @@ public class ChatRoom {
                     closed = true;
                     LOGGER.info(STR."Deleting room \{name} \{id}");
                     localClose(dm);
-                    return true;
                 case -1:
                     waitingMessages.add(dm);
                     LOGGER.info(STR."[\{id}] Delete message \{dm.vectorClocks()} added in waiting list");
-                    return false;
                 default:
                     // The default case is 0, so the packet has already been accepted and parsed
                     LOGGER.info(STR."[\{id}] Ignoring duplicated delete message \{dm.vectorClocks()}");
-                    return false;
             }
         } finally {
             pushLock.unlock();
@@ -262,7 +258,7 @@ public class ChatRoom {
     private void localClose(DeleteMessage dm) {
         // Close the chatroom
         closed = true;
-        msgChangeSupport.firePropertyChange("DEL_ROOM", this, dm);
+        msgChangeSupport.firePropertyChange("ADD_MSG", this, new MessageGUI(dm, this));
     }
 
     public DeleteMessage createDeleteMessage(String senderId) {

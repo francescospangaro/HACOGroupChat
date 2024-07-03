@@ -1,5 +1,6 @@
 package it.polimi.peer.gui;
 
+import it.polimi.messages.DeleteMessage;
 import it.polimi.peer.ChatRoom;
 import it.polimi.peer.PeerController;
 import it.polimi.peer.PeerNetManager;
@@ -65,11 +66,18 @@ public class ChatPanel {
             }
         }, KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, KeyEvent.CTRL_DOWN_MASK), JComponent.WHEN_FOCUSED);
 
-        deleteButton.addActionListener(_ -> executorService.execute(() -> {
+        deleteButton.addActionListener(_ -> {
             ChatRoom toDelete = (ChatRoom) chatRooms.getSelectedItem();
             assert toDelete != null;
-            peerController.deleteRoom(toDelete);
-        }));
+            if (toDelete.isClosed())
+                deleteRoom(toDelete);
+            else {
+                executorService.execute(() -> {
+                    peerController.closeRoom(toDelete);
+                    SwingUtilities.invokeLater(() -> deleteButton.setText("Delete"));
+                });
+            }
+        });
 
         disconnectReconnectButton.addActionListener(_ ->
                 setConnected(!peerNetManager.isConnected())
@@ -78,15 +86,22 @@ public class ChatPanel {
         chatRooms.addItemListener(e -> {
             if (e.getID() == ItemEvent.ITEM_STATE_CHANGED) {
                 if (chatRooms.getItemCount() > 0 && chatRooms.getSelectedItem() != null) {
-                    chatLabel.setText(STR."Chat: \{((ChatRoom) chatRooms.getSelectedItem()).getName()}");
+                    ChatRoom chat = (ChatRoom) chatRooms.getSelectedItem();
+                    chatLabel.setText(STR."Chat: \{(chat).getName()}");
                     msgListModel.clear();
-                    msgListModel.addAll(((ChatRoom) chatRooms.getSelectedItem()).getReceivedMsgs().stream().map(m -> {
+                    msgListModel.addAll((chat).getReceivedMsgs().stream().map(m -> {
                         if (m.sender().equals(user))
                             return new RightArrowBubble(m.sender(), detailedViewCheckBox.isSelected() ? m.toDetailedString() : m.toString());
                         else
                             return new LeftArrowBubble(m.sender(), detailedViewCheckBox.isSelected() ? m.toDetailedString() : m.toString());
                     }).toList());
                     msgList.ensureIndexIsVisible(msgListModel.size() - 1);
+
+                    sendButton.setEnabled(!chat.isClosed());
+                    if (chat.isClosed())
+                        deleteButton.setText("Delete");
+                    else
+                        deleteButton.setText("Close");
                 } else {
                     chatLabel.setText("Chat: -");
                     msgListModel.clear();
@@ -187,7 +202,7 @@ public class ChatPanel {
                     if (evt.getPropertyName().equals("ADD_MSG")) {
                         MessageGUI mgui = (MessageGUI) evt.getNewValue();
 
-                        LOGGER.trace(STR."Msg \{mgui} added in gui");
+                        LOGGER.info(STR."Msg \{mgui} added in gui");
 
                         if (((ChatRoom) chatRooms.getSelectedItem()).getId().equals(mgui.chatRoom().getId())) {
                             SwingUtilities.invokeLater(() -> {
@@ -196,8 +211,14 @@ public class ChatPanel {
                                 else
                                     msgListModel.addElement(new LeftArrowBubble(mgui.message().sender(), detailedViewCheckBox.isSelected() ? mgui.message().toDetailedString() : mgui.message().toString()));
                                 msgList.ensureIndexIsVisible(msgListModel.size() - 1);
+
+                                if (mgui.message() instanceof DeleteMessage) {
+                                    sendButton.setEnabled(false);
+                                    deleteButton.setText("Delete");
+                                }
                             });
                         }
+
                     }
                 });
             } catch (IOException e) {
@@ -258,9 +279,11 @@ public class ChatPanel {
         }
     }
 
-    private void deleteRoom(ChatRoom chat){
+    private void deleteRoom(ChatRoom chat) {
         LOGGER.trace(STR."Room \{chat} removed from gui");
         chatRooms.removeItem(chat);
+        //TODO: This only removes the chat from the GUI.
+        // Should we also delete it from the controller?
         if (chatRooms.getItemCount() == 0) {
             sendButton.setEnabled(false);
             deleteButton.setEnabled(false);

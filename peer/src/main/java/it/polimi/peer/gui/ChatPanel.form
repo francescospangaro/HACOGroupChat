@@ -140,7 +140,7 @@
               <component id="f1130" class="javax.swing.JButton" binding="deleteButton" default-binding="true">
                 <constraints/>
                 <properties>
-                  <text value="Delete"/>
+                  <text value="Close"/>
                 </properties>
               </component>
               <component id="4b201" class="javax.swing.JButton" binding="disconnectReconnectButton">
