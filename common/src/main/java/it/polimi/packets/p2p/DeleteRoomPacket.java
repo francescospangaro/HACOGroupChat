@@ -1,11 +1,11 @@
 package it.polimi.packets.p2p;
 
-import java.util.Map;
+import it.polimi.messages.DeleteMessage;
+
 import java.util.UUID;
 
 /**
- *
- * @param id of the chatroom to delete
+ * @param deleteMessage delete message
  */
-public record DeleteRoomPacket(String sender, UUID id, Map<String, Integer> vectorClocks) implements P2PPacket {
+public record DeleteRoomPacket(UUID chatId, DeleteMessage deleteMessage) implements P2PPacket {
 }

@@ -1,8 +1,8 @@
 package it.polimi.peer;
 
-import it.polimi.packets.p2p.DeleteRoomPacket;
+import it.polimi.messages.DeleteMessage;
+import it.polimi.messages.StringMessage;
 import it.polimi.peer.utility.MessageGUI;
-import it.polimi.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,9 +17,9 @@ public class ChatRoom {
     private static final Logger LOGGER = LoggerFactory.getLogger(ChatRoom.class);
 
     private final Set<String> users;
-    private final Set<Message> waitingMessages;
-    private final Set<DeleteRoomPacket> waitingDeleteRoomPackets;
-    private final Queue<Message> receivedMsgs;
+    private final Set<StringMessage> waitingMessages;
+    private final Set<DeleteMessage> waitingDeleteRoomMessages;
+    private final Queue<StringMessage> receivedMsgs;
     private final Map<String, Integer> vectorClocks;
     private final PropertyChangeSupport propertyChangeSupport;
     private final String name;
@@ -37,7 +37,7 @@ public class ChatRoom {
         this.id = id;
         this.pushLock = new ReentrantLock();
         this.waitingMessages = new LinkedHashSet<>();
-        this.waitingDeleteRoomPackets = new LinkedHashSet<>();
+        this.waitingDeleteRoomMessages = new LinkedHashSet<>();
         this.closed = false;
 
         vectorClocks = new HashMap<>();
@@ -50,13 +50,13 @@ public class ChatRoom {
     }
 
     public ChatRoom(String name, Set<String> users, UUID id, PropertyChangeListener msgChangeListener,
-                    Map<String, Integer> vectorClocks, Set<Message> waiting, Collection<Message> messages, Set<DeleteRoomPacket> waitingDeleteRoomPackets) {
+                    Map<String, Integer> vectorClocks, Set<StringMessage> waiting, Collection<StringMessage> messages, Set<DeleteMessage> waitingDeleteRoomMessages) {
         this.name = name;
         this.users = Set.copyOf(users);
         this.id = id;
         this.pushLock = new ReentrantLock();
         this.waitingMessages = new LinkedHashSet<>(waiting);
-        this.waitingDeleteRoomPackets = new LinkedHashSet<>(waitingDeleteRoomPackets);
+        this.waitingDeleteRoomMessages = new LinkedHashSet<>(waitingDeleteRoomMessages);
         this.closed = false;
 
         this.vectorClocks = new HashMap<>(vectorClocks);
@@ -78,11 +78,19 @@ public class ChatRoom {
         return closed;
     }
 
-    public Message send(String msg, String sender) {
+    /**
+     * Create a new message with the given string and the local user
+     * and calculate the vector clocks.
+     *
+     * @param msg    message
+     * @param sender the local user
+     * @return message obj with the vector clocks
+     */
+    public StringMessage createLocalMessage(String msg, String sender) {
         try {
             pushLock.lock();
-            vectorClocks.put(sender, vectorClocks.get(sender) + 1);
-            Message m = new Message(msg, Map.copyOf(vectorClocks), sender);
+            increaseVC(sender);
+            StringMessage m = new StringMessage(msg, Map.copyOf(vectorClocks), sender);
             receivedMsgs.add(m);
             propertyChangeSupport.firePropertyChange("ADD_MSG", null, new MessageGUI(m, this));
             return m;
@@ -91,7 +99,13 @@ public class ChatRoom {
         }
     }
 
-    public void push(Message m) {
+    /**
+     * Add a new message if possibile (checks vector clocks),
+     * otherwise put it in the waiting list.
+     *
+     * @param m message received
+     */
+    public void addMessage(StringMessage m) {
         try {
             pushLock.lock();
             //Checks if the user can accept the message arrived, or if he has to put it in a queue
@@ -134,7 +148,7 @@ public class ChatRoom {
             added = false;
             var iter = waitingMessages.iterator();
             while (iter.hasNext()) {
-                Message m = iter.next();
+                StringMessage m = iter.next();
                 if (checkVC(m.vectorClocks()) == 1) {
                     //Increase the PID of the message sender
                     vectorClocks.put(m.sender(), m.vectorClocks().get(m.sender()));
@@ -151,8 +165,8 @@ public class ChatRoom {
         } while (added);
         // Checks for waiting DeleteRoomPackets after having checked for normal messages
         do {
-            for (DeleteRoomPacket drp : waitingDeleteRoomPackets)
-                added = close(drp);
+            for (DeleteMessage dm : waitingDeleteRoomMessages)
+                added = close(dm);
         } while (added);
 
     }
@@ -190,24 +204,36 @@ public class ChatRoom {
         return 1;
     }
 
-    public boolean close(DeleteRoomPacket drp) {
-        switch (checkVC(drp.vectorClocks())) {
-            // Can be accepted
-            case 1:
-                vectorClocks.put(drp.sender(), drp.vectorClocks().get(drp.sender()));
-                waitingDeleteRoomPackets.remove(drp);
-                closed = true;
-                return true;
-            case -1:
-                waitingDeleteRoomPackets.add(drp);
-                return false;
-            default:
-                // The default case is 0, so the packet has already been accepted and parsed
-                return false;
+    /**
+     * Close the chatroom if possible (checks vector clocks),
+     * otherwise enqueue the delete message
+     *
+     * @param dm delete message
+     * @return true if the chat has been closed
+     */
+    public boolean close(DeleteMessage dm) {
+        try {
+            pushLock.lock();
+            switch (checkVC(dm.vectorClocks())) {
+                // Can be accepted
+                case 1:
+                    vectorClocks.put(dm.sender(), dm.vectorClocks().get(dm.sender()));
+                    waitingDeleteRoomMessages.remove(dm);
+                    closed = true;
+                    return true;
+                case -1:
+                    waitingDeleteRoomMessages.add(dm);
+                    return false;
+                default:
+                    // The default case is 0, so the packet has already been accepted and parsed
+                    return false;
+            }
+        } finally {
+            pushLock.unlock();
         }
     }
 
-    public Set<Message> getWaitingMessages() {
+    public Set<StringMessage> getWaitingMessages() {
         return Set.copyOf(waitingMessages);
     }
 
@@ -220,23 +246,26 @@ public class ChatRoom {
         return name;
     }
 
-    public Collection<Message> getReceivedMsgs() {
+    public Collection<StringMessage> getReceivedMsgs() {
         return Collections.unmodifiableCollection(receivedMsgs);
     }
 
     public void localClose() {
         // Close the chatroom
         closed = true;
-
     }
 
-    public Map<String, Integer> increaseVC(String sender) {
+    public DeleteMessage createDeleteMessage(String senderId) {
+        increaseVC(senderId);
+        return new DeleteMessage(id, Map.copyOf(vectorClocks), senderId);
+    }
+
+    private void increaseVC(String sender) {
         vectorClocks.replace(sender, vectorClocks.get(sender) + 1);
-        return Map.copyOf(vectorClocks);
     }
 
-    public Set<DeleteRoomPacket> getWaitingDeleteRoomPackets() {
-        return waitingDeleteRoomPackets;
+    public Set<DeleteMessage> getWaitingDeleteRoomMessages() {
+        return waitingDeleteRoomMessages;
     }
 }
 

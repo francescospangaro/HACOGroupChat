@@ -113,7 +113,7 @@ public class ChatUpdater implements Runnable {
         while (chatIterator.hasNext()) {
             ChatRoom chat = chatIterator.next();
             if (chat.getId().equals(m.chatId())) {
-                chat.push(m.msg());
+                chat.addMessage(m.msg());
                 found = true;
                 break;
             }
@@ -128,12 +128,12 @@ public class ChatUpdater implements Runnable {
     private int deleteHandler(DeleteRoomPacket drp) {
         ChatRoom toDelete = chats
                 .stream()
-                .filter(c -> Objects.equals(c.getId(), drp.id()))
+                .filter(c -> Objects.equals(c.getId(), drp.chatId()))
                 .findFirst()
                 .orElse(null);
         if (toDelete != null) {
-            LOGGER.info(STR."Deleting room \{toDelete.getName()} \{drp.id()}");
-            toDelete.close(drp);
+            LOGGER.info(STR."Deleting room \{toDelete.getName()} \{drp.deleteMessage().chatId()}");
+            toDelete.close(drp.deleteMessage());
             propertyChangeSupport.firePropertyChange("DEL_ROOM", toDelete, null);
             return 1;
         } else {

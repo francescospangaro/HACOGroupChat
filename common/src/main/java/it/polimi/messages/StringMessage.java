@@ -1,17 +1,16 @@
-package it.polimi;
+package it.polimi.messages;
 
-import java.io.Serializable;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * Serialization of a message object
+ * String message object
  *
  * @param msg
  * @param vectorClocks
  * @param sender
  */
-public record Message(String msg, Map<String, Integer> vectorClocks, String sender) implements Serializable {
+public record StringMessage(String msg, Map<String, Integer> vectorClocks, String sender) implements Message {
     //Apparently in JList to format text you have to use HTML
     @Override
     public String toString() {

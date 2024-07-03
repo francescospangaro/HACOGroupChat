@@ -37,7 +37,7 @@ public class BackupManager {
                  ObjectInputStream objectInputStream = new ObjectInputStream(fileInputStream)) {
                 ChatToBackup tempChat = (ChatToBackup) objectInputStream.readObject();
                 tempChats.add(new ChatRoom(tempChat.name(), tempChat.users(), tempChat.id(), msgChangeListener,
-                        tempChat.vectorClocks(), tempChat.waiting(), tempChat.received(), tempChat.waitingDeleteRoomPackets()));
+                        tempChat.vectorClocks(), tempChat.waiting(), tempChat.received(), tempChat.waitingDeleteRoomMessages()));
             } catch (IOException | ClassNotFoundException e) {
                 LOGGER.error(STR."[\{this.id}] Error reading file \{f} from backup", e);
             }

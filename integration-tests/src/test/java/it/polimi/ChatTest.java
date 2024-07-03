@@ -1,6 +1,7 @@
 package it.polimi;
 
 import it.polimi.discovery.DiscoveryServer;
+import it.polimi.messages.StringMessage;
 import it.polimi.packets.p2p.MessagePacket;
 import it.polimi.peer.*;
 import it.polimi.peer.exceptions.DiscoveryUnreachableException;
@@ -119,8 +120,8 @@ class ChatTest {
         CompletableFuture<String> c2Promise = new CompletableFuture<>();
         CompletableFuture<ChatRoom> chat1Promise = new CompletableFuture<>();
         CompletableFuture<ChatRoom> chat2Promise = new CompletableFuture<>();
-        CompletableFuture<Message> msg1Promise = new CompletableFuture<>();
-        CompletableFuture<Message> msg2Promise = new CompletableFuture<>();
+        CompletableFuture<StringMessage> msg1Promise = new CompletableFuture<>();
+        CompletableFuture<StringMessage> msg2Promise = new CompletableFuture<>();
         try (
                 PeerNetManager p1 = new PeerNetManager(ID1, 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
                         e -> c1Promise.complete((String) e.getNewValue()),
@@ -142,8 +143,8 @@ class ChatTest {
 
             c1.sendMessage("TEST", chat);
 
-            Message m1 = msg1Promise.get(500, TimeUnit.MILLISECONDS);
-            Message m2 = msg2Promise.get(1000, TimeUnit.MILLISECONDS);
+            StringMessage m1 = msg1Promise.get(500, TimeUnit.MILLISECONDS);
+            StringMessage m2 = msg2Promise.get(1000, TimeUnit.MILLISECONDS);
 
             assertEquals("TEST", m1.msg());
             assertEquals(ID1, m1.sender());
@@ -160,9 +161,9 @@ class ChatTest {
         CompletableFuture<ChatRoom> chat1Promise = new CompletableFuture<>();
         CompletableFuture<ChatRoom> chat2Promise = new CompletableFuture<>();
         CompletableFuture<ChatRoom> chat3Promise = new CompletableFuture<>();
-        CompletableFuture<Message> msg1Promise = new CompletableFuture<>();
-        CompletableFuture<Message> msg2Promise = new CompletableFuture<>();
-        List<Message> msg3List = new CopyOnWriteArrayList<>();
+        CompletableFuture<StringMessage> msg1Promise = new CompletableFuture<>();
+        CompletableFuture<StringMessage> msg2Promise = new CompletableFuture<>();
+        List<StringMessage> msg3List = new CopyOnWriteArrayList<>();
         CountDownLatch msg3 = new CountDownLatch(2);
         CountDownLatch users1 = new CountDownLatch(2);
         CountDownLatch users2 = new CountDownLatch(2);
@@ -200,8 +201,8 @@ class ChatTest {
 
             c1.sendMessage("TEST", chat1);
 
-            Message m1 = msg1Promise.get(500, TimeUnit.MILLISECONDS);
-            Message m2 = msg2Promise.get(500, TimeUnit.MILLISECONDS);
+            StringMessage m1 = msg1Promise.get(500, TimeUnit.MILLISECONDS);
+            StringMessage m2 = msg2Promise.get(500, TimeUnit.MILLISECONDS);
 
             Thread.sleep(500);
             assertTrue(msg3List.isEmpty());
@@ -236,9 +237,9 @@ class ChatTest {
         CompletableFuture<ChatRoom> chat1Promise = new CompletableFuture<>();
         CompletableFuture<ChatRoom> chat2Promise = new CompletableFuture<>();
         CompletableFuture<ChatRoom> chat3Promise = new CompletableFuture<>();
-        CompletableFuture<Message> msg1Promise = new CompletableFuture<>();
-        CompletableFuture<Message> msg2Promise = new CompletableFuture<>();
-        CompletableFuture<Message> msg3Promise = new CompletableFuture<>();
+        CompletableFuture<StringMessage> msg1Promise = new CompletableFuture<>();
+        CompletableFuture<StringMessage> msg2Promise = new CompletableFuture<>();
+        CompletableFuture<StringMessage> msg3Promise = new CompletableFuture<>();
         CountDownLatch users1 = new CountDownLatch(2);
         CountDownLatch users2 = new CountDownLatch(2);
         CountDownLatch users3 = new CountDownLatch(2);
@@ -293,8 +294,8 @@ class ChatTest {
 
             c1.sendMessage("TEST", chat1);
 
-            Message m1 = msg1Promise.get(500, TimeUnit.MILLISECONDS);
-            Message m3 = msg3Promise.get(500, TimeUnit.MILLISECONDS);
+            StringMessage m1 = msg1Promise.get(500, TimeUnit.MILLISECONDS);
+            StringMessage m3 = msg3Promise.get(500, TimeUnit.MILLISECONDS);
             assertThrows(TimeoutException.class, () -> msg2Promise.get(500, TimeUnit.MILLISECONDS));
 
             assertEquals("TEST", m1.msg());
@@ -311,7 +312,7 @@ class ChatTest {
 
             p2.start();
 
-            Message m2 = msg2Promise.get(500, TimeUnit.MILLISECONDS);
+            StringMessage m2 = msg2Promise.get(500, TimeUnit.MILLISECONDS);
             assertEquals("TEST", m2.msg());
             assertEquals(ID1, m2.sender());
 
@@ -329,8 +330,8 @@ class ChatTest {
         System.out.println("-------netFailTest----------------");
         CompletableFuture<ChatRoom> chat1Promise = new CompletableFuture<>();
         CompletableFuture<ChatRoom> chat2Promise = new CompletableFuture<>();
-        CompletableFuture<Message> msg1Promise = new CompletableFuture<>();
-        CompletableFuture<Message> msg2Promise = new CompletableFuture<>();
+        CompletableFuture<StringMessage> msg1Promise = new CompletableFuture<>();
+        CompletableFuture<StringMessage> msg2Promise = new CompletableFuture<>();
         CompletableFuture<String> users1Promise = new CompletableFuture<>();
         CompletableFuture<String> users2Promise = new CompletableFuture<>();
         CompletableFuture<String> disc1Promise = new CompletableFuture<>();
@@ -382,7 +383,7 @@ class ChatTest {
 
             c2.sendMessage("TEST", chat2);
 
-            Message m2 = msg2Promise.get(500, TimeUnit.MILLISECONDS);
+            StringMessage m2 = msg2Promise.get(500, TimeUnit.MILLISECONDS);
             assertEquals("TEST", m2.msg());
             assertEquals(ID2, m2.sender());
 
@@ -398,7 +399,7 @@ class ChatTest {
             socketRef.get().unlock();
 
             //In 5 seconds should reconnect
-            Message m1 = msg1Promise.get(6, TimeUnit.SECONDS);
+            StringMessage m1 = msg1Promise.get(6, TimeUnit.SECONDS);
             assertEquals("TEST", m1.msg());
             assertEquals(ID2, m1.sender());
 
@@ -419,11 +420,11 @@ class ChatTest {
         CompletableFuture<ChatRoom> chat2Promise = new CompletableFuture<>();
         CompletableFuture<ChatRoom> chat3Promise = new CompletableFuture<>();
 
-        CompletableFuture<Message> msg3Promise = new CompletableFuture<>();
+        CompletableFuture<StringMessage> msg3Promise = new CompletableFuture<>();
         CountDownLatch msg1 = new CountDownLatch(2);
         CountDownLatch msg2 = new CountDownLatch(2);
-        List<Message> msg1List = new CopyOnWriteArrayList<>();
-        List<Message> msg2List = new CopyOnWriteArrayList<>();
+        List<StringMessage> msg1List = new CopyOnWriteArrayList<>();
+        List<StringMessage> msg2List = new CopyOnWriteArrayList<>();
 
         CountDownLatch users1 = new CountDownLatch(2);
         CompletableFuture<String> p1_userReconnect = new CompletableFuture<>();
@@ -560,11 +561,11 @@ class ChatTest {
         CompletableFuture<ChatRoom> chat2Promise = new CompletableFuture<>();
         CompletableFuture<ChatRoom> chat3Promise = new CompletableFuture<>();
 
-        CompletableFuture<Message> msg3Promise = new CompletableFuture<>();
+        CompletableFuture<StringMessage> msg3Promise = new CompletableFuture<>();
         CountDownLatch msg1 = new CountDownLatch(2);
         CountDownLatch msg2 = new CountDownLatch(2);
-        List<Message> msg1List = new CopyOnWriteArrayList<>();
-        List<Message> msg2List = new CopyOnWriteArrayList<>();
+        List<StringMessage> msg1List = new CopyOnWriteArrayList<>();
+        List<StringMessage> msg2List = new CopyOnWriteArrayList<>();
 
         CountDownLatch users1 = new CountDownLatch(2);
         CompletableFuture<String> userReconnect = new CompletableFuture<>();
@@ -733,8 +734,8 @@ class ChatTest {
 
 
         //Reopen peers
-        CompletableFuture<Message> msg1Promise = new CompletableFuture<>();
-        CompletableFuture<Message> msg2Promise = new CompletableFuture<>();
+        CompletableFuture<StringMessage> msg1Promise = new CompletableFuture<>();
+        CompletableFuture<StringMessage> msg2Promise = new CompletableFuture<>();
 
         CompletableFuture<ChatRoom> chat1Promise_new = new CompletableFuture<>();
         CompletableFuture<ChatRoom> chat2Promise_new = new CompletableFuture<>();
@@ -766,8 +767,8 @@ class ChatTest {
             ChatRoom chat1 = chat1Promise.get(500, TimeUnit.MILLISECONDS);
             ChatRoom chat2 = chat2Promise.get(500, TimeUnit.MILLISECONDS);
 
-            var savedList1 = chat1.getReceivedMsgs().toArray(new Message[4]);
-            var savedList2 = chat2.getReceivedMsgs().toArray(new Message[4]);
+            var savedList1 = chat1.getReceivedMsgs().toArray(new StringMessage[4]);
+            var savedList2 = chat2.getReceivedMsgs().toArray(new StringMessage[4]);
 
             assertEquals(4, savedList1.length);
             assertEquals(4, savedList2.length);

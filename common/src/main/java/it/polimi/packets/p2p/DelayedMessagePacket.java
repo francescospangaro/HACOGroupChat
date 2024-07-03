@@ -1,6 +1,6 @@
 package it.polimi.packets.p2p;
 
-import it.polimi.Message;
+import it.polimi.messages.StringMessage;
 
 import java.util.UUID;
 
@@ -13,5 +13,5 @@ import java.util.UUID;
  * @param msg contains the message
  * @param delayedTime contains the delivery delay of the message
  */
-public record DelayedMessagePacket(UUID chatId, Message msg, int delayedTime) implements P2PPacket {
+public record DelayedMessagePacket(UUID chatId, StringMessage msg, int delayedTime) implements P2PPacket {
 }

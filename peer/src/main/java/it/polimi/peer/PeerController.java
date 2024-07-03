@@ -1,6 +1,7 @@
 package it.polimi.peer;
 
-import it.polimi.Message;
+import it.polimi.messages.DeleteMessage;
+import it.polimi.messages.StringMessage;
 import it.polimi.packets.p2p.*;
 import org.jetbrains.annotations.VisibleForTesting;
 import org.slf4j.Logger;
@@ -90,7 +91,7 @@ public class PeerController {
     public void sendMessage(String msg, ChatRoom chat) {
         if (!chat.isClosed()) {
 
-            Message m = chat.send(msg, id);
+            StringMessage m = chat.createLocalMessage(msg, id);
 
             //Send a MessagePacket containing the Message just created to each User of the ChatRoom
             Set<String> normalPeers = new HashSet<>(chat.getUsers());
@@ -102,7 +103,7 @@ public class PeerController {
             degradedConnections.forEach((u, d) -> sendPacket(new DelayedMessagePacket(chat.getId(), m, d), Set.of(u)));
 
         } else {
-            LOGGER.info("Can't send messages on closed chatrooms!");
+            LOGGER.warn("Can't send messages on closed chatrooms!");
         }
     }
 
@@ -123,9 +124,9 @@ public class PeerController {
 
     public void deleteRoom(ChatRoom toDelete) {
         LOGGER.info(STR."[\{this.id}] Deleting room \{toDelete.getName()} \{toDelete.getId()}");
-        DeleteRoomPacket drp = new DeleteRoomPacket(this.id, toDelete.getId(), toDelete.increaseVC(this.id));
-        sendPacket(drp, toDelete.getUsers());
         toDelete.localClose();
+        DeleteMessage dm = toDelete.createDeleteMessage(this.id);
+        sendPacket(new DeleteRoomPacket(toDelete.getId(), dm), toDelete.getUsers());
         backupManager.removeChatBackup(toDelete);
         roomsPropertyChangeSupport.firePropertyChange("DEL_ROOM", toDelete, null);
     }
