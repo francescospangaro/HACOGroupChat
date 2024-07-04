@@ -258,6 +258,7 @@ public class ChatRoom {
     private void localClose(CloseMessage cm) {
         // Close the chatroom
         closed = true;
+        receivedMsgs.add(cm);
         msgChangeSupport.firePropertyChange("ADD_MSG", this, new MessageGUI(cm, this));
     }
 

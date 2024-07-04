@@ -90,8 +90,10 @@ public class ChatPanel {
                     chatLabel.setText(STR."Chat: \{(chat).getName()}");
                     msgListModel.clear();
                     msgListModel.addAll((chat).getReceivedMsgs().stream().map(m -> {
-                        if (m.sender().equals(user))
-                            return new RightArrowBubble(m.sender(), detailedViewCheckBox.isSelected() ? m.toDetailedString() : m.toString());
+                        if (m instanceof CloseMessage)
+                            return new CloseChatBubble(m.sender(), detailedViewCheckBox.isSelected() ? m.toDetailedString() : m.toString());
+                        else if (m.sender().equals(user))
+                            return new RightArrowBubble(detailedViewCheckBox.isSelected() ? m.toDetailedString() : m.toString());
                         else
                             return new LeftArrowBubble(m.sender(), detailedViewCheckBox.isSelected() ? m.toDetailedString() : m.toString());
                     }).toList());
@@ -206,8 +208,10 @@ public class ChatPanel {
 
                         if (((ChatRoom) chatRooms.getSelectedItem()).getId().equals(mgui.chatRoom().getId())) {
                             SwingUtilities.invokeLater(() -> {
-                                if (mgui.message().sender().equals(user))
-                                    msgListModel.addElement(new RightArrowBubble(mgui.message().sender(), detailedViewCheckBox.isSelected() ? mgui.message().toDetailedString() : mgui.message().toString()));
+                                if (mgui.message() instanceof CloseMessage cm)
+                                    msgListModel.addElement(new CloseChatBubble(cm.sender(), detailedViewCheckBox.isSelected() ? cm.toDetailedString() : cm.toString()));
+                                else if (mgui.message().sender().equals(user))
+                                    msgListModel.addElement(new RightArrowBubble(detailedViewCheckBox.isSelected() ? mgui.message().toDetailedString() : mgui.message().toString()));
                                 else
                                     msgListModel.addElement(new LeftArrowBubble(mgui.message().sender(), detailedViewCheckBox.isSelected() ? mgui.message().toDetailedString() : mgui.message().toString()));
                                 msgList.ensureIndexIsVisible(msgListModel.size() - 1);
@@ -242,8 +246,10 @@ public class ChatPanel {
         detailedViewCheckBox.addActionListener(_ -> {
             msgListModel.clear();
             msgListModel.addAll(((ChatRoom) chatRooms.getSelectedItem()).getReceivedMsgs().stream().map(m -> {
-                if (m.sender().equals(user))
-                    return new RightArrowBubble(m.sender(), detailedViewCheckBox.isSelected() ? m.toDetailedString() : m.toString());
+                if (m instanceof CloseMessage)
+                    return new CloseChatBubble(m.sender(), detailedViewCheckBox.isSelected() ? m.toDetailedString() : m.toString());
+                else if (m.sender().equals(user))
+                    return new RightArrowBubble(detailedViewCheckBox.isSelected() ? m.toDetailedString() : m.toString());
                 else
                     return new LeftArrowBubble(m.sender(), detailedViewCheckBox.isSelected() ? m.toDetailedString() : m.toString());
             }).toList());
