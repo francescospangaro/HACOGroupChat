@@ -1,10 +1,7 @@
 package it.polimi.discovery;
 
 import it.polimi.packets.ByePacket;
-import it.polimi.packets.discovery.ForwardPacket;
-import it.polimi.packets.discovery.IPsPacket;
-import it.polimi.packets.discovery.PacketQueue;
-import it.polimi.packets.discovery.UpdateIpPacket;
+import it.polimi.packets.discovery.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -13,7 +10,9 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.SocketAddress;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -29,6 +28,7 @@ public class DiscoveryServer implements Closeable {
     private final Map<String, SocketAddress> ips;
     private final DiscoverySocketManager socketManager;
     private final ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor();
+    private final Set<ForwardPacket> waitingConnection = new HashSet<>();
 
     public DiscoveryServer() {
         ips = new HashMap<>();
@@ -47,6 +47,7 @@ public class DiscoveryServer implements Closeable {
      * 1. UpdateIdPacket - Sends the peer that changed his IP address the list of all connected peers,
      * then saves the changes to the ips list.
      * 2. ByePacket - Removes the IP of the disconnected peer from his connected peers list
+     * 3. ForwardPacket - Sends the packets that need forwarding to the peers the packets need to be forwarded to
      */
     public void start() {
         LOGGER.info("Running discovery server...");
@@ -62,6 +63,14 @@ public class DiscoveryServer implements Closeable {
 //                                .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue))
                         ), p.sender());
                         ips.put(ipPacket.id(), p.sender());
+                        // Check if a peer reconnects, then send him all waiting messages
+                        if(!waitingConnection.isEmpty()){
+                            for (ForwardPacket packet : waitingConnection) {
+                                SocketAddress addr = ips.get(packet.id());
+                                socketManager.send(new PacketQueue(packet.id(), addr, packet.packets()), addr);
+                                waitingConnection.remove(packet);
+                            }
+                        }
                     }
                     case ByePacket byePacket -> {
                         ips.remove(byePacket.id());
@@ -71,8 +80,11 @@ public class DiscoveryServer implements Closeable {
                         SocketAddress addr = ips.get(forwardPacket.id());
                         if (addr != null)
                             socketManager.send(new PacketQueue(forwardPacket.id(), addr, forwardPacket.packets()), addr);
-                        else
-                            LOGGER.warn(STR."[discovery] Can't forward packet: unknown peer \{forwardPacket.id()}");
+                        else {
+                            // If the peer is unreachable, save all packets in a set (so we don't have dupes)
+                            LOGGER.warn(STR."[discovery] Can't forward packet: peer unknown or disconnected \{forwardPacket.id()}");
+                            waitingConnection.add(forwardPacket);
+                        }
                     }
                 }
             } catch (IOException e) {
