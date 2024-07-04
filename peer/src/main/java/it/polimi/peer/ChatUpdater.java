@@ -29,7 +29,7 @@ public class ChatUpdater implements Runnable {
     private final BiConsumer<String, SocketAddress> onPeerConnected;
     private final Consumer<String> onPeerDisconnected;
     private final Set<MessagePacket> waitingMessages;
-    private final Set<DeleteRoomPacket> waitingDeletes;
+    private final Set<CloseRoomPacket> waitingClose;
 
     public ChatUpdater(PeerSocketManager socketManager,
                        Set<ChatRoom> chats,
@@ -44,8 +44,7 @@ public class ChatUpdater implements Runnable {
         this.onPeerConnected = onPeerConnected;
         this.onPeerDisconnected = onPeerDisconnected;
         this.waitingMessages = new HashSet<>();
-        this.waitingDeletes = new HashSet<>();
-
+        this.waitingClose = new HashSet<>();
     }
 
     @Override
@@ -93,7 +92,7 @@ public class ChatUpdater implements Runnable {
                 roomChangeSupport.firePropertyChange("ADD_ROOM", null, newChat);
             }
 
-            case DeleteRoomPacket drp -> deleteHandler(drp);
+            case CloseRoomPacket crp -> closeHandler(crp);
 
             case HelloPacket helloPacket -> onPeerConnected.accept(helloPacket.id(), sender);
 
@@ -127,23 +126,23 @@ public class ChatUpdater implements Runnable {
         return 1;
     }
 
-    private int deleteHandler(DeleteRoomPacket drp) {
-        ChatRoom toDelete = chats
+    private int closeHandler(CloseRoomPacket crp) {
+        ChatRoom toClose = chats
                 .stream()
-                .filter(c -> Objects.equals(c.getId(), drp.chatId()))
+                .filter(c -> Objects.equals(c.getId(), crp.chatId()))
                 .findFirst()
                 .orElse(null);
-        if (toDelete != null) {
-            toDelete.close(drp.deleteMessage());
+        if (toClose != null) {
+            toClose.close(crp.closeMessage());
             return 1;
         } else {
-            waitingDeletes.add(drp);
+            waitingClose.add(crp);
             return 0;
         }
     }
 
     private void popQueue() {
         waitingMessages.removeIf(m -> messageHandler(m) == 1);
-        waitingDeletes.removeIf(drp -> deleteHandler(drp) == 1);
+        waitingClose.removeIf(crp -> closeHandler(crp) == 1);
     }
 }

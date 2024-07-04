@@ -68,7 +68,7 @@ public class PeerNetManager implements AutoCloseable {
      * @param discoveryAddr           address of the discovery server
      * @param id                      unique identifier of the peer
      * @param port                    port to listen on for new connections
-     * @param chatRoomsChangeListener listener to call when a room is created or deleted
+     * @param chatRoomsChangeListener listener to call when a room is created
      * @param usersChangeListener     listener to call when a user is connected or disconnected
      * @param msgChangeListener       listener to call when a new message is received
      */

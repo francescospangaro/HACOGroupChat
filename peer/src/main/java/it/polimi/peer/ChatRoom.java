@@ -1,6 +1,6 @@
 package it.polimi.peer;
 
-import it.polimi.messages.DeleteMessage;
+import it.polimi.messages.CloseMessage;
 import it.polimi.messages.Message;
 import it.polimi.messages.StringMessage;
 import it.polimi.peer.utility.MessageGUI;
@@ -211,27 +211,27 @@ public class ChatRoom {
 
     /**
      * Close the chatroom if possible (checks vector clocks),
-     * otherwise enqueue the delete message
+     * otherwise enqueue the close message
      *
-     * @param dm delete message
+     * @param cm close message
      */
-    public void close(DeleteMessage dm) {
+    public void close(CloseMessage cm) {
         try {
             pushLock.lock();
-            int c = checkVC(dm.vectorClocks());
+            int c = checkVC(cm.vectorClocks());
             switch (c) {
                 // Can be accepted
                 case 1:
-                    vectorClocks.put(dm.sender(), dm.vectorClocks().get(dm.sender()));
+                    vectorClocks.put(cm.sender(), cm.vectorClocks().get(cm.sender()));
                     closed = true;
-                    LOGGER.info(STR."Deleting room \{name} \{id}");
-                    localClose(dm);
+                    LOGGER.info(STR."Closing room \{name} \{id}");
+                    localClose(cm);
                 case -1:
-                    waitingMessages.add(dm);
-                    LOGGER.info(STR."[\{id}] Delete message \{dm.vectorClocks()} added in waiting list");
+                    waitingMessages.add(cm);
+                    LOGGER.info(STR."[\{id}] Close message \{cm.vectorClocks()} added in waiting list");
                 default:
                     // The default case is 0, so the packet has already been accepted and parsed
-                    LOGGER.info(STR."[\{id}] Ignoring duplicated delete message \{dm.vectorClocks()}");
+                    LOGGER.info(STR."[\{id}] Ignoring duplicated close message \{cm.vectorClocks()}");
             }
         } finally {
             pushLock.unlock();
@@ -255,17 +255,17 @@ public class ChatRoom {
         return Collections.unmodifiableCollection(receivedMsgs);
     }
 
-    private void localClose(DeleteMessage dm) {
+    private void localClose(CloseMessage cm) {
         // Close the chatroom
         closed = true;
-        msgChangeSupport.firePropertyChange("ADD_MSG", this, new MessageGUI(dm, this));
+        msgChangeSupport.firePropertyChange("ADD_MSG", this, new MessageGUI(cm, this));
     }
 
-    public DeleteMessage createDeleteMessage(String senderId) {
+    public CloseMessage createCloseMessage(String senderId) {
         increaseVC(senderId);
-        var dm = new DeleteMessage(Map.copyOf(vectorClocks), senderId);
-        localClose(dm);
-        return dm;
+        var cm = new CloseMessage(Map.copyOf(vectorClocks), senderId);
+        localClose(cm);
+        return cm;
     }
 
     private void increaseVC(String sender) {

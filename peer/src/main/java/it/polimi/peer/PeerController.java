@@ -1,6 +1,6 @@
 package it.polimi.peer;
 
-import it.polimi.messages.DeleteMessage;
+import it.polimi.messages.CloseMessage;
 import it.polimi.messages.StringMessage;
 import it.polimi.packets.p2p.*;
 import org.jetbrains.annotations.VisibleForTesting;
@@ -122,11 +122,11 @@ public class PeerController {
         roomsPropertyChangeSupport.firePropertyChange("ADD_ROOM", null, newRoom);
     }
 
-    public void closeRoom(ChatRoom toDelete) {
-        LOGGER.info(STR."[\{this.id}] Deleting room \{toDelete.getName()} \{toDelete.getId()}");
-        DeleteMessage dm = toDelete.createDeleteMessage(this.id);
-        sendPacket(new DeleteRoomPacket(toDelete.getId(), dm), toDelete.getUsers());
-        backupManager.removeChatBackup(toDelete);
+    public void closeRoom(ChatRoom toClose) {
+        LOGGER.info(STR."[\{this.id}] Deleting room \{toClose.getName()} \{toClose.getId()}");
+        CloseMessage dm = toClose.createCloseMessage(this.id);
+        sendPacket(new CloseRoomPacket(toClose.getId(), dm), toClose.getUsers());
+        backupManager.removeChatBackup(toClose);
     }
 
     /**

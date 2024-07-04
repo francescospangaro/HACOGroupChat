@@ -4,7 +4,7 @@ import java.io.Serializable;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-public sealed interface Message extends Serializable permits DeleteMessage, StringMessage {
+public sealed interface Message extends Serializable permits CloseMessage, StringMessage {
     String sender();
 
     Map<String, Integer> vectorClocks();

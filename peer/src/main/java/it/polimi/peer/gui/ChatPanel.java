@@ -1,6 +1,6 @@
 package it.polimi.peer.gui;
 
-import it.polimi.messages.DeleteMessage;
+import it.polimi.messages.CloseMessage;
 import it.polimi.peer.ChatRoom;
 import it.polimi.peer.PeerController;
 import it.polimi.peer.PeerNetManager;
@@ -212,7 +212,7 @@ public class ChatPanel {
                                     msgListModel.addElement(new LeftArrowBubble(mgui.message().sender(), detailedViewCheckBox.isSelected() ? mgui.message().toDetailedString() : mgui.message().toString()));
                                 msgList.ensureIndexIsVisible(msgListModel.size() - 1);
 
-                                if (mgui.message() instanceof DeleteMessage) {
+                                if (mgui.message() instanceof CloseMessage) {
                                     sendButton.setEnabled(false);
                                     deleteButton.setText("Delete");
                                 }
@@ -284,6 +284,7 @@ public class ChatPanel {
         chatRooms.removeItem(chat);
         //TODO: This only removes the chat from the GUI.
         // Should we also delete it from the controller?
+
         if (chatRooms.getItemCount() == 0) {
             sendButton.setEnabled(false);
             deleteButton.setEnabled(false);
