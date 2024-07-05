@@ -2,18 +2,18 @@ package it.polimi.peer;
 
 import it.polimi.packets.ByePacket;
 import it.polimi.packets.discovery.*;
-import it.polimi.packets.p2p.HelloPacket;
-import it.polimi.packets.p2p.P2PPacket;
+import it.polimi.packets.p2p.*;
+import it.polimi.peer.utility.ByteSizeGetter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.net.SocketAddress;
-import java.util.Map;
-import java.util.Queue;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class DiscoveryConnector implements Runnable {
     private static final Logger LOGGER = LoggerFactory.getLogger(DiscoveryConnector.class);
@@ -47,8 +47,40 @@ public class DiscoveryConnector implements Runnable {
         sendToDiscovery(new ByePacket(id));
     }
 
+    // If the packets are too big, divide the queue in different smaller ones and send them separated
     public void forwardQueue(String id, Queue<P2PPacket> queue) throws IOException {
-        sendToDiscovery(new ForwardPacket(queue, id));
+        if (evaluateSize(queue) > 60000) {
+            List<Queue<P2PPacket>> queues = dividePackets(queue);
+            queues.forEach(q -> {
+                try {
+                    sendToDiscovery(new ForwardPacket(q, id));
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+        } else {
+            sendToDiscovery(new ForwardPacket(queue, id));
+        }
+    }
+
+    // Gets byte size of the whole packet queue
+    private int evaluateSize(Queue<P2PPacket> queue) {
+        AtomicInteger size = new AtomicInteger();
+        queue.forEach(q -> size.addAndGet(ByteSizeGetter.getByteSize(q)));
+        return size.get();
+    }
+
+    // Approximate 20 packets per queue (Suppose we have packets of approx 500 bytes each)
+    private List<Queue<P2PPacket>> dividePackets(Queue<P2PPacket> queues) {
+        List<Queue<P2PPacket>> queueList = new ArrayList<>();
+        Queue<P2PPacket> tempQueue = new LinkedList<>();
+        for (int i = 0; i < queues.size(); i += 20) {
+            for (int j = 0; j < 20; j++) {
+                tempQueue.add(queues.remove());
+            }
+            queueList.add(tempQueue);
+        }
+        return queueList;
     }
 
     private void sendToDiscovery(Peer2DiscoveryPacket packet) throws IOException {
