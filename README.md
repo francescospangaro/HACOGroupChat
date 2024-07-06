@@ -15,11 +15,10 @@ can be simulated using OmNet++.
 **Assumptions**  
 • Clients are reliable but they can join and leave the network at any time. Network failures and partitions may happen. 
 
-The pdf of the spec is available [here](docs/Projects_assignment_23_24_UPDATE.pdf)
-
-We chose to implement the application with a real distributed application using Java.  
-
-
+**Our assumptions**  
+• The Discovery server node is always reachable by all peers.  
+• Message packets are not bigger than 2000 bytes each.  
+  
 ## Running the application
 
 The application requires an installation of Java 21. Newer versions cannot be used
@@ -39,3 +38,8 @@ The distributed application needs to be run from terminal using the following co
 ```shell
 java --enable-preview -jar HACOGroupChat-peer-1.0.jar
 ```
+  
+
+The pdf of the spec is available [here.](docs/Projects_assignment_23_24_UPDATE.pdf)
+
+We chose to implement the application with a real distributed application using Java.  
