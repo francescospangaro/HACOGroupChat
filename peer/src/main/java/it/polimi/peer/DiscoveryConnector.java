@@ -16,16 +16,12 @@ import java.util.concurrent.ExecutionException;
 public class DiscoveryConnector implements Runnable {
     private static final Logger LOGGER = LoggerFactory.getLogger(DiscoveryConnector.class);
 
-    private static final int UUID_SIZE = 16;
-
-    private static final int MAX_PACKET_SIZE = 40000;
-
     private final CompletableFuture<IPsPacket> ipsPromise;
 
     private final PeerSocketManager socketManager;
     private final String id;
     private final ChatUpdater updater;
-    private static final int DELAY = 1000, RETRIES = 5;
+    private static final int DELAY = 1000, RETRIES = 5, UUID_SIZE = 16, MAX_PACKET_SIZE = 40000;
 
     public DiscoveryConnector(PeerSocketManager socketManager, String id, ChatUpdater updater) {
         this.socketManager = socketManager;
