@@ -13,12 +13,15 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class ChatPanel {
     private static final Logger LOGGER = LoggerFactory.getLogger(ChatPanel.class);
+
+    private static final int MAX_MSG_SIZE = 1000;
 
     private JPanel panel;
     private JTextArea msgArea;
@@ -267,21 +270,33 @@ public class ChatPanel {
 
     private void send() {
         String msg = msgArea.getText().trim();
+        System.out.println(msg.length());
+        if (msg.length() > MAX_MSG_SIZE) {
+            ArrayList<String> temp = new ArrayList<>();
+            temp.add("Your message is too long, split on the '>>>' mark\n");
+            for(int i = 0; i < msg.length(); i+=MAX_MSG_SIZE) {
+                String tempMsg = STR.">>> \{msg.substring(i, Math.min(i + MAX_MSG_SIZE, msg.length()))}\n";
+                temp.add(tempMsg);
+            }
+            StringBuilder toPrint = new StringBuilder();
+            temp.forEach(toPrint::append);
+            SwingUtilities.invokeLater(() -> msgArea.setText(toPrint.toString()));
+        } else {
+            SwingUtilities.invokeLater(() -> msgArea.setText(""));
 
-        SwingUtilities.invokeLater(() -> msgArea.setText(""));
+            if (msg.isEmpty())
+                return;
 
-        if (msg.isEmpty())
-            return;
+            //Get the ChatRoom selected by the user in which he wants to send the msg
+            ChatRoom chat = (ChatRoom) chatRooms.getSelectedItem();
 
-        //Get the ChatRoom selected by the user in which he wants to send the msg
-        ChatRoom chat = (ChatRoom) chatRooms.getSelectedItem();
-
-        assert chat != null;
-        peerController.sendMessage(msg, chat);
-        try {
-            Thread.sleep(500);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
+            assert chat != null;
+            peerController.sendMessage(msg, chat);
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 
