@@ -15,12 +15,13 @@ public record StringMessage(String msg, Map<String, Integer> vectorClocks, Strin
         StringBuilder temp = new StringBuilder();
         for (int i = 0; i < msg.length(); i += 30) {
             int min = Math.min(i + 30, msg.length());
-            temp.append(msg, i, min).append('\n');
+            temp.append(msg, i, min);
             if ((min != msg.length()) &&
                 (msg.charAt(i + 30) != ' ') &&
                 (msg.charAt(i + 29) != ' ')) {
-                temp.append('-');
-            }
+                temp.append('-').append('\n');
+            }else
+                temp.append('\n');
         }
         return temp.toString();
     }
