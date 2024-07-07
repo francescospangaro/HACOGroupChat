@@ -195,7 +195,7 @@ public abstract class SocketManager implements Closeable {
                     oos.flush();
 
                     socket.send(new DatagramPacket(baos.toByteArray(), baos.size(), p.address));
-                    LOGGER.trace(STR."[\{myId}]: Sent " + p);
+                    LOGGER.trace(STR."[\{myId}]: Sent " + p + " -> " + baos.size());
                     p.sent.complete(null);
                 } catch (InvalidClassException | NotSerializableException ex) {
                     p.sent.completeExceptionally(ex);

@@ -26,7 +26,7 @@ public class DiscoveryConnector implements Runnable {
     private final PeerSocketManager socketManager;
     private final String id;
     private final ChatUpdater updater;
-    private static final int DELAY = 1000, RETRIES = 5, UUID_SIZE = 16, MAX_PACKET_SIZE = 40000;
+    private static final int DELAY = 1000, RETRIES = 5, UUID_SIZE = 20, MAX_PACKET_SIZE = 40000;
 
     public DiscoveryConnector(PeerSocketManager socketManager, String id, ChatUpdater updater) {
         this.socketManager = socketManager;
@@ -73,7 +73,8 @@ public class DiscoveryConnector implements Runnable {
 
     // Gets size of the whole packet queue, only check string items
     private int evaluateSize(P2PPacket p) {
-        int size = 0;
+        //Approximated overhead of java serialization
+        int size = 50;
         switch (p) {
             case ByePacket bp -> size += bp.id().length();
             case CreateRoomPacket crp ->
@@ -90,7 +91,9 @@ public class DiscoveryConnector implements Runnable {
     }
 
     private int getVCSize(Map<String, Integer> vc) {
-        return vc.keySet().stream().reduce(0, (s, t) -> s + t.length(), Integer::sum);
+        return vc.keySet().stream()
+                .mapToInt(s -> s.length() + 8)
+                .sum();
     }
 
     private Collection<? extends Queue<P2PPacket>> dividePackets(Queue<P2PPacket> queues) {

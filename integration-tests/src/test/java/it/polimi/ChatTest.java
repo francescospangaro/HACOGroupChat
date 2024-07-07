@@ -8,7 +8,10 @@ import it.polimi.packets.p2p.P2PPacket;
 import it.polimi.peer.*;
 import it.polimi.peer.exceptions.DiscoveryUnreachableException;
 import it.polimi.peer.utility.MessageGUI;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.IOException;
@@ -863,7 +866,7 @@ class ChatTest {
         CompletableFuture<ChatRoom> chat3Promise = new CompletableFuture<>();
 
         CompletableFuture<StringMessage> msg3Promise = new CompletableFuture<>();
-        CountDownLatch msg1 = new CountDownLatch(2);
+        CountDownLatch msg1 = new CountDownLatch(2002);
         CountDownLatch msg2 = new CountDownLatch(2);
         List<StringMessage> msg1List = new CopyOnWriteArrayList<>();
         List<StringMessage> msg2List = new CopyOnWriteArrayList<>();
@@ -982,16 +985,16 @@ class ChatTest {
             assertEquals("TEST2", w_mess.msg());
             assertEquals(ID3, w_mess.sender());
 
-            for(int i =0;i<5000;i++){
+            for (int i = 0; i < 2000; i++) {
                 c2.sendMessage(STR."Veeeeeery long message \{i}", chat2);
             }
 
             p2.disconnect();
 
-            assertEquals(2, msg2List.size());
+            assertEquals(2002, msg2List.size());
 
             assertTrue(msg1.await(2, TimeUnit.SECONDS));
-            assertEquals(2, msg1List.size());
+            assertEquals(2002, msg1List.size());
             var m1_0 = msg1List.get(0);
             assertEquals("TEST", m1_0.msg());
             assertEquals(ID2, m1_0.sender());
@@ -999,6 +1002,12 @@ class ChatTest {
             var m1_1 = msg1List.get(1);
             assertEquals("TEST2", m1_1.msg());
             assertEquals(ID3, m1_1.sender());
+
+            for (int i = 0; i < 2000; i++) {
+                var msg = msg1List.get(i + 2);
+                assertEquals(STR."Veeeeeery long message \{i}", msg.msg());
+                assertEquals(ID2, msg.sender());
+            }
 
             assertEquals(ID2, disc1Promise.get(500, TimeUnit.MILLISECONDS));
             assertEquals(ID2, disc3Promise.get(500, TimeUnit.MILLISECONDS));
