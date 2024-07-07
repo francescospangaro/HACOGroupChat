@@ -134,8 +134,9 @@ public class DiscoveryConnector implements Runnable {
                 switch (p) {
                     case IPsPacket ips -> ipsPromise.complete(ips);
                     case PacketQueue packetQueue -> {
-                        updater.handlePacket(new HelloPacket(packetQueue.id()), packetQueue.addr());
-                        packetQueue.packets().forEach(p2p -> updater.handlePacket(p2p, packetQueue.addr()));
+                        if (packetQueue.senderAddr() != null)
+                            updater.handlePacket(new HelloPacket(packetQueue.senderId()), packetQueue.senderAddr());
+                        packetQueue.packets().forEach(p2p -> updater.handlePacket(p2p, packetQueue.senderAddr()));
                     }
                 }
 

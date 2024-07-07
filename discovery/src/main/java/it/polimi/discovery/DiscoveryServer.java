@@ -58,6 +58,7 @@ public class DiscoveryServer implements Closeable {
         while (!socketManager.isClosed()) {
             try {
                 var p = socketManager.receive();
+                LOGGER.trace(STR."[discovery] Received \{p}");
                 switch (p.packet()) {
                     case UpdateIpPacket ipPacket -> {
                         LOGGER.info(STR."[discovery] Sending info of all peers to \{ipPacket.id()}");
@@ -73,6 +74,7 @@ public class DiscoveryServer implements Closeable {
                         waitingConnection.stream()
                                 .filter(fp -> fp.senderId().equals(ipPacket.id()))
                                 .forEach(queue -> queue.packets().removeIf(p2p -> p2p instanceof ByePacket));
+                        waitingConnection.removeIf(fp -> fp.packets().isEmpty());
 
                         // Check if a peer reconnects, then send him all waiting messages
                         Set<ForwardPacket> toForward = waitingConnection
@@ -81,7 +83,7 @@ public class DiscoveryServer implements Closeable {
                                 .collect(Collectors.toSet());
                         if (!toForward.isEmpty()) {
                             for (ForwardPacket packet : toForward) {
-                                socketManager.send(new PacketQueue(packet.senderId(), addr, packet.packets()), addr);
+                                socketManager.send(new PacketQueue(packet.senderId(), ips.get(packet.senderId()), packet.packets()), addr);
                             }
                             waitingConnection.removeAll(toForward);
                         }
@@ -93,7 +95,7 @@ public class DiscoveryServer implements Closeable {
                     case ForwardPacket forwardPacket -> {
                         SocketAddress addr = ips.get(forwardPacket.recipientId());
                         if (addr != null)
-                            socketManager.send(new PacketQueue(forwardPacket.recipientId(), addr, forwardPacket.packets()), addr);
+                            socketManager.send(new PacketQueue(forwardPacket.recipientId(), p.sender(), forwardPacket.packets()), addr);
                         else {
                             // If the peer is unreachable, save all packets in a set (so we don't have dupes)
                             LOGGER.warn(STR."[discovery] Can't forward packet: peer unknown or disconnected \{forwardPacket.recipientId()}");
@@ -103,6 +105,9 @@ public class DiscoveryServer implements Closeable {
                 }
             } catch (IOException e) {
                 LOGGER.error("[discovery] during communication", e);
+            } catch (Throwable t) {
+                LOGGER.error("[discovery] Unexpected exception", t);
+                throw t;
             }
         }
     }
