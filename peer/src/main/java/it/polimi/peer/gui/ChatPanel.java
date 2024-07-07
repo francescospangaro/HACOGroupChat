@@ -304,12 +304,9 @@ public class ChatPanel {
     }
 
     private void deleteRoom(ChatRoom chat) {
-        LOGGER.trace(STR."Room \{chat} removed from gui");
+        peerController.deleteRoom(chat);
         chatRooms.removeItem(chat);
-        //TODO: This only removes the chat from the GUI.
-        // Should we also delete it from the controller?
-
-
+        LOGGER.trace(STR."Room \{chat} removed from gui");
     }
 
     private void setConnected(boolean connected) {

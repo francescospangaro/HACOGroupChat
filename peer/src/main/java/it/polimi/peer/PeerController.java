@@ -123,10 +123,15 @@ public class PeerController {
     }
 
     public void closeRoom(ChatRoom toClose) {
-        LOGGER.info(STR."[\{this.id}] Deleting room \{toClose.getName()} \{toClose.getId()}");
+        LOGGER.info(STR."[\{this.id}] Closing room \{toClose.getName()} \{toClose.getId()}");
         CloseMessage dm = toClose.createCloseMessage(this.id);
         sendPacket(new CloseRoomPacket(toClose.getId(), dm), toClose.getUsers());
-        backupManager.removeChatBackup(toClose);
+    }
+
+    public void deleteRoom(ChatRoom toDelete) {
+        LOGGER.info(STR."[\{this.id}] Deleting room \{toDelete.getName()} \{toDelete.getId()}");
+        chats.remove(toDelete);
+        backupManager.removeChatBackup(toDelete);
     }
 
     /**
