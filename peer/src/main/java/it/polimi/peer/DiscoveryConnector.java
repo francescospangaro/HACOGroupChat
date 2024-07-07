@@ -9,9 +9,14 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.net.SocketAddress;
-import java.util.*;
+import java.util.Collection;
+import java.util.LinkedList;
+import java.util.Map;
+import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 public class DiscoveryConnector implements Runnable {
     private static final Logger LOGGER = LoggerFactory.getLogger(DiscoveryConnector.class);
@@ -48,16 +53,12 @@ public class DiscoveryConnector implements Runnable {
     // If the packets are too big, divide the queue in different smaller ones and send them separated
     public void forwardQueue(String id, Queue<P2PPacket> queue) throws IOException {
         if (evaluateSize(queue) > MAX_PACKET_SIZE) {
-            List<Queue<P2PPacket>> queues = dividePackets(queue);
-            queues.forEach(q -> {
-                try {
-                    sendToDiscovery(new ForwardPacket(q, id));
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-            });
+            Collection<? extends Queue<P2PPacket>> queues = dividePackets(queue);
+            for (Queue<P2PPacket> q : queues) {
+                sendToDiscovery(new ForwardPacket(q, this.id, id));
+            }
         } else {
-            sendToDiscovery(new ForwardPacket(queue, id));
+            sendToDiscovery(new ForwardPacket(queue, this.id, id));
         }
     }
 
@@ -65,18 +66,25 @@ public class DiscoveryConnector implements Runnable {
     private int evaluateSize(Queue<P2PPacket> queue) {
         int size = 0;
         for (P2PPacket p : queue) {
-            switch (p) {
-                case ByePacket bp -> size += bp.id().length();
-                case CreateRoomPacket crp ->
-                        size += crp.name().length() + crp.ids().stream().reduce(0, (s, t) -> s + t.length(), Integer::sum) + UUID_SIZE;
-                case DelayedMessagePacket dmp ->
-                        size += getVCSize(dmp.msg().vectorClocks()) + dmp.msg().sender().length() + dmp.msg().msg().length() + UUID_SIZE;
-                case CloseRoomPacket clrp ->
-                        size += clrp.closeMessage().sender().length() + getVCSize(clrp.closeMessage().vectorClocks()) + UUID_SIZE;
-                case HelloPacket hp -> size += hp.id().length();
-                case MessagePacket mp ->
-                        size += getVCSize(mp.msg().vectorClocks()) + mp.msg().sender().length() + mp.msg().msg().length() + UUID_SIZE;
-            }
+            size += evaluateSize(p);
+        }
+        return size;
+    }
+
+    // Gets size of the whole packet queue, only check string items
+    private int evaluateSize(P2PPacket p) {
+        int size = 0;
+        switch (p) {
+            case ByePacket bp -> size += bp.id().length();
+            case CreateRoomPacket crp ->
+                    size += crp.name().length() + crp.ids().stream().reduce(0, (s, t) -> s + t.length(), Integer::sum) + UUID_SIZE;
+            case DelayedMessagePacket dmp ->
+                    size += getVCSize(dmp.msg().vectorClocks()) + dmp.msg().sender().length() + dmp.msg().msg().length() + UUID_SIZE;
+            case CloseRoomPacket clrp ->
+                    size += clrp.closeMessage().sender().length() + getVCSize(clrp.closeMessage().vectorClocks()) + UUID_SIZE;
+            case HelloPacket hp -> size += hp.id().length();
+            case MessagePacket mp ->
+                    size += getVCSize(mp.msg().vectorClocks()) + mp.msg().sender().length() + mp.msg().msg().length() + UUID_SIZE;
         }
         return size;
     }
@@ -85,17 +93,12 @@ public class DiscoveryConnector implements Runnable {
         return vc.keySet().stream().reduce(0, (s, t) -> s + t.length(), Integer::sum);
     }
 
-    // Approximate 20 packets per queue
-    private List<Queue<P2PPacket>> dividePackets(Queue<P2PPacket> queues) {
-        List<Queue<P2PPacket>> queueList = new ArrayList<>();
-        Queue<P2PPacket> tempQueue = new LinkedList<>();
-        for (int i = 0; i < queues.size(); i += 20) {
-            for (int j = 0; j < 20; j++) {
-                tempQueue.add(queues.remove());
-            }
-            queueList.add(tempQueue);
-        }
-        return queueList;
+    private Collection<? extends Queue<P2PPacket>> dividePackets(Queue<P2PPacket> queues) {
+        final AtomicInteger counter = new AtomicInteger(0);
+
+        return queues.stream()
+                .collect(Collectors.groupingBy(p -> counter.getAndAdd(evaluateSize(p)) / MAX_PACKET_SIZE, Collectors.toCollection(LinkedList::new)))
+                .values();
     }
 
     private void sendToDiscovery(Peer2DiscoveryPacket packet) throws IOException {
