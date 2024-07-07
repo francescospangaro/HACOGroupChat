@@ -22,6 +22,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public abstract class SocketManager implements Closeable {
     static final Logger LOGGER = LoggerFactory.getLogger(SocketManager.class);
     protected static final String CLOSE_EX_MSG = "Socket was closed";
+    private static final int BUFF_SIZE = 65000;
 
     private record QueuedOutput(SeqPacket packet, CompletableFuture<Void> sent, SocketAddress address) {
     }
@@ -85,7 +86,7 @@ public abstract class SocketManager implements Closeable {
         sendTaskFinish = new CompletableFuture<>();
         recvTaskFinish = new CompletableFuture<>();
 
-        buff = new byte[6400];
+        buff = new byte[BUFF_SIZE];
 
         outPacketQueue = new LinkedBlockingQueue<>();
         waitingAcks = new ConcurrentHashMap<>();
@@ -177,7 +178,7 @@ public abstract class SocketManager implements Closeable {
                 p = outPacketQueue.take();
 
                 try {
-                    baos = new ByteArrayOutputStream(6400);
+                    baos = new ByteArrayOutputStream(BUFF_SIZE);
                     oos = new ObjectOutputStream(baos);
 
                     oos.writeObject(p.packet);
