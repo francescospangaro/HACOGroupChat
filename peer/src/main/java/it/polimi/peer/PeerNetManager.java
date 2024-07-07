@@ -227,15 +227,23 @@ public class PeerNetManager implements AutoCloseable {
             return;
         LOGGER.info(STR."[\{this.id}] Disconnecting...");
 
+        reconnectTask.cancel(true);
+
+        //Send ByePacket to all peer, also unreachable ones. They will be enqueued and forwarded to the discovery
+        controller.sendPacket(new ByePacket(this.id), ips.keySet());
+        connectedPeers.forEach(id -> usersPropertyChangeSupport.firePropertyChange("USER_DISCONNECTED", id, null));
+
         try {
             Map<String, Queue<P2PPacket>> enqueued = controller.getDisconnectMsgs();
-            for (var entry : enqueued.entrySet()) {
-                String id = entry.getKey();
-                Queue<P2PPacket> queue = entry.getValue();
+            var iter = enqueued.entrySet().iterator();
+            while (iter.hasNext()) {
+                var value = iter.next();
+                String id = value.getKey();
+                Queue<P2PPacket> queue = value.getValue();
                 if (!queue.isEmpty()) {
                     discovery.forwardQueue(id, queue);
-                    enqueued.remove(id);
                 }
+                iter.remove();
             }
             LOGGER.info(STR."[\{this.id}] Queue forwarded");
             discovery.disconnect();
@@ -243,12 +251,6 @@ public class PeerNetManager implements AutoCloseable {
             LOGGER.error(STR."[\{this.id}] Can't contact the discovery", e);
             throw new DiscoveryUnreachableException(e);
         }
-
-        reconnectTask.cancel(true);
-
-        //Send ByePacket to all peer, also unreachable ones. They will be enqueued and forwarded to the discovery
-        controller.sendPacket(new ByePacket(this.id), ips.keySet());
-        connectedPeers.forEach(id -> usersPropertyChangeSupport.firePropertyChange("USER_DISCONNECTED", id, null));
 
         connectedPeers.clear();
         connected = false;
