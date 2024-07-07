@@ -103,11 +103,14 @@ public class ChatPanel {
                     msgList.ensureIndexIsVisible(msgListModel.size() - 1);
 
                     sendButton.setEnabled(!chat.isClosed());
+                    deleteButton.setEnabled(true);
                     if (chat.isClosed())
                         deleteButton.setText("Delete");
                     else
                         deleteButton.setText("Close");
                 } else {
+                    sendButton.setEnabled(false);
+                    deleteButton.setEnabled(false);
                     chatLabel.setText("Chat: -");
                     msgListModel.clear();
                 }
@@ -194,8 +197,6 @@ public class ChatPanel {
                         ChatRoom chat = (ChatRoom) evt.getNewValue();
                         LOGGER.trace(STR."Room \{chat} added in gui");
                         chatRooms.addItem(chat);
-                        sendButton.setEnabled(true);
-                        deleteButton.setEnabled(true);
                     }
                 }), evt -> SwingUtilities.invokeLater(() -> {
                     if (evt.getPropertyName().equals("USER_CONNECTED")) {
@@ -247,15 +248,17 @@ public class ChatPanel {
             });
         });
         detailedViewCheckBox.addActionListener(_ -> {
-            msgListModel.clear();
-            msgListModel.addAll(((ChatRoom) chatRooms.getSelectedItem()).getReceivedMsgs().stream().map(m -> {
-                if (m instanceof CloseMessage)
-                    return new CloseChatBubble(m.sender(), detailedViewCheckBox.isSelected() ? m.toDetailedString() : m.toString());
-                else if (m.sender().equals(user))
-                    return new RightArrowBubble(detailedViewCheckBox.isSelected() ? m.toDetailedString() : m.toString());
-                else
-                    return new LeftArrowBubble(m.sender(), detailedViewCheckBox.isSelected() ? m.toDetailedString() : m.toString());
-            }).toList());
+            if (chatRooms.getItemCount() > 0 && chatRooms.getSelectedItem() != null) {
+                msgListModel.clear();
+                msgListModel.addAll(((ChatRoom) chatRooms.getSelectedItem()).getReceivedMsgs().stream().map(m -> {
+                    if (m instanceof CloseMessage)
+                        return new CloseChatBubble(m.sender(), detailedViewCheckBox.isSelected() ? m.toDetailedString() : m.toString());
+                    else if (m.sender().equals(user))
+                        return new RightArrowBubble(detailedViewCheckBox.isSelected() ? m.toDetailedString() : m.toString());
+                    else
+                        return new LeftArrowBubble(m.sender(), detailedViewCheckBox.isSelected() ? m.toDetailedString() : m.toString());
+                }).toList());
+            }
         });
 
         delaysButton.addActionListener(_ -> {
@@ -274,7 +277,7 @@ public class ChatPanel {
         if (msg.length() > MAX_MSG_SIZE) {
             ArrayList<String> temp = new ArrayList<>();
             temp.add("Your message is too long, split on the '>>>' mark\n");
-            for(int i = 0; i < msg.length(); i+=MAX_MSG_SIZE) {
+            for (int i = 0; i < msg.length(); i += MAX_MSG_SIZE) {
                 String tempMsg = STR.">>> \{msg.substring(i, Math.min(i + MAX_MSG_SIZE, msg.length()))}\n";
                 temp.add(tempMsg);
             }
@@ -306,10 +309,7 @@ public class ChatPanel {
         //TODO: This only removes the chat from the GUI.
         // Should we also delete it from the controller?
 
-        if (chatRooms.getItemCount() == 0) {
-            sendButton.setEnabled(false);
-            deleteButton.setEnabled(false);
-        }
+
     }
 
     private void setConnected(boolean connected) {
