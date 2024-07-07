@@ -226,9 +226,11 @@ public class ChatRoom {
                     closed = true;
                     LOGGER.info(STR."Closing room \{name} \{id}");
                     localClose(cm);
+                    break;
                 case -1:
                     waitingMessages.add(cm);
                     LOGGER.info(STR."[\{id}] Close message \{cm.vectorClocks()} added in waiting list");
+                    break;
                 default:
                     // The default case is 0, so the packet has already been accepted and parsed
                     LOGGER.info(STR."[\{id}] Ignoring duplicated close message \{cm.vectorClocks()}");
