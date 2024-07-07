@@ -58,7 +58,7 @@ class ChatTest {
     @BeforeEach
     void setUp() {
         discovery = new DiscoveryServer();
-        CompletableFuture.runAsync(() -> discovery.start());
+        new Thread(() -> discovery.start()).start();
     }
 
     @AfterEach
