@@ -1,7 +1,10 @@
 package it.polimi.discovery;
 
 import it.polimi.packets.ByePacket;
-import it.polimi.packets.discovery.*;
+import it.polimi.packets.discovery.ForwardPacket;
+import it.polimi.packets.discovery.IPsPacket;
+import it.polimi.packets.discovery.PacketQueue;
+import it.polimi.packets.discovery.UpdateIpPacket;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,6 +18,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.stream.Collectors;
 
 /**
  * Discovery server class: Serves the purpose of being a first point of connection
@@ -57,19 +61,29 @@ public class DiscoveryServer implements Closeable {
                 switch (p.packet()) {
                     case UpdateIpPacket ipPacket -> {
                         LOGGER.info(STR."[discovery] Sending info of all peers to \{ipPacket.id()}");
+                        SocketAddress addr = p.sender();
                         socketManager.send(new IPsPacket(ips
 //                                .entrySet().stream()
-//                                .filter(ip -> !ip.getKey().equals(ipPacket.id()))
+//                                .filter(ip -> !ip.getKey().equals(ipPacket.recipientId()))
 //                                .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue))
-                        ), p.sender());
-                        ips.put(ipPacket.id(), p.sender());
+                        ), addr);
+                        ips.put(ipPacket.id(), addr);
+
+                        //Removes ByePacket from list sent by the user that has just reconnected
+                        waitingConnection.stream()
+                                .filter(fp -> fp.senderId().equals(ipPacket.id()))
+                                .forEach(queue -> queue.packets().removeIf(p2p -> p2p instanceof ByePacket));
+
                         // Check if a peer reconnects, then send him all waiting messages
-                        if(!waitingConnection.isEmpty()){
-                            for (ForwardPacket packet : waitingConnection) {
-                                SocketAddress addr = ips.get(packet.id());
-                                socketManager.send(new PacketQueue(packet.id(), addr, packet.packets()), addr);
-                                waitingConnection.remove(packet);
+                        Set<ForwardPacket> toForward = waitingConnection
+                                .stream()
+                                .filter(fp -> fp.recipientId().equals(ipPacket.id()))
+                                .collect(Collectors.toSet());
+                        if (!toForward.isEmpty()) {
+                            for (ForwardPacket packet : toForward) {
+                                socketManager.send(new PacketQueue(packet.senderId(), addr, packet.packets()), addr);
                             }
+                            waitingConnection.removeAll(toForward);
                         }
                     }
                     case ByePacket byePacket -> {
@@ -77,12 +91,12 @@ public class DiscoveryServer implements Closeable {
                         LOGGER.info(STR."[discovery] Client disconnected id: \{byePacket.id()}");
                     }
                     case ForwardPacket forwardPacket -> {
-                        SocketAddress addr = ips.get(forwardPacket.id());
+                        SocketAddress addr = ips.get(forwardPacket.recipientId());
                         if (addr != null)
-                            socketManager.send(new PacketQueue(forwardPacket.id(), addr, forwardPacket.packets()), addr);
+                            socketManager.send(new PacketQueue(forwardPacket.recipientId(), addr, forwardPacket.packets()), addr);
                         else {
                             // If the peer is unreachable, save all packets in a set (so we don't have dupes)
-                            LOGGER.warn(STR."[discovery] Can't forward packet: peer unknown or disconnected \{forwardPacket.id()}");
+                            LOGGER.warn(STR."[discovery] Can't forward packet: peer unknown or disconnected \{forwardPacket.recipientId()}");
                             waitingConnection.add(forwardPacket);
                         }
                     }
