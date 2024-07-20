@@ -13,10 +13,7 @@ import java.beans.PropertyChangeSupport;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
-import java.util.Collections;
-import java.util.Map;
-import java.util.Queue;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.*;
 
 
@@ -50,6 +47,8 @@ public class PeerNetManager implements AutoCloseable {
     private final BackupManager backupManager;
     private Future<?> updaterFuture;
     private Future<?> discoveryFuture;
+
+    private ChatUpdater chatUpdater;
 
     @VisibleForTesting
     public PeerNetManager(String id, int port,
@@ -135,10 +134,10 @@ public class PeerNetManager implements AutoCloseable {
         LOGGER.info(STR."[\{id}] STARTING");
 
         socketManager = createSocketManager();
-        var updater = new ChatUpdater(socketManager, chats, roomsPropertyChangeSupport, msgChangeListener, this::onPeerConnected, this::onPeerDisconnected);
-        discovery = new DiscoveryConnector(socketManager, id, updater);
+        chatUpdater = new ChatUpdater(socketManager, chats, roomsPropertyChangeSupport, msgChangeListener, this::onPeerConnected, this::onPeerDisconnected);
+        discovery = new DiscoveryConnector(socketManager, id, chatUpdater);
         discoveryFuture = executorService.submit(discovery);
-        updaterFuture = executorService.submit(updater);
+        updaterFuture = executorService.submit(chatUpdater);
         controller = new PeerController(id, chats, ips, connectedPeers, socketManager, msgChangeListener, roomsPropertyChangeSupport, executorService, backupManager, this::onPeerUnreachable);
 
         //We are (re-)connecting from scratch, so delete all crashed peer and get a new list from the discovery
@@ -322,5 +321,9 @@ public class PeerNetManager implements AutoCloseable {
         scheduledExecutorService.shutdownNow();
         executorService.shutdownNow();
         backupManager.backupChats(Collections.unmodifiableSet(chats));
+    }
+
+    public void deletedChat(UUID chatId){
+        chatUpdater.chatDeleted(chatId);
     }
 }

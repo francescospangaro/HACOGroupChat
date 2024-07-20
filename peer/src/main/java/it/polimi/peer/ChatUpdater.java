@@ -30,6 +30,7 @@ public class ChatUpdater implements Runnable {
     private final Consumer<String> onPeerDisconnected;
     private final Set<MessagePacket> waitingMessages;
     private final Set<CloseRoomPacket> waitingClose;
+    private final Set<UUID> deletedRooms;
 
     public ChatUpdater(PeerSocketManager socketManager,
                        Set<ChatRoom> chats,
@@ -45,6 +46,8 @@ public class ChatUpdater implements Runnable {
         this.onPeerDisconnected = onPeerDisconnected;
         this.waitingMessages = new HashSet<>();
         this.waitingClose = new HashSet<>();
+        this.deletedRooms = new HashSet<>();
+
     }
 
     @Override
@@ -107,10 +110,13 @@ public class ChatUpdater implements Runnable {
      * @param m is the messagePacket to parse
      * @return 0 if the chat wasn't found and the message was put in a waiting queue
      * 1 if the message was passed to it's chatroom
+     * -1 if the message is destined to a closed chatroom
      */
     private int messageHandler(MessagePacket m) {
         Iterator<ChatRoom> chatIterator = chats.iterator();
-        boolean found = false;
+        boolean found = deletedRooms.stream().anyMatch(x -> x.equals(m.chatId()));
+        if (found)
+            return -1;
         while (chatIterator.hasNext()) {
             ChatRoom chat = chatIterator.next();
             if (chat.getId().equals(m.chatId())) {
@@ -126,6 +132,13 @@ public class ChatUpdater implements Runnable {
         return 1;
     }
 
+    /**
+     * Check if the chat exists in the open chats list
+     * @param crp message indicating which chat to close
+     * @return 1 if the chat is found open and is closed
+     * 0 if the chat is not found in the chat list
+     * -1 if the chat has already been deleted and cannot be seen from the user's perspective
+     */
     private int closeHandler(CloseRoomPacket crp) {
         ChatRoom toClose = chats
                 .stream()
@@ -135,14 +148,26 @@ public class ChatUpdater implements Runnable {
         if (toClose != null) {
             toClose.close(crp.closeMessage());
             return 1;
-        } else {
+        } else if (deletedRooms.stream().anyMatch(x -> x.equals(crp.chatId())))
+            return -1;
+        else {
             waitingClose.add(crp);
             return 0;
         }
     }
 
+    public void chatDeleted(UUID chatID) {
+        deletedRooms.add(chatID);
+    }
+
+    /**
+     * Pops the waiting messages from their respective queues.
+     * If the methods return 1, then it means that the chat was found and the packet has done its job, if
+     * the return is -1, it means that the chat has been deleted and the packets can be removed from the queues
+     * without problems
+     */
     private void popQueue() {
-        waitingMessages.removeIf(m -> messageHandler(m) == 1);
-        waitingClose.removeIf(crp -> closeHandler(crp) == 1);
+        waitingMessages.removeIf(m -> (messageHandler(m) == 1) || (messageHandler(m) == -1));
+        waitingClose.removeIf(crp -> (closeHandler(crp) == 1) || (closeHandler(crp) == -1));
     }
 }
