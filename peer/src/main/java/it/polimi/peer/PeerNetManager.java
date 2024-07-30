@@ -306,6 +306,7 @@ public class PeerNetManager implements AutoCloseable {
 
         unreachablePeers.remove(id);
         connectedPeers.remove(id);
+        ips.remove(id);
 
         usersPropertyChangeSupport.firePropertyChange("USER_DISCONNECTED", id, null);
     }
