@@ -2,6 +2,7 @@ package it.polimi.peer;
 
 import it.polimi.packets.ByePacket;
 import it.polimi.packets.p2p.*;
+import org.jetbrains.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -11,6 +12,9 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.net.SocketAddress;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
@@ -29,6 +33,7 @@ public class ChatUpdater implements Runnable {
     private final BiConsumer<String, SocketAddress> onPeerConnected;
     private final Consumer<String> onPeerDisconnected;
     private final Set<MessagePacket> waitingMessages;
+    private final Lock waitingMessagesLock;
     private final Set<CloseRoomPacket> waitingClose;
     private final Set<UUID> deletedRooms;
 
@@ -45,9 +50,9 @@ public class ChatUpdater implements Runnable {
         this.onPeerConnected = onPeerConnected;
         this.onPeerDisconnected = onPeerDisconnected;
         this.waitingMessages = new HashSet<>();
+        this.waitingMessagesLock = new ReentrantLock();
         this.waitingClose = new HashSet<>();
-        this.deletedRooms = new HashSet<>();
-
+        this.deletedRooms = ConcurrentHashMap.newKeySet();
     }
 
     @Override
@@ -103,6 +108,17 @@ public class ChatUpdater implements Runnable {
         }
     }
 
+    private void messageHandler(MessagePacket m) {
+        if (checkChatExists(m) == 0) {
+            try {
+                waitingMessagesLock.lock();
+                waitingMessages.add(m);
+            } finally {
+                waitingMessagesLock.unlock();
+            }
+        }
+    }
+
     /**
      * With this method there's no need to add vector clocks to create room packets. Simply, the first packet in the vc list must be the chat creation.
      * We put all messages in a waiting queue if their chat is not found.
@@ -112,24 +128,21 @@ public class ChatUpdater implements Runnable {
      * 1 if the message was passed to it's chatroom
      * -1 if the message is destined to a closed chatroom
      */
-    private int messageHandler(MessagePacket m) {
-        Iterator<ChatRoom> chatIterator = chats.iterator();
-        boolean found = deletedRooms.stream().anyMatch(x -> x.equals(m.chatId()));
-        if (found)
+    private int checkChatExists(MessagePacket m) {
+        if (deletedRooms.stream().anyMatch(x -> x.equals(m.chatId())))
             return -1;
-        while (chatIterator.hasNext()) {
-            ChatRoom chat = chatIterator.next();
-            if (chat.getId().equals(m.chatId())) {
-                chat.addMessage(m.msg());
-                found = true;
-                break;
-            }
-        }
-        if (!found) {
-            waitingMessages.add(m);
+
+        ChatRoom chatRoom = chats.stream()
+                .filter(c -> Objects.equals(c.getId(), m.chatId()))
+                .findFirst()
+                .orElse(null);
+
+        if (chatRoom != null) {
+            chatRoom.addMessage(m.msg());
+            return 1;
+        } else {
             return 0;
         }
-        return 1;
     }
 
     /**
@@ -156,7 +169,7 @@ public class ChatUpdater implements Runnable {
         }
     }
 
-    public void chatDeleted(UUID chatID) {
+    public void deleteChat(UUID chatID) {
         deletedRooms.add(chatID);
     }
 
@@ -167,7 +180,29 @@ public class ChatUpdater implements Runnable {
      * without problems
      */
     private void popQueue() {
-        waitingMessages.removeIf(m -> (messageHandler(m) == 1) || (messageHandler(m) == -1));
-        waitingClose.removeIf(crp -> (closeHandler(crp) == 1) || (closeHandler(crp) == -1));
+        try {
+            waitingMessagesLock.lock();
+            waitingMessages.removeIf(m -> {
+                int res = checkChatExists(m);
+                return res == 1 || res == -1;
+            });
+        } finally {
+            waitingMessagesLock.unlock();
+        }
+
+        waitingClose.removeIf(crp -> {
+            int res = closeHandler(crp);
+            return res == 1 || res == -1;
+        });
+    }
+
+    @VisibleForTesting
+    public Set<MessagePacket> getWaitingMessages() {
+        return Collections.unmodifiableSet(waitingMessages);
+    }
+
+    @VisibleForTesting
+    public Set<CloseRoomPacket> getWaitingClose() {
+        return Collections.unmodifiableSet(waitingClose);
     }
 }
