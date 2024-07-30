@@ -13,7 +13,10 @@ import java.beans.PropertyChangeSupport;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
-import java.util.*;
+import java.util.Collections;
+import java.util.Map;
+import java.util.Queue;
+import java.util.Set;
 import java.util.concurrent.*;
 
 
@@ -241,10 +244,10 @@ public class PeerNetManager implements AutoCloseable {
                 Queue<P2PPacket> queue = value.getValue();
                 if (!queue.isEmpty()) {
                     discovery.forwardQueue(id, queue);
+                    LOGGER.info(STR."[\{this.id}] Queue forwarded: \{value}");
                 }
                 iter.remove();
             }
-            LOGGER.info(STR."[\{this.id}] Queue forwarded");
             discovery.disconnect();
         } catch (IOException e) {
             LOGGER.error(STR."[\{this.id}] Can't contact the discovery", e);
@@ -313,7 +316,7 @@ public class PeerNetManager implements AutoCloseable {
      * Disconnect from the network, shutdown tasks and backup chats
      *
      * @see #disconnect()
-     * @see BackupManager#backupChats(Map)
+     * @see BackupManager#backupChats(Set)
      */
     @Override
     public void close() throws DiscoveryUnreachableException {
@@ -323,7 +326,13 @@ public class PeerNetManager implements AutoCloseable {
         backupManager.backupChats(Collections.unmodifiableSet(chats));
     }
 
-    public void deletedChat(UUID chatId){
-        chatUpdater.chatDeleted(chatId);
+    public void deletedChat(ChatRoom chat) {
+        controller.deleteRoom(chat);
+        chatUpdater.deleteChat(chat.getId());
+    }
+
+    @VisibleForTesting
+    public ChatUpdater getChatUpdater() {
+        return chatUpdater;
     }
 }

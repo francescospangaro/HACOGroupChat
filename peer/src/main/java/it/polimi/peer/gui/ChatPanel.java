@@ -304,9 +304,8 @@ public class ChatPanel {
     }
 
     private void deleteRoom(ChatRoom chat) {
-        peerController.deleteRoom(chat);
+        peerNetManager.deletedChat(chat);
         chatRooms.removeItem(chat);
-        peerNetManager.deletedChat(chat.getId());
         LOGGER.trace(STR."Room \{chat} removed from gui");
     }
 
