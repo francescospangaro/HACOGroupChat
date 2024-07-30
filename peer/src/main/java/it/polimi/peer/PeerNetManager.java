@@ -294,11 +294,12 @@ public class PeerNetManager implements AutoCloseable {
 
         ips.put(id, addr);
         unreachablePeers.remove(id);
-        connectedPeers.add(id);
 
-        controller.resendQueued(id);
-
-        usersPropertyChangeSupport.firePropertyChange("USER_CONNECTED", null, id);
+        if (!connectedPeers.contains(id)) {
+            connectedPeers.add(id);
+            controller.resendQueued(id);
+            usersPropertyChangeSupport.firePropertyChange("USER_CONNECTED", null, id);
+        }
     }
 
     private void onPeerDisconnected(String id) {
