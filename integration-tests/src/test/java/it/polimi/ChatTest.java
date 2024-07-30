@@ -1,8 +1,10 @@
 package it.polimi;
 
 import it.polimi.discovery.DiscoveryServer;
+import it.polimi.messages.CloseMessage;
 import it.polimi.messages.Message;
 import it.polimi.messages.StringMessage;
+import it.polimi.packets.p2p.CloseRoomPacket;
 import it.polimi.packets.p2p.MessagePacket;
 import it.polimi.packets.p2p.P2PPacket;
 import it.polimi.peer.*;
@@ -1017,6 +1019,302 @@ class ChatTest {
         }
     }
 
+
+    @Test
+    void deleteRoom() throws ExecutionException, InterruptedException, TimeoutException, IOException, DiscoveryUnreachableException {
+        System.out.println("-------deleteRoom----------------");
+        CompletableFuture<ChatRoom> chat1Promise = new CompletableFuture<>();
+        CompletableFuture<ChatRoom> chat2Promise = new CompletableFuture<>();
+
+        CompletableFuture<StringMessage> msg1 = new CompletableFuture<>();
+        CompletableFuture<StringMessage> msg2 = new CompletableFuture<>();
+
+        CompletableFuture<String> user1 = new CompletableFuture<>();
+        CompletableFuture<String> user2 = new CompletableFuture<>();
+
+        AtomicReference<BlockingDatagramSocket> socket_p2_ref = new AtomicReference<>();
+
+        CompletableFuture<String> disc1Promise = new CompletableFuture<>();
+        CompletableFuture<String> disc2Promise = new CompletableFuture<>();
+
+        try (
+                PeerNetManager p1 = new PeerNetManager(ID1, 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
+                        e -> {
+                            if (e.getPropertyName().equals("USER_CONNECTED"))
+                                user1.complete((String) e.getNewValue());
+                            else
+                                disc1Promise.complete((String) e.getOldValue());
+                        },
+                        e -> msg1.complete((StringMessage) ((MessageGUI) e.getNewValue()).message()));
+                PeerNetManager p2 = new PeerNetManager(ID2, 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
+                        e -> {
+                            if (e.getPropertyName().equals("USER_CONNECTED"))
+                                user2.complete((String) e.getNewValue());
+                            else
+                                disc2Promise.complete((String) e.getOldValue());
+                        },
+                        e -> {
+                            if ((((MessageGUI) e.getNewValue()).message()) instanceof StringMessage sm)
+                                msg2.complete(sm);
+                        }) {
+                    @Override
+                    protected PeerSocketManager createSocketManager() throws IOException {
+                        if (socket_p2_ref.get() == null) {
+                            BlockingDatagramSocket s = new BlockingDatagramSocket(port);
+                            socket_p2_ref.set(s);
+                            return new PeerSocketManager(getId(), executorService, discoveryAddr, 1000, s);
+                        }
+                        return super.createSocketManager();
+                    }
+                };
+        ) {
+            PeerController c1 = p1.getController();
+            PeerController c2 = p2.getController();
+            user1.get(500, TimeUnit.MILLISECONDS);
+            user1.get(500, TimeUnit.MILLISECONDS);
+
+            Set<String> users = Set.of(ID1, ID2);
+            c1.createRoom("room", users);
+
+            ChatRoom chat1 = chat1Promise.get(500, TimeUnit.MILLISECONDS);
+            ChatRoom chat2 = chat2Promise.get(500, TimeUnit.MILLISECONDS);
+
+            Thread.sleep(10);
+            final SocketAddress addr1 = new InetSocketAddress("localhost", 12345);
+            socket_p2_ref.get().lock(addr1);
+
+            c2.closeRoom(chat2);
+
+            String disconnected = disc2Promise.get(10, TimeUnit.SECONDS);
+            assertEquals(ID1, disconnected);
+
+            assertThrows(TimeoutException.class, () -> msg1.get(50, TimeUnit.MILLISECONDS));
+            assertTrue(chat1.getWaitingMessages().isEmpty());
+
+            c1.sendMessage("Test", chat1);
+
+            assertMessagePromiseEquals(msg2, "Test", ID1);
+            assertTrue(chat2.getWaitingMessages().isEmpty());
+
+            p2.deletedChat(chat2);
+            assertTrue(p2.getChatUpdater().getWaitingClose().isEmpty());
+            assertTrue(p2.getChatUpdater().getWaitingMessages().isEmpty());
+
+            c1.sendMessage("Test", chat1);
+            //assertThrows(TimeoutException.class, () -> msg2.get(100, TimeUnit.MILLISECONDS));
+            assertTrue(chat2.getWaitingMessages().isEmpty());
+
+            assertTrue(p2.getChatUpdater().getWaitingClose().isEmpty());
+            assertTrue(p2.getChatUpdater().getWaitingMessages().isEmpty());
+        }
+    }
+
+    @Test
+    void chatCreationLost() throws IOException, DiscoveryUnreachableException, ExecutionException, InterruptedException, TimeoutException {
+        System.out.println("-------deleteRoom----------------");
+        CompletableFuture<ChatRoom> chat1Promise = new CompletableFuture<>();
+        CompletableFuture<ChatRoom> chat2Promise = new CompletableFuture<>();
+        CompletableFuture<ChatRoom> chat3Promise = new CompletableFuture<>();
+
+        CompletableFuture<StringMessage> msg1 = new CompletableFuture<>();
+        CompletableFuture<StringMessage> msg2 = new CompletableFuture<>();
+
+        CountDownLatch users1 = new CountDownLatch(2);
+        CountDownLatch users2 = new CountDownLatch(2);
+        CountDownLatch users3 = new CountDownLatch(2);
+
+        AtomicReference<BlockingDatagramSocket> socket_p2_ref = new AtomicReference<>();
+
+        CompletableFuture<String> disc2Promise = new CompletableFuture<>();
+        CompletableFuture<String> rec2Promise = new CompletableFuture<>();
+
+        try (
+                PeerNetManager p1 = new PeerNetManager(ID1, 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
+                        e -> users1.countDown(),
+                        e -> msg1.complete((StringMessage) ((MessageGUI) e.getNewValue()).message()));
+                PeerNetManager p2 = new PeerNetManager(ID2, 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
+                        e -> {
+                            if (e.getPropertyName().equals("USER_CONNECTED"))
+                                if (users2.getCount() > 0)
+                                    users2.countDown();
+                                else
+                                    rec2Promise.complete((String) e.getNewValue());
+                            else
+                                disc2Promise.complete((String) e.getOldValue());
+                        },
+                        e -> {
+                            if ((((MessageGUI) e.getNewValue()).message()) instanceof StringMessage sm)
+                                msg2.complete(sm);
+                        }) {
+                    @Override
+                    protected PeerSocketManager createSocketManager() throws IOException {
+                        if (socket_p2_ref.get() == null) {
+                            BlockingDatagramSocket s = new BlockingDatagramSocket(port);
+                            socket_p2_ref.set(s);
+                            return new PeerSocketManager(getId(), executorService, discoveryAddr, 1000, s);
+                        }
+                        return super.createSocketManager();
+                    }
+                };
+                PeerNetManager p3 = new PeerNetManager(ID3, 12347, e -> chat3Promise.complete((ChatRoom) e.getNewValue()),
+                        e -> users3.countDown(),
+                        e -> {
+                        })
+
+        ) {
+            PeerController c1 = p1.getController();
+            PeerController c2 = p2.getController();
+            PeerController c3 = p3.getController();
+            assertTrue(users1.await(500, TimeUnit.MILLISECONDS));
+            assertTrue(users2.await(500, TimeUnit.MILLISECONDS));
+            assertTrue(users3.await(500, TimeUnit.MILLISECONDS));
+
+            Set<String> users = Set.of(ID1, ID2, ID3);
+
+            final SocketAddress addr1 = new InetSocketAddress("localhost", 12345);
+            socket_p2_ref.get().lock(addr1);
+
+            c2.createRoom("room", users);
+
+            assertEquals(ID1, disc2Promise.get(10, TimeUnit.SECONDS));
+            assertThrows(TimeoutException.class, () -> chat1Promise.get(500, TimeUnit.MILLISECONDS));
+            ChatRoom chat2 = chat2Promise.get(500, TimeUnit.MILLISECONDS);
+            ChatRoom chat3 = chat3Promise.get(500, TimeUnit.MILLISECONDS);
+
+            c3.sendMessage("Test", chat3);
+
+            assertMessagePromiseEquals(msg2, "Test", ID3);
+            assertThrows(TimeoutException.class, () -> msg1.get(500, TimeUnit.MILLISECONDS));
+
+            assertTrue(p1.getChatUpdater().getWaitingClose().isEmpty());
+            assertEquals(1, p1.getChatUpdater().getWaitingMessages().size());
+            MessagePacket m = (MessagePacket) p1.getChatUpdater().getWaitingMessages().toArray()[0];
+            assertMessageEquals(m.msg(), "Test", ID3);
+
+            socket_p2_ref.get().unlock(addr1);
+            rec2Promise.get(3, TimeUnit.SECONDS);
+
+            assertMessagePromiseEquals(msg1, "Test", ID3);
+
+            assertTrue(p1.getChatUpdater().getWaitingClose().isEmpty());
+            assertTrue(p1.getChatUpdater().getWaitingMessages().isEmpty());
+        }
+    }
+
+    @Test
+    void chatCreationLostAndClose() throws IOException, DiscoveryUnreachableException, ExecutionException, InterruptedException, TimeoutException {
+        System.out.println("-------chatCreationLostAndClose----------------");
+        CompletableFuture<ChatRoom> chat1Promise = new CompletableFuture<>();
+        CompletableFuture<ChatRoom> chat2Promise = new CompletableFuture<>();
+        CompletableFuture<ChatRoom> chat3Promise = new CompletableFuture<>();
+
+        CountDownLatch msg1 = new CountDownLatch(2);
+        List<Message> msg1List = new CopyOnWriteArrayList<>();
+        CompletableFuture<StringMessage> msg2 = new CompletableFuture<>();
+
+        CountDownLatch users1 = new CountDownLatch(2);
+        CountDownLatch users2 = new CountDownLatch(2);
+        CountDownLatch users3 = new CountDownLatch(2);
+
+        AtomicReference<BlockingDatagramSocket> socket_p2_ref = new AtomicReference<>();
+
+        CompletableFuture<String> disc2Promise = new CompletableFuture<>();
+        CompletableFuture<String> rec2Promise = new CompletableFuture<>();
+
+        try (
+                PeerNetManager p1 = new PeerNetManager(ID1, 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
+                        e -> users1.countDown(),
+                        e -> {
+                            msg1.countDown();
+                            msg1List.add(((MessageGUI) e.getNewValue()).message());
+                        });
+                PeerNetManager p2 = new PeerNetManager(ID2, 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
+                        e -> {
+                            if (e.getPropertyName().equals("USER_CONNECTED"))
+                                if (users2.getCount() > 0)
+                                    users2.countDown();
+                                else
+                                    rec2Promise.complete((String) e.getNewValue());
+                            else
+                                disc2Promise.complete((String) e.getOldValue());
+                        },
+                        e -> {
+                            if ((((MessageGUI) e.getNewValue()).message()) instanceof StringMessage sm)
+                                msg2.complete(sm);
+                        }) {
+                    @Override
+                    protected PeerSocketManager createSocketManager() throws IOException {
+                        if (socket_p2_ref.get() == null) {
+                            BlockingDatagramSocket s = new BlockingDatagramSocket(port);
+                            socket_p2_ref.set(s);
+                            return new PeerSocketManager(getId(), executorService, discoveryAddr, 1000, s);
+                        }
+                        return super.createSocketManager();
+                    }
+                };
+                PeerNetManager p3 = new PeerNetManager(ID3, 12347, e -> chat3Promise.complete((ChatRoom) e.getNewValue()),
+                        e -> users3.countDown(),
+                        e -> {
+                        })
+
+        ) {
+            PeerController c1 = p1.getController();
+            PeerController c2 = p2.getController();
+            PeerController c3 = p3.getController();
+            assertTrue(users1.await(500, TimeUnit.MILLISECONDS));
+            assertTrue(users2.await(500, TimeUnit.MILLISECONDS));
+            assertTrue(users3.await(500, TimeUnit.MILLISECONDS));
+
+            Set<String> users = Set.of(ID1, ID2, ID3);
+
+            final SocketAddress addr1 = new InetSocketAddress("localhost", 12345);
+            socket_p2_ref.get().lock(addr1);
+
+            c2.createRoom("room", users);
+
+            assertEquals(ID1, disc2Promise.get(10, TimeUnit.SECONDS));
+            assertThrows(TimeoutException.class, () -> chat1Promise.get(500, TimeUnit.MILLISECONDS));
+            ChatRoom chat2 = chat2Promise.get(500, TimeUnit.MILLISECONDS);
+            ChatRoom chat3 = chat3Promise.get(500, TimeUnit.MILLISECONDS);
+
+            c3.sendMessage("Test", chat3);
+
+            assertMessagePromiseEquals(msg2, "Test", ID3);
+            assertEquals(2, msg1.getCount());
+
+            Thread.sleep(100);
+            assertTrue(p1.getChatUpdater().getWaitingClose().isEmpty());
+            assertEquals(1, p1.getChatUpdater().getWaitingMessages().size());
+            MessagePacket m = (MessagePacket) p1.getChatUpdater().getWaitingMessages().toArray()[0];
+            assertMessageEquals(m.msg(), "Test", ID3);
+
+            c3.closeRoom(chat3);
+
+            Thread.sleep(100);
+
+            assertEquals(2, msg1.getCount());
+
+            assertEquals(1, p1.getChatUpdater().getWaitingClose().size());
+            assertEquals(1, p1.getChatUpdater().getWaitingMessages().size());
+            CloseRoomPacket c = (CloseRoomPacket) p1.getChatUpdater().getWaitingClose().toArray()[0];
+            assertEquals(ID3, c.closeMessage().sender());
+
+
+            socket_p2_ref.get().unlock(addr1);
+            rec2Promise.get(3, TimeUnit.SECONDS);
+
+            assertTrue(msg1.await(500, TimeUnit.MILLISECONDS));
+
+            assertMessageEquals((StringMessage) msg1List.getFirst(), "Test", ID3);
+            assertInstanceOf(CloseMessage.class, msg1List.get(1));
+            assertEquals(ID3, msg1List.get(1).sender());
+
+            Thread.sleep(100);
+            assertTrue(p1.getChatUpdater().getWaitingClose().isEmpty());
+            assertTrue(p1.getChatUpdater().getWaitingMessages().isEmpty());
+        }
+    }
+
     @Test
     void backupTest() throws ExecutionException, InterruptedException, TimeoutException, IOException, DiscoveryUnreachableException {
         System.out.println("-------backupTest----------------");
@@ -1129,5 +1427,15 @@ class ChatTest {
             assertEquals("new test2", m2.msg());
             assertEquals(ID1, m2.sender());
         }
+    }
+
+    private static void assertMessagePromiseEquals(CompletableFuture<StringMessage> msgPromise, String msg, String sender) throws ExecutionException, InterruptedException, TimeoutException {
+        var m = msgPromise.get(500, TimeUnit.MILLISECONDS);
+        assertMessageEquals(m, msg, sender);
+    }
+
+    private static void assertMessageEquals(StringMessage stringMessage, String msg, String sender) {
+        assertEquals(msg, stringMessage.msg());
+        assertEquals(sender, stringMessage.sender());
     }
 }
