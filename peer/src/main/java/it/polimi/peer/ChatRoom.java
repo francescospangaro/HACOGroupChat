@@ -265,10 +265,15 @@ public class ChatRoom {
     }
 
     public CloseMessage createCloseMessage(String senderId) {
-        increaseVC(senderId);
-        var cm = new CloseMessage(Map.copyOf(vectorClocks), senderId);
-        localClose(cm);
-        return cm;
+        try {
+            pushLock.lock();
+            increaseVC(senderId);
+            var cm = new CloseMessage(Map.copyOf(vectorClocks), senderId);
+            localClose(cm);
+            return cm;
+        } finally {
+            pushLock.unlock();
+        }
     }
 
     private void increaseVC(String sender) {
