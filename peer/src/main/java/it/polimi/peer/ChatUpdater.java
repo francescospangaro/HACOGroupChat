@@ -111,6 +111,7 @@ public class ChatUpdater implements Runnable {
     private void messageHandler(MessagePacket m) {
         if (checkChatExists(m) == 0) {
             try {
+                LOGGER.warn(STR."Received message \{m} from an unknown chat, keeping it on hold");
                 waitingMessagesLock.lock();
                 waitingMessages.add(m);
             } finally {
@@ -184,7 +185,11 @@ public class ChatUpdater implements Runnable {
             waitingMessagesLock.lock();
             waitingMessages.removeIf(m -> {
                 int res = checkChatExists(m);
-                return res == 1 || res == -1;
+                if (res == 1 || res == -1) {
+                    LOGGER.info(STR."Popped message \{m}, was waiting for chat creation");
+                    return true;
+                }
+                return false;
             });
         } finally {
             waitingMessagesLock.unlock();
