@@ -16,8 +16,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
 /**
@@ -32,7 +31,9 @@ public class DiscoveryServer implements Closeable {
     private final Map<String, SocketAddress> ips;
     private final DiscoverySocketManager socketManager;
     private final ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor();
+    private final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
     private final Set<ForwardPacket> waitingConnection = new HashSet<>();
+    private final Set<ForwardPacket> toRetry = ConcurrentHashMap.newKeySet();
 
     public DiscoveryServer() {
         ips = new HashMap<>();
@@ -55,6 +56,7 @@ public class DiscoveryServer implements Closeable {
      */
     public void start() {
         LOGGER.info("Running discovery server...");
+        startRetryTask();
         while (!socketManager.isClosed()) {
             try {
                 var p = socketManager.receive();
@@ -83,7 +85,12 @@ public class DiscoveryServer implements Closeable {
                                 .collect(Collectors.toSet());
                         if (!toForward.isEmpty()) {
                             for (ForwardPacket packet : toForward) {
-                                socketManager.send(new PacketQueue(packet.senderId(), ips.get(packet.senderId()), packet.packets()), addr);
+                                try {
+                                    socketManager.send(new PacketQueue(packet.senderId(), ips.get(packet.senderId()), packet.packets()), addr);
+                                } catch (IOException e) {
+                                    LOGGER.warn(STR."[discovery] Can't forward packet: peer unreachble \{packet.recipientId()}");
+                                    toRetry.add(packet);
+                                }
                             }
                             waitingConnection.removeAll(toForward);
                         }
@@ -91,11 +98,22 @@ public class DiscoveryServer implements Closeable {
                     case ByePacket byePacket -> {
                         ips.remove(byePacket.id());
                         LOGGER.info(STR."[discovery] Client disconnected id: \{byePacket.id()}");
+                        Set<ForwardPacket> toForward = toRetry
+                                .stream()
+                                .filter(fp -> fp.recipientId().equals(byePacket.id()))
+                                .collect(Collectors.toSet());
+                        waitingConnection.addAll(toForward);
+                        toRetry.removeAll(toForward);
                     }
                     case ForwardPacket forwardPacket -> {
                         SocketAddress addr = ips.get(forwardPacket.recipientId());
                         if (addr != null)
-                            socketManager.send(new PacketQueue(forwardPacket.recipientId(), p.sender(), forwardPacket.packets()), addr);
+                            try {
+                                socketManager.send(new PacketQueue(forwardPacket.recipientId(), p.sender(), forwardPacket.packets()), addr);
+                            } catch (IOException e) {
+                                LOGGER.warn(STR."[discovery] Can't forward packet: peer unreachble \{forwardPacket.recipientId()}");
+                                toRetry.add(forwardPacket);
+                            }
                         else {
                             // If the peer is unreachable, save all packets in a set (so we don't have dupes)
                             LOGGER.warn(STR."[discovery] Can't forward packet: peer unknown or disconnected \{forwardPacket.recipientId()}");
@@ -104,7 +122,7 @@ public class DiscoveryServer implements Closeable {
                     }
                 }
             } catch (IOException e) {
-                LOGGER.error("[discovery] during communication", e);
+                LOGGER.error("[discovery] Error during communication", e);
             } catch (Throwable t) {
                 LOGGER.error("[discovery] Unexpected exception", t);
                 throw t;
@@ -112,8 +130,21 @@ public class DiscoveryServer implements Closeable {
         }
     }
 
+    private void startRetryTask() {
+        //Every 5 seconds retry, until I'm connected with everyone
+        scheduledExecutorService.scheduleAtFixedRate(() -> toRetry.forEach(packet -> {
+            try {
+                socketManager.send(new PacketQueue(packet.senderId(), ips.get(packet.senderId()), packet.packets()), ips.get(packet.recipientId()));
+                toRetry.remove(packet);
+            } catch (IOException e) {
+                LOGGER.warn(STR."[discovery] Failed to resend \{packet}", e);
+            }
+        }), 10, 10, TimeUnit.SECONDS);
+    }
+
     @Override
     public void close() {
+        scheduledExecutorService.shutdownNow();
         executorService.shutdownNow();
         socketManager.close();
         LOGGER.info("Closed discovery");
