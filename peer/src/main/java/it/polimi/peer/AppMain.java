@@ -27,7 +27,10 @@ public class AppMain {
 
 
         JFrame frame = new JFrame();
-        frame.setContentPane(new ConnectionPanel(frame).getRootPanel());
+        String discoveryAddr = "localhost";
+        if (args.length > 0)
+            discoveryAddr = args[0];
+        frame.setContentPane(new ConnectionPanel(frame, discoveryAddr).getRootPanel());
         frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         Dimension d = Toolkit.getDefaultToolkit().getScreenSize();
         frame.setSize(d.width / 2, d.height / 2);

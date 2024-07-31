@@ -12,7 +12,7 @@ public class ConnectionPanel {
     private JPanel panel;
     private JLabel errorLabel;
 
-    public ConnectionPanel(JFrame frame) {
+    public ConnectionPanel(JFrame frame, String discoveryAddr) {
         connectButton.addActionListener(e -> {
             String discAddr = discoveryText.getText();
 
@@ -38,6 +38,7 @@ public class ConnectionPanel {
         });
         frame.getRootPane().setDefaultButton(connectButton);
 
+        discoveryText.setText(discoveryAddr);
         portText.setText(String.valueOf(Randomize.generateRandomPort()));
         userText.setText(Randomize.generateRandomString(5));
     }
