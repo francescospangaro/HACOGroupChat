@@ -197,22 +197,16 @@ public abstract class SocketManager implements Closeable {
                     socket.send(new DatagramPacket(baos.toByteArray(), baos.size(), p.address));
                     LOGGER.trace(STR."[\{myId}]: Sent " + p + " -> " + baos.size());
                     p.sent.complete(null);
-                } catch (InvalidClassException | NotSerializableException ex) {
+                } catch (IOException ex) {
                     p.sent.completeExceptionally(ex);
+                    LOGGER.error(STR."[\{myId}]: Failed to write packet {}, closing...", p, ex);
                 } catch (Throwable ex) {
                     p.sent.completeExceptionally(ex);
                     throw ex;
                 }
             } while (!Thread.currentThread().isInterrupted());
-        } catch (InterruptedIOException | ClosedByInterruptException | InterruptedException e) {
+        } catch (InterruptedException e) {
             // Go on, interruption is expected
-        } catch (IOException e) {
-            // If the interruption flag was set, we got interrupted by close, so it's expected
-            if (Thread.currentThread().isInterrupted())
-                return;
-
-            LOGGER.error(STR."[\{myId}]: Failed to write packet {}, closing...", p, e);
-            close();
         } finally {
             // Signal to everybody who is waiting that the socket got closed
             var toCancel = new ArrayList<>(outPacketQueue);
