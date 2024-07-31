@@ -1,0 +1,35 @@
+name: haco_group_chat
+services:
+  discovery:
+    build:
+      context: ../
+      dockerfile: docker/discovery.dockerfile
+    networks:
+      haco-net:
+        ipv4_address: 172.20.0.10
+  peer:
+    build:
+      context: ../
+      dockerfile: docker/peer.dockerfile
+    command:
+      - 172.20.0.10
+    environment:
+      - DISPLAY=:0
+      - WAYLAND_DISPLAY=wayland-0
+      - XDG_RUNTIME_DIR=/mnt/wslg/runtime-dir
+      - PULSE_SERVER=/mnt/wslg/PulseServer
+    volumes:
+      - /run/desktop/mnt/host/wslg/.X11-unix:/tmp/.X11-unix
+      - /run/desktop/mnt/host/wslg:/mnt/wslg
+    networks:
+      - haco-net
+    deploy:
+      mode: replicated
+      replicas: 3
+
+networks:
+  haco-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
