@@ -862,7 +862,7 @@ class ChatTest {
 
     @Test
     void bigMessageForwarded2Discovery() throws ExecutionException, InterruptedException, TimeoutException, IOException, DiscoveryUnreachableException {
-        System.out.println("-------messageForwarded2Discovery----------------");
+        System.out.println("-------bigMessageForwarded2Discovery----------------");
         CompletableFuture<ChatRoom> chat1Promise = new CompletableFuture<>();
         CompletableFuture<ChatRoom> chat2Promise = new CompletableFuture<>();
         CompletableFuture<ChatRoom> chat3Promise = new CompletableFuture<>();
@@ -1111,7 +1111,7 @@ class ChatTest {
 
     @Test
     void chatCreationLost() throws IOException, DiscoveryUnreachableException, ExecutionException, InterruptedException, TimeoutException {
-        System.out.println("-------deleteRoom----------------");
+        System.out.println("-------chatCreationLost----------------");
         CompletableFuture<ChatRoom> chat1Promise = new CompletableFuture<>();
         CompletableFuture<ChatRoom> chat2Promise = new CompletableFuture<>();
         CompletableFuture<ChatRoom> chat3Promise = new CompletableFuture<>();
@@ -1195,6 +1195,8 @@ class ChatTest {
             rec2Promise.get(3, TimeUnit.SECONDS);
 
             assertMessagePromiseEquals(msg1, "Test", ID3);
+
+            Thread.sleep(50);
 
             assertTrue(p1.getChatUpdater().getWaitingClose().isEmpty());
             assertTrue(p1.getChatUpdater().getWaitingMessages().isEmpty());
