@@ -133,10 +133,10 @@ public class DiscoveryConnector implements Runnable {
                 Discovery2PeerPacket p = socketManager.receiveFromDiscovery();
                 switch (p) {
                     case IPsPacket ips -> ipsPromise.complete(ips);
-                    case PacketQueue packetQueue -> {
-                        if (packetQueue.senderAddr() != null)
-                            updater.handlePacket(new HelloPacket(packetQueue.senderId()), packetQueue.senderAddr());
-                        packetQueue.packets().forEach(p2p -> updater.handlePacket(p2p, packetQueue.senderAddr()));
+                    case ForwardedPacket forwardedPacket -> {
+                        if (forwardedPacket.senderAddr() != null)
+                            updater.handlePacket(new HelloPacket(forwardedPacket.senderId()), forwardedPacket.senderAddr());
+                        forwardedPacket.packets().forEach(p2p -> updater.handlePacket(p2p, forwardedPacket.senderAddr()));
                     }
                 }
 

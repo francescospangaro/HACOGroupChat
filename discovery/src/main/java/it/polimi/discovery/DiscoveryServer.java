@@ -3,7 +3,7 @@ package it.polimi.discovery;
 import it.polimi.packets.ByePacket;
 import it.polimi.packets.discovery.ForwardPacket;
 import it.polimi.packets.discovery.IPsPacket;
-import it.polimi.packets.discovery.PacketQueue;
+import it.polimi.packets.discovery.ForwardedPacket;
 import it.polimi.packets.discovery.UpdateIpPacket;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -86,7 +86,7 @@ public class DiscoveryServer implements Closeable {
                         if (!toForward.isEmpty()) {
                             for (ForwardPacket packet : toForward) {
                                 try {
-                                    socketManager.send(new PacketQueue(packet.senderId(), ips.get(packet.senderId()), packet.packets()), addr);
+                                    socketManager.send(new ForwardedPacket(packet.senderId(), ips.get(packet.senderId()), packet.packets()), addr);
                                 } catch (IOException e) {
                                     LOGGER.warn(STR."[discovery] Can't forward packet: peer unreachble \{packet.recipientId()}");
                                     toRetry.add(packet);
@@ -109,7 +109,7 @@ public class DiscoveryServer implements Closeable {
                         SocketAddress addr = ips.get(forwardPacket.recipientId());
                         if (addr != null)
                             try {
-                                socketManager.send(new PacketQueue(forwardPacket.recipientId(), p.sender(), forwardPacket.packets()), addr);
+                                socketManager.send(new ForwardedPacket(forwardPacket.recipientId(), p.sender(), forwardPacket.packets()), addr);
                             } catch (IOException e) {
                                 LOGGER.warn(STR."[discovery] Can't forward packet: peer unreachble \{forwardPacket.recipientId()}");
                                 toRetry.add(forwardPacket);
@@ -134,7 +134,7 @@ public class DiscoveryServer implements Closeable {
         //Every 5 seconds retry, until I'm connected with everyone
         scheduledExecutorService.scheduleAtFixedRate(() -> toRetry.forEach(packet -> {
             try {
-                socketManager.send(new PacketQueue(packet.senderId(), ips.get(packet.senderId()), packet.packets()), ips.get(packet.recipientId()));
+                socketManager.send(new ForwardedPacket(packet.senderId(), ips.get(packet.senderId()), packet.packets()), ips.get(packet.recipientId()));
                 toRetry.remove(packet);
             } catch (IOException e) {
                 LOGGER.warn(STR."[discovery] Failed to resend \{packet}", e);
