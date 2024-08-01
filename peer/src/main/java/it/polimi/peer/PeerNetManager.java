@@ -155,7 +155,7 @@ public class PeerNetManager implements AutoCloseable {
 
     /**
      * Connect to peers in the {@link #ips} map.
-     * Call {@link #reconnectToPeers()} to start the reconnection task
+     * Call {@link #startReconnectionTask()} to start the reconnection task
      */
     private void connect() {
         //For each peer in the network I try to connect to him by sending a helloPacket
@@ -168,7 +168,7 @@ public class PeerNetManager implements AutoCloseable {
         });
         connected = true;
         //Try reconnecting to the peers I couldn't connect to previously
-        reconnectToPeers();
+        startReconnectionTask();
     }
 
     /**
@@ -177,7 +177,7 @@ public class PeerNetManager implements AutoCloseable {
      * Every {@link #reconnectTimeoutSeconds} seconds tries to reconnect to disconnected peer
      * (peers in the {@link #unreachablePeers} list)
      */
-    private void reconnectToPeers() {
+    private void startReconnectionTask() {
         //Every 5 seconds retry, until I'm connected with everyone
         reconnectTask = scheduledExecutorService.scheduleAtFixedRate(() -> unreachablePeers.forEach(id -> {
             var addr = ips.get(id);
@@ -251,6 +251,20 @@ public class PeerNetManager implements AutoCloseable {
             discovery.disconnect();
         } catch (IOException e) {
             LOGGER.error(STR."[\{this.id}] Can't contact the discovery", e);
+
+            //If the discovery is not reachable, abort disconnection:
+            //- reconnect to peer that was previously connected
+            connectedPeers.forEach(id -> {
+                try {
+                    connectToSinglePeer(id, ips.get(id));
+                } catch (IOException ex) {
+                    onPeerUnreachable(id, ex);
+                }
+            });
+
+            //- restart reconnection task
+            startReconnectionTask();
+
             throw new DiscoveryUnreachableException(e);
         }
 
@@ -281,7 +295,7 @@ public class PeerNetManager implements AutoCloseable {
      * @param e  cause of the disconnection
      */
     private void onPeerUnreachable(String id, Throwable e) {
-        LOGGER.warn(STR."[\{this.id}] \{id} disconnected", e);
+        LOGGER.warn(STR."[\{this.id}] \{id} is unreachable", e);
 
         unreachablePeers.add(id);
         connectedPeers.remove(id);
