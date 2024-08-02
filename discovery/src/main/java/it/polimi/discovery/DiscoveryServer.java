@@ -2,8 +2,8 @@ package it.polimi.discovery;
 
 import it.polimi.packets.ByePacket;
 import it.polimi.packets.discovery.ForwardPacket;
-import it.polimi.packets.discovery.IPsPacket;
 import it.polimi.packets.discovery.ForwardedPacket;
+import it.polimi.packets.discovery.IPsPacket;
 import it.polimi.packets.discovery.UpdateIpPacket;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -77,6 +77,11 @@ public class DiscoveryServer implements Closeable {
                                 .filter(fp -> fp.senderId().equals(ipPacket.id()))
                                 .forEach(queue -> queue.packets().removeIf(p2p -> p2p instanceof ByePacket));
                         waitingConnection.removeIf(fp -> fp.packets().isEmpty());
+
+                        toRetry.stream()
+                                .filter(r -> r.senderId().equals(ipPacket.id()))
+                                .forEach(queue -> queue.packets().removeIf(p2p -> p2p instanceof ByePacket));
+                        toRetry.removeIf(r -> r.packets().isEmpty());
 
                         // Check if a peer reconnects, then send him all waiting messages
                         Set<ForwardPacket> toForward = waitingConnection
