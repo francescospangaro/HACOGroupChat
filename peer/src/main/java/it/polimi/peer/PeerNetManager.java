@@ -233,7 +233,6 @@ public class PeerNetManager implements AutoCloseable {
 
         //Send ByePacket to all peer, also unreachable ones. They will be enqueued and forwarded to the discovery
         controller.sendPacket(new ByePacket(this.id), ips.keySet());
-        connectedPeers.forEach(id -> usersPropertyChangeSupport.firePropertyChange("USER_DISCONNECTED", id, null));
 
         try {
             Map<String, Queue<P2PPacket>> enqueued = controller.getDisconnectMsgs();
@@ -268,6 +267,7 @@ public class PeerNetManager implements AutoCloseable {
             throw new DiscoveryUnreachableException(e);
         }
 
+        connectedPeers.forEach(id -> usersPropertyChangeSupport.firePropertyChange("USER_DISCONNECTED", id, null));
         connectedPeers.clear();
         connected = false;
 

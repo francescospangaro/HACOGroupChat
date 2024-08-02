@@ -20,7 +20,7 @@ public sealed interface Message extends Serializable permits CloseMessage, Strin
         return STR."""
                 \{toString()} \n
                 \{vectorClocks().keySet().stream()
-                .map((k) -> STR."\tUser:\{k} PID: \{vectorClocks().get(k)}")
+                .map((k) -> STR."\tUser: \{k} PID: \{vectorClocks().get(k)}")
                 .collect(Collectors.joining(",\n", "Vector clocks: {\n", "\n}"))}
                 """;
     }
