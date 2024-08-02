@@ -114,7 +114,7 @@ public class DiscoveryServer implements Closeable {
                         SocketAddress addr = ips.get(forwardPacket.recipientId());
                         if (addr != null)
                             try {
-                                socketManager.send(new ForwardedPacket(forwardPacket.recipientId(), p.sender(), forwardPacket.packets()), addr);
+                                socketManager.send(new ForwardedPacket(forwardPacket.senderId(), p.sender(), forwardPacket.packets()), addr);
                             } catch (IOException e) {
                                 LOGGER.warn(STR."[discovery] Can't forward packet: peer unreachble \{forwardPacket.recipientId()}");
                                 toRetry.add(forwardPacket);
