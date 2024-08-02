@@ -1227,8 +1227,8 @@ class ChatTest {
                 PeerNetManager p1 = new PeerNetManager(ID1, 12345, e -> chat1Promise.complete((ChatRoom) e.getNewValue()),
                         e -> users1.countDown(),
                         e -> {
-                            msg1.countDown();
                             msg1List.add(((MessageGUI) e.getNewValue()).message());
+                            msg1.countDown();
                         });
                 PeerNetManager p2 = new PeerNetManager(ID2, 12346, e -> chat2Promise.complete((ChatRoom) e.getNewValue()),
                         e -> {
