@@ -24,7 +24,7 @@ public class PeerController {
     private final Set<ChatRoom> chats;
     private final Map<String, SocketAddress> ips;
     private final Set<String> connectedPeers;
-    private final PeerSocketManager socketManager;
+    private PeerSocketManager socketManager;
     private final PropertyChangeListener msgChangeListener;
     private final PropertyChangeSupport roomsPropertyChangeSupport;
     private final ExecutorService executorService;
@@ -52,6 +52,10 @@ public class PeerController {
         this.executorService = executorService;
         this.backupManager = backupManager;
         this.onPeerUnreachable = onPeerUnreachable;
+    }
+
+    public void setSocketManager(PeerSocketManager socketManager) {
+        this.socketManager = socketManager;
     }
 
     /**

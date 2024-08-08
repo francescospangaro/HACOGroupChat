@@ -1,5 +1,6 @@
 package it.polimi.peer;
 
+import it.polimi.SocketManager;
 import it.polimi.packets.ByePacket;
 import it.polimi.packets.p2p.*;
 import org.jetbrains.annotations.VisibleForTesting;
@@ -26,7 +27,7 @@ import java.util.function.Consumer;
 public class ChatUpdater implements Runnable {
     private static final Logger LOGGER = LoggerFactory.getLogger(ChatUpdater.class);
 
-    private final PeerSocketManager socketManager;
+    private PeerSocketManager socketManager;
     private final Set<ChatRoom> chats;
     private final PropertyChangeSupport roomChangeSupport;
     private final PropertyChangeListener msgChangeListener;
@@ -68,6 +69,10 @@ public class ChatUpdater implements Runnable {
         } catch (IOException ex) {
             LOGGER.error("Failed to update chat", ex);
         }
+    }
+
+    public void setSocketManager(PeerSocketManager socketManager) {
+        this.socketManager = socketManager;
     }
 
     void handlePacket(P2PPacket packet, SocketAddress sender) {

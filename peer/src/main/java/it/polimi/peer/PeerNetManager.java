@@ -114,6 +114,8 @@ public class PeerNetManager implements AutoCloseable {
             roomsPropertyChangeSupport.firePropertyChange("ADD_ROOM", null, c);
         }
 
+        chatUpdater = new ChatUpdater(socketManager, chats, roomsPropertyChangeSupport, msgChangeListener, this::onPeerConnected, this::onPeerDisconnected);
+        controller = new PeerController(id, chats, ips, connectedPeers, socketManager, msgChangeListener, roomsPropertyChangeSupport, executorService, backupManager, this::onPeerUnreachable);
 
         start();
     }
@@ -137,11 +139,11 @@ public class PeerNetManager implements AutoCloseable {
         LOGGER.info(STR."[\{id}] STARTING");
 
         socketManager = createSocketManager();
-        chatUpdater = new ChatUpdater(socketManager, chats, roomsPropertyChangeSupport, msgChangeListener, this::onPeerConnected, this::onPeerDisconnected);
+        chatUpdater.setSocketManager(socketManager);
         discovery = new DiscoveryConnector(socketManager, id, chatUpdater);
         discoveryFuture = executorService.submit(discovery);
         updaterFuture = executorService.submit(chatUpdater);
-        controller = new PeerController(id, chats, ips, connectedPeers, socketManager, msgChangeListener, roomsPropertyChangeSupport, executorService, backupManager, this::onPeerUnreachable);
+        controller.setSocketManager(socketManager);
 
         //We are (re-)connecting from scratch, so delete all crashed peer and get a new list from the discovery
         connectedPeers.clear();
