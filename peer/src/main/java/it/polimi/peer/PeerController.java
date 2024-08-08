@@ -2,6 +2,7 @@ package it.polimi.peer;
 
 import it.polimi.messages.CloseMessage;
 import it.polimi.messages.StringMessage;
+import it.polimi.packets.ByePacket;
 import it.polimi.packets.p2p.*;
 import org.jetbrains.annotations.VisibleForTesting;
 import org.slf4j.Logger;
@@ -187,6 +188,10 @@ public class PeerController {
             onPeerUnreachable.accept(id, e);
         }
         return false;
+    }
+
+    public void abortDisconnection() {
+        disconnectMsgs.values().forEach(q -> q.removeIf(p -> p instanceof ByePacket));
     }
 
     public void degradeConnection(String id) {

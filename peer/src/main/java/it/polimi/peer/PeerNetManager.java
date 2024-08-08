@@ -252,7 +252,10 @@ public class PeerNetManager implements AutoCloseable {
             LOGGER.error(STR."[\{this.id}] Can't contact the discovery", e);
 
             //If the discovery is not reachable, abort disconnection:
-            //- reconnect to peer that was previously connected
+            //1. Remove enqueued ByePackets
+            controller.abortDisconnection();
+
+            //2. reconnect to peer that was previously connected
             connectedPeers.forEach(id -> {
                 try {
                     connectToSinglePeer(id, ips.get(id));
@@ -261,7 +264,7 @@ public class PeerNetManager implements AutoCloseable {
                 }
             });
 
-            //- restart reconnection task
+            //3. restart reconnection task
             startReconnectionTask();
 
             throw new DiscoveryUnreachableException(e);

@@ -247,7 +247,7 @@ public abstract class SocketManager implements Closeable {
         } catch (TimeoutException e) {
             throw new IOException(e);
         } catch (InterruptedException e) {
-            throw new InterruptedIOException(STR."Interrupted while waiting for the ack: \{e.getMessage()}");
+            throw new InterruptedIOException(STR."Interrupted while sending packet: \{e.getMessage()}");
         }
     }
 
