@@ -273,7 +273,6 @@ public class ChatPanel {
 
     private void send() {
         String msg = msgArea.getText().trim();
-        System.out.println(msg.length());
         if (msg.length() > MAX_MSG_SIZE) {
             ArrayList<String> temp = new ArrayList<>();
             temp.add("Your message is too long, split on the '>>>' mark\n");
