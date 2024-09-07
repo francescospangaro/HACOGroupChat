@@ -18,8 +18,13 @@ can be simulated using OmNet++.
 **Our assumptions**  
 • The Discovery server node is always reachable by all peers.  
 • Message packets are not bigger than 2000 bytes each.  
-  
-## Running the application
+
+
+The pdf of the spec is available [here.](docs/Projects_assignment_23_24_UPDATE.pdf)
+
+We chose to implement the application with a real distributed application using Java.
+
+## Running the jars
 
 The application requires an installation of Java 21. Newer versions cannot be used
 as preview features were used which may have been changed in Java 22. 
@@ -30,16 +35,20 @@ The jars can be found in the
 The discovery server needs to be run from terminal using the following command:
 
 ```shell
-java --enable-preview -jar HACOGroupChat-discovery-1.0
+java --enable-preview -jar HACOGroupChat-discovery-2.0.jar
 ```
 
 The distributed application needs to be run from terminal using the following command:
 
 ```shell
-java --enable-preview -jar HACOGroupChat-peer-1.0.jar
+java --enable-preview -jar HACOGroupChat-peer-2.0.jar
 ```
-  
 
-The pdf of the spec is available [here.](docs/Projects_assignment_23_24_UPDATE.pdf)
+## Running with the embedded JRE
 
-We chose to implement the application with a real distributed application using Java.  
+Other than the jars, zipped archive are also included for the supported platforms
+(Windows amd64, MacOS aarch64 and Linux amd64, see README) which also contain an embedded JRE. 
+These can be run by executing, respectively:
+
+- `bin/peer-console.sh` and `bin/discovery.sh` for *NIX
+- `bin/peer.bat`, `bin/peer-console.bat` and `bin/discovery.bat` for Windows
