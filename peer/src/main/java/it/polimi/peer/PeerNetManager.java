@@ -38,7 +38,6 @@ public class PeerNetManager implements AutoCloseable {
     private final Map<String, SocketAddress> ips;
     private final Set<String> connectedPeers;
     private final Set<String> unreachablePeers;
-    private final PropertyChangeListener msgChangeListener;
     private PeerSocketManager socketManager;
 
     private boolean connected;
@@ -64,7 +63,7 @@ public class PeerNetManager implements AutoCloseable {
     /**
      * Creates a new peer
      * <p>
-     * Tries to recover an existing backup (see {@link BackupManager#getFromBackup()}
+     * Tries to recover an existing backup (see {@link BackupManager#getChatsFromBackup()}
      * and calls {@link #start()}
      *
      * @param discoveryAddr           address of the discovery server
@@ -89,10 +88,8 @@ public class PeerNetManager implements AutoCloseable {
                            int networkTimeoutSeconds) throws IOException {
         this.id = id;
 
-        this.msgChangeListener = msgChangeListener;
-
         backupManager = new BackupManager(id, msgChangeListener);
-        chats = backupManager.getFromBackup();
+        chats = backupManager.getChatsFromBackup();
         ips = new ConcurrentHashMap<>();
         connectedPeers = ConcurrentHashMap.newKeySet();
         unreachablePeers = ConcurrentHashMap.newKeySet();
@@ -114,7 +111,7 @@ public class PeerNetManager implements AutoCloseable {
             roomsPropertyChangeSupport.firePropertyChange("ADD_ROOM", null, c);
         }
 
-        chatUpdater = new ChatUpdater(socketManager, chats, roomsPropertyChangeSupport, msgChangeListener, this::onPeerConnected, this::onPeerDisconnected);
+        chatUpdater = new ChatUpdater(socketManager, chats, roomsPropertyChangeSupport, msgChangeListener, this::onPeerConnected, this::onPeerDisconnected, backupManager.getWaitingMessagesFromBackup(), backupManager.getWaitingCloseMessagesFromBackup());
         controller = new PeerController(id, chats, ips, connectedPeers, socketManager, msgChangeListener, roomsPropertyChangeSupport, executorService, backupManager, this::onPeerUnreachable);
 
         start();
@@ -345,6 +342,8 @@ public class PeerNetManager implements AutoCloseable {
         scheduledExecutorService.shutdownNow();
         executorService.shutdownNow();
         backupManager.backupChats(Collections.unmodifiableSet(chats));
+        backupManager.backupWaiting(chatUpdater.getWaitingMessages());
+        backupManager.backupWaitingClose(chatUpdater.getWaitingClose());
     }
 
     public void deletedChat(ChatRoom chat) {

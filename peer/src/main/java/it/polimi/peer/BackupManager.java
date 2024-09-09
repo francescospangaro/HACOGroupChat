@@ -1,5 +1,7 @@
 package it.polimi.peer;
 
+import it.polimi.packets.p2p.CloseRoomPacket;
+import it.polimi.packets.p2p.MessagePacket;
 import it.polimi.peer.utility.ChatToBackup;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -8,11 +10,15 @@ import java.beans.PropertyChangeListener;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class BackupManager {
     private static final Logger LOGGER = LoggerFactory.getLogger(BackupManager.class);
+
+    private static final String WAITING_FILENAME = "waitingMessages.dat";
+    private static final String WAITING_CLOSE_FILENAME = "waitingCloseMessages.dat";
     public static final String SAVE_DIR = STR."\{System.getProperty("user.home")}\{File.separator}HACOBackup\{File.separator}";
     private final String saveDirectory;
     private final String id;
@@ -24,9 +30,9 @@ public class BackupManager {
         this.msgChangeListener = msgChangeListener;
     }
 
-    public Set<ChatRoom> getFromBackup() {
+    public Set<ChatRoom> getChatsFromBackup() {
         var saveDir = new File(saveDirectory);
-        var files = saveDir.listFiles();
+        var files = saveDir.listFiles((_, name) -> !name.equals(WAITING_FILENAME) && !name.equals(WAITING_CLOSE_FILENAME));
         Set<ChatRoom> tempChats = ConcurrentHashMap.newKeySet();
 
         if (files == null)
@@ -45,6 +51,35 @@ public class BackupManager {
         return tempChats;
     }
 
+    public Set<MessagePacket> getWaitingMessagesFromBackup() {
+        var file = new File(saveDirectory + WAITING_FILENAME);
+        Set<MessagePacket> res = new HashSet<>();
+        if (file.exists()) {
+            try (FileInputStream fileInputStream = new FileInputStream(file);
+                 ObjectInputStream objectInputStream = new ObjectInputStream(fileInputStream)) {
+                res.addAll((Set<MessagePacket>) objectInputStream.readObject());
+            } catch (IOException | ClassNotFoundException e) {
+                LOGGER.error(STR."[\{this.id}] Error reading file \{file} from backup", e);
+            }
+        }
+        return res;
+    }
+
+    public Set<CloseRoomPacket> getWaitingCloseMessagesFromBackup() {
+        var file = new File(saveDirectory + WAITING_CLOSE_FILENAME);
+        Set<CloseRoomPacket> res = new HashSet<>();
+
+        if (file.exists()) {
+            try (FileInputStream fileInputStream = new FileInputStream(file);
+                 ObjectInputStream objectInputStream = new ObjectInputStream(fileInputStream)) {
+                res.addAll((Set<CloseRoomPacket>) objectInputStream.readObject());
+            } catch (IOException | ClassNotFoundException e) {
+                LOGGER.error(STR."[\{this.id}] Error reading file \{file} from backup", e);
+            }
+        }
+        return res;
+    }
+
     public void backupChats(Set<ChatRoom> chats) {
         //Create all save directories
         try {
@@ -59,6 +94,42 @@ public class BackupManager {
                 objectOutputStream.writeObject(new ChatToBackup(c));
             } catch (IOException e) {
                 LOGGER.error(STR."[\{this.id} Error during backup of chat \{c}", e);
+            }
+        }
+    }
+
+    public void backupWaiting(Set<MessagePacket> waitings) {
+        //Create all save directories
+        try {
+            Files.createDirectories(Paths.get(saveDirectory));
+        } catch (IOException e) {
+            LOGGER.error(STR."[\{this.id}] Error creating backup folder", e);
+        }
+        if (!waitings.isEmpty()) {
+            File backupFile = new File(STR."\{saveDirectory}\{WAITING_FILENAME}");
+            try (FileOutputStream fileOutputStream = new FileOutputStream(backupFile);
+                 ObjectOutputStream objectOutputStream = new ObjectOutputStream(fileOutputStream)) {
+                objectOutputStream.writeObject(waitings);
+            } catch (IOException e) {
+                LOGGER.error(STR."[\{this.id} Error during backup of \{waitings}", e);
+            }
+        }
+    }
+
+    public void backupWaitingClose(Set<CloseRoomPacket> waitingsclose) {
+        //Create all save directories
+        try {
+            Files.createDirectories(Paths.get(saveDirectory));
+        } catch (IOException e) {
+            LOGGER.error(STR."[\{this.id}] Error creating backup folder", e);
+        }
+        if (!waitingsclose.isEmpty()) {
+            File backupFile = new File(STR."\{saveDirectory}\{WAITING_CLOSE_FILENAME}");
+            try (FileOutputStream fileOutputStream = new FileOutputStream(backupFile);
+                 ObjectOutputStream objectOutputStream = new ObjectOutputStream(fileOutputStream)) {
+                objectOutputStream.writeObject(waitingsclose);
+            } catch (IOException e) {
+                LOGGER.error(STR."[\{this.id} Error during backup of \{waitingsclose}", e);
             }
         }
     }

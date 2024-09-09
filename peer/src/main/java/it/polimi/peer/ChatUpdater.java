@@ -43,16 +43,18 @@ public class ChatUpdater implements Runnable {
                        PropertyChangeSupport roomChangeSupport,
                        PropertyChangeListener msgChangeListener,
                        BiConsumer<String, SocketAddress> onPeerConnected,
-                       Consumer<String> onPeerDisconnected) {
+                       Consumer<String> onPeerDisconnected,
+                       Set<MessagePacket> waitingMessages,
+                       Set<CloseRoomPacket> waitingClose) {
         this.socketManager = socketManager;
         this.chats = chats;
         this.roomChangeSupport = roomChangeSupport;
         this.msgChangeListener = msgChangeListener;
         this.onPeerConnected = onPeerConnected;
         this.onPeerDisconnected = onPeerDisconnected;
-        this.waitingMessages = new HashSet<>();
+        this.waitingMessages = waitingMessages;
         this.waitingMessagesLock = new ReentrantLock();
-        this.waitingClose = new HashSet<>();
+        this.waitingClose = waitingClose;
         this.deletedRooms = ConcurrentHashMap.newKeySet();
     }
 
