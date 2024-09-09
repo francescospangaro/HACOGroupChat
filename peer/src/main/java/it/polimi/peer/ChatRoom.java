@@ -142,6 +142,8 @@ public class ChatRoom {
                     LOGGER.info(STR."[\{id}] Message \{m.vectorClocks()} added in waiting list");
                     waitingMessages.add(m);
             }
+        } catch (Throwable t) {
+            LOGGER.error(STR."[\{id}] Unexpected error adding message \{m} to chat \{id} (\{name})", t);
         } finally {
             pushLock.unlock();
         }

@@ -100,11 +100,12 @@ public class ChatUpdater implements Runnable {
                 ChatRoom newChat = new ChatRoom(crp.name(), crp.ids(), crp.id(), msgChangeListener);
                 // If we used a normal put and the newChat was already present and closed, it would have reopened it, we don't want that
                 chats.add(newChat);
+                roomChangeSupport.firePropertyChange("ADD_ROOM", null, newChat);
+
                 // Once we create a new chatroom, check for all waiting messages if they can be popped.
                 // By blocking the messages here, it mimics the arrival of the messages, postponing it for the user until
                 // the chatroom has been created
                 popQueue();
-                roomChangeSupport.firePropertyChange("ADD_ROOM", null, newChat);
             }
 
             case CloseRoomPacket crp -> closeHandler(crp);

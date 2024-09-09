@@ -14,6 +14,7 @@ import java.awt.*;
 import java.awt.event.*;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -195,7 +196,7 @@ public class ChatPanel {
                 peerNetManager = new PeerNetManager(discovery, user, port, evt -> SwingUtilities.invokeLater(() -> {
                     if (evt.getPropertyName().equals("ADD_ROOM")) {
                         ChatRoom chat = (ChatRoom) evt.getNewValue();
-                        LOGGER.trace(STR."Room \{chat} added in gui");
+                        LOGGER.info(STR."Room \{chat} added in gui");
                         chatRooms.addItem(chat);
                     }
                 }), evt -> SwingUtilities.invokeLater(() -> {
@@ -204,31 +205,28 @@ public class ChatPanel {
                     } else {
                         connectedModelList.removeElement(evt.getOldValue());
                     }
-                }), evt -> {
+                }), evt -> SwingUtilities.invokeLater(() -> {
                     if (evt.getPropertyName().equals("ADD_MSG")) {
                         MessageGUI mgui = (MessageGUI) evt.getNewValue();
 
                         LOGGER.info(STR."Msg \{mgui} added in gui");
 
-                        if (((ChatRoom) chatRooms.getSelectedItem()).getId().equals(mgui.chatRoom().getId())) {
-                            SwingUtilities.invokeLater(() -> {
-                                if (mgui.message() instanceof CloseMessage cm)
-                                    msgListModel.addElement(new CloseChatBubble(cm.sender(), detailedViewCheckBox.isSelected() ? cm.toDetailedString() : cm.toString()));
-                                else if (mgui.message().sender().equals(user))
-                                    msgListModel.addElement(new RightArrowBubble(detailedViewCheckBox.isSelected() ? mgui.message().toDetailedString() : mgui.message().toString()));
-                                else
-                                    msgListModel.addElement(new LeftArrowBubble(mgui.message().sender(), detailedViewCheckBox.isSelected() ? mgui.message().toDetailedString() : mgui.message().toString()));
-                                msgList.ensureIndexIsVisible(msgListModel.size() - 1);
+                        if (((ChatRoom) Objects.requireNonNull(chatRooms.getSelectedItem())).getId().equals(mgui.chatRoom().getId())) {
+                            if (mgui.message() instanceof CloseMessage cm)
+                                msgListModel.addElement(new CloseChatBubble(cm.sender(), detailedViewCheckBox.isSelected() ? cm.toDetailedString() : cm.toString()));
+                            else if (mgui.message().sender().equals(user))
+                                msgListModel.addElement(new RightArrowBubble(detailedViewCheckBox.isSelected() ? mgui.message().toDetailedString() : mgui.message().toString()));
+                            else
+                                msgListModel.addElement(new LeftArrowBubble(mgui.message().sender(), detailedViewCheckBox.isSelected() ? mgui.message().toDetailedString() : mgui.message().toString()));
+                            msgList.ensureIndexIsVisible(msgListModel.size() - 1);
 
-                                if (mgui.message() instanceof CloseMessage) {
-                                    sendButton.setEnabled(false);
-                                    deleteButton.setText("Delete");
-                                }
-                            });
+                            if (mgui.message() instanceof CloseMessage) {
+                                sendButton.setEnabled(false);
+                                deleteButton.setText("Delete");
+                            }
                         }
-
                     }
-                });
+                }));
             } catch (IOException e) {
                 JOptionPane.showMessageDialog(JOptionPane.getRootFrame(),
                         STR."""
